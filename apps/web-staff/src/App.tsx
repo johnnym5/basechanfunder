@@ -1,8 +1,8 @@
 import React from 'react';
-import { StaffDashboard } from './components/Dashboard';
+import { PremiumGlassDashboard } from './components/PremiumGlassDashboard';
 
 export const App: React.FC = () => {
-  return <StaffDashboard />;
+  return <PremiumGlassDashboard />;
 };
 
 export default App;
