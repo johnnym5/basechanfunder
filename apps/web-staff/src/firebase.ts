@@ -1,0 +1,24 @@
+// Firebase configuration & initialisation
+// Project: basechanfunder
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyCRRpdnvjEuWvGfWXRRlUP88IY2KhJdHOg',
+  authDomain: 'basechanfunder.firebaseapp.com',
+  projectId: 'basechanfunder',
+  storageBucket: 'basechanfunder.firebasestorage.app',
+  messagingSenderId: '1053228569213',
+  appId: '1:1053228569213:web:e4ca60dd767a73fc9e5714',
+  measurementId: 'G-MP683BDWSZ',
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export default app;
