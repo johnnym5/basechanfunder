@@ -1,0 +1,30 @@
+# Dependencies & Build Outputs
+node_modules/
+dist/
+build/
+.next/
+bin/
+pkg/
+*.exe
+*.o
+*.a
+*.so
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# IDE & System Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# Docker Data Volumes
+postgres_data/
+redis_data/
+redpanda_data/
