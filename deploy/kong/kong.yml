@@ -1,0 +1,39 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: pof-engine-service
+    url: http://pof-engine:8080
+    routes:
+      - name: pof-engine-routes
+        paths:
+          - /api/v1/pof
+
+  - name: ingestion-service
+    url: http://ingestion:3000
+    routes:
+      - name: ingestion-routes
+        paths:
+          - /api/v1/ingestion
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+      credentials: true
+
+  - name: rate-limiting
+    config:
+      minute: 100
+      policy: local
