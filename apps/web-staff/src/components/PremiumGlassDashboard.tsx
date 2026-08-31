@@ -3,17 +3,21 @@ import {
   ShieldCheck,
   UserCheck,
   KeyRound,
-  BarChart3,
-  AlertTriangle,
-  FileCheck2,
-  Award,
   Sun,
   Moon,
   ChevronDown,
   Building2,
   CheckCircle2,
-  Download,
-  Check
+  AlertTriangle,
+  Upload,
+  Globe,
+  Calendar,
+  MessageSquare,
+  FileCheck2,
+  TrendingUp,
+  Check,
+  BarChart3,
+  Award
 } from 'lucide-react';
 
 export type UserRole = 'APPLICANT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
@@ -29,92 +33,85 @@ export interface ActiveUser {
 
 export const PremiumGlassDashboard: React.FC = () => {
   const [theme, setTheme] = useState<ThemeMode>('dark');
-  const [activeRole, setActiveRole] = useState<UserRole>('STAFF_AUDITOR');
-  const [selectedApplicant, setSelectedApplicant] = useState<string>('APP-2026-8941');
-  const [activeTab, setActiveTab] = useState<'matrix' | 'anomalies' | 'mbs' | 'certificate'>('matrix');
+  const [activeRole, setActiveRole] = useState<UserRole>('APPLICANT');
+  const [activeTab, setActiveTab] = useState<'status' | 'banks' | 'documents' | 'support'>('status');
 
   const userProfiles: Record<UserRole, ActiveUser> = {
-    STAFF_AUDITOR: { name: 'Julian Morgan', id: 'AUD-8842', role: 'STAFF_AUDITOR', roleTitle: 'Senior Compliance Officer', email: 'j.morgan@basechanfunder.com' },
-    APPLICANT: { name: 'Adebayo Ogunlesi', id: 'APP-8941', role: 'APPLICANT', roleTitle: 'Visa Applicant (Tier 4)', email: 'a.ogunlesi@university.ac.uk' },
+    APPLICANT: { name: 'Chidi', id: 'APP-8941', role: 'APPLICANT', roleTitle: 'UK Visa Applicant', email: 'chidi@basechanfunder.com' },
+    STAFF_AUDITOR: { name: 'Julian Morgan', id: 'AUD-8842', role: 'STAFF_AUDITOR', roleTitle: 'Senior Compliance Auditor', email: 'j.morgan@basechanfunder.com' },
     ADMIN_GOVERNANCE: { name: 'Dr. Sarah Connor', id: 'ADM-0109', role: 'ADMIN_GOVERNANCE', roleTitle: 'Principal Governance Admin', email: 'admin@basechanfunder.com' }
   };
 
   const currentUser = userProfiles[activeRole];
-
-  const applicants = [
-    { id: 'APP-2026-8941', name: 'Adebayo Ogunlesi', route: 'UK Student Visa (Tier 4)', targetGBP: 13340, status: 'VALIDATED', risk: 'LOW', min28Day: 14850.00, anomalyRatio: 0.12, institution: 'University of Manchester' },
-    { id: 'APP-2026-9012', name: 'Chioma Nwosu', route: 'Skilled Worker Visa', targetGBP: 18500, status: 'FLAGGED', risk: 'HIGH', min28Day: 17200.00, anomalyRatio: 3.45, institution: 'NHS Healthcare Trust' },
-    { id: 'APP-2026-9155', name: 'Kowshik Rahman', route: 'Graduate Route', targetGBP: 11200, status: 'PENDING', risk: 'MEDIUM', min28Day: 12100.00, anomalyRatio: 1.80, institution: 'Imperial College London' }
-  ];
-
-  const currentApp = applicants.find(a => a.id === selectedApplicant) || applicants[0];
-
   const isDark = theme === 'dark';
 
   return (
     <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-amber-500 selection:text-slate-950 ${
       isDark
-        ? 'bg-[#07090e] text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,119,6,0.15),rgba(255,255,255,0))]'
-        : 'bg-slate-50 text-slate-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.08),rgba(255,255,255,0))]'
+        ? 'bg-[#0A0D14] text-slate-100'
+        : 'bg-slate-100 text-slate-900'
     }`}>
-      {/* Top Navbar */}
+      {/* Top Navbar Header */}
       <header className={`sticky top-0 z-50 backdrop-blur-xl border-b transition-colors duration-500 px-8 py-3.5 flex items-center justify-between ${
         isDark
-          ? 'bg-slate-950/80 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-          : 'bg-white/80 border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'
+          ? 'bg-[#0D111A]/90 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.6)]'
+          : 'bg-white/90 border-slate-200 shadow-sm'
       }`}>
         <div className="flex items-center space-x-4">
-          <div className="relative flex items-center justify-center p-1 rounded-xl bg-slate-900/60 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-            <img src="/logo.svg" alt="Basechanfunder Logo" className="w-9 h-9 object-contain" />
+          {/* User Avatar */}
+          <div className="w-11 h-11 rounded-full border-2 border-[#E5A635] p-0.5 overflow-hidden shadow-lg shadow-amber-500/10">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+              alt="User Avatar"
+              className="w-full h-full object-cover rounded-full"
+            />
           </div>
 
           <div>
-            <div className="flex items-center space-x-2.5">
-              <span className="text-base font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
-                BASECHANFUNDER
-              </span>
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md font-mono tracking-wider ${
-                isDark
-                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-                VERIFICATION PLATFORM
-              </span>
-            </div>
-            <p className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              UKVI 28-Day Proof of Funds Compliance & Audit Platform
-            </p>
+            <span className="text-[11px] font-mono text-slate-400 block tracking-wide">Hello, {currentUser.name}</span>
+            <span className="text-xl font-black tracking-tight text-[#F3C77C] drop-shadow-sm">
+              Basechanfunder
+            </span>
           </div>
         </div>
 
-        {/* Right Header Actions */}
-        <div className="flex items-center space-x-4">
-          {/* Light / Dark Mode Toggle */}
+        {/* Header Right Badges & Controls */}
+        <div className="flex items-center space-x-5">
+          {/* Target & Compliant Badge */}
+          <div className="hidden sm:flex flex-col items-end">
+            <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-200">
+              <Globe className="w-3.5 h-3.5 text-slate-400" />
+              <span>Target: UK Student Visa 🇬🇧</span>
+            </div>
+            <div className="mt-1 flex items-center space-x-1.5 px-3 py-0.5 rounded-full bg-[#003822] border border-[#00E676]/40 text-[#00E676] font-mono text-[10px] font-bold shadow-[0_0_12px_rgba(0,230,118,0.2)]">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>COMPLIANT_HOLDING</span>
+            </div>
+          </div>
+
+          {/* Theme Toggle */}
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className={`p-2.5 rounded-xl border backdrop-blur-md transition-all duration-300 flex items-center justify-center ${
+            className={`p-2.5 rounded-xl border backdrop-blur-md transition-all duration-300 ${
               isDark
-                ? 'bg-slate-900/80 border-white/10 text-amber-400 hover:border-amber-500/40 hover:bg-slate-800'
+                ? 'bg-[#101522] border-white/10 text-amber-400 hover:border-amber-500/40'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
             }`}
-            title="Toggle Light/Dark Theme"
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* User Role Switcher */}
+          {/* User Role Switcher Dropdown */}
           <div className={`flex items-center space-x-3 px-3.5 py-1.5 rounded-xl border backdrop-blur-md ${
-            isDark
-              ? 'bg-slate-900/60 border-white/10 text-slate-200'
-              : 'bg-white border-slate-200 text-slate-800 shadow-sm'
+            isDark ? 'bg-[#101522] border-white/10 text-slate-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm'
           }`}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-bold text-xs text-slate-950 shadow-md">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-bold text-xs text-slate-950">
               {currentUser.name.charAt(0)}
             </div>
 
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-bold tracking-tight">{currentUser.name}</span>
-              <span className={`text-[10px] font-medium ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{currentUser.roleTitle}</span>
+            <div className="flex flex-col text-left pr-1">
+              <span className="text-xs font-bold">{currentUser.name}</span>
+              <span className="text-[10px] text-amber-400 font-mono">{currentUser.roleTitle}</span>
             </div>
 
             <div className="relative">
@@ -123,12 +120,12 @@ export const PremiumGlassDashboard: React.FC = () => {
                 onChange={(e) => setActiveRole(e.target.value as UserRole)}
                 className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 focus:outline-none transition-all cursor-pointer ${
                   isDark
-                    ? 'bg-slate-950 border-white/10 text-amber-300 hover:border-amber-500/50'
-                    : 'bg-slate-100 border-slate-200 text-amber-800 hover:border-amber-400'
+                    ? 'bg-[#0A0D14] border-white/10 text-amber-300 hover:border-amber-500/50'
+                    : 'bg-slate-100 border-slate-200 text-amber-800'
                 }`}
               >
-                <option value="STAFF_AUDITOR">Staff Auditor</option>
                 <option value="APPLICANT">Applicant (Normal User)</option>
+                <option value="STAFF_AUDITOR">Staff Auditor</option>
                 <option value="ADMIN_GOVERNANCE">Admin Governance</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-2.5 pointer-events-none text-slate-400" />
@@ -137,306 +134,166 @@ export const PremiumGlassDashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Permission Context Banner */}
-      <div className={`px-8 py-2 border-b text-xs flex items-center justify-between font-mono backdrop-blur-md transition-colors duration-500 ${
-        isDark
-          ? 'bg-slate-950/40 border-white/5 text-slate-400'
-          : 'bg-slate-100/60 border-slate-200 text-slate-600'
-      }`}>
-        <div className="flex items-center space-x-2">
-          {activeRole === 'STAFF_AUDITOR' ? (
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-          ) : activeRole === 'ADMIN_GOVERNANCE' ? (
-            <KeyRound className="w-3.5 h-3.5 text-purple-400" />
-          ) : (
-            <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-          )}
-          <span>ROLE CONTEXT: <strong>{currentUser.role}</strong> ({currentUser.email})</span>
-        </div>
-        <span className="text-[11px] opacity-75">UKVI Regulation Standard v2.4 Compliant</span>
-      </div>
+      {/* Main Stitch Layout */}
+      <div className="p-8 max-w-5xl mx-auto space-y-6">
+        {/* 1. PROOF OF FUNDS TARGET CARD (Radial Ring) */}
+        <div className={`p-8 rounded-3xl border text-center transition-all duration-500 shadow-2xl ${
+          isDark
+            ? 'bg-[#101522] border-white/10 shadow-black/60'
+            : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <h2 className="text-xs font-bold font-mono tracking-[0.2em] text-slate-400 uppercase">
+            PROOF OF FUNDS TARGET
+          </h2>
 
-      {/* Main Workspace Layout */}
-      <div className="p-8 max-w-7xl mx-auto grid grid-cols-12 gap-8">
-        {/* Left Side: Applicant Queue */}
-        {activeRole !== 'APPLICANT' && (
-          <div className="col-span-12 lg:col-span-4 space-y-4">
-            <div className={`p-4 rounded-2xl border backdrop-blur-xl flex items-center justify-between ${
-              isDark ? 'bg-slate-900/50 border-white/10 shadow-2xl' : 'bg-white/80 border-slate-200/80 shadow-sm'
-            }`}>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Applications Queue</h2>
-              <span className={`text-xs font-mono px-2.5 py-0.5 rounded-full border ${
-                isDark ? 'bg-slate-800 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-              }`}>
-                3 Pending
-              </span>
-            </div>
+          {/* Radial Ring Center */}
+          <div className="my-8 relative w-52 h-52 mx-auto flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                stroke={isDark ? '#1E2638' : '#E2E8F0'}
+                strokeWidth="7"
+                fill="transparent"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                stroke="#F5B651"
+                strokeWidth="7"
+                strokeDasharray="263.8"
+                strokeDashoffset="45"
+                strokeLinecap="round"
+                fill="transparent"
+                className="transition-all duration-1000 ease-out"
+              />
+            </svg>
 
-            <div className="space-y-3">
-              {applicants.map((app) => (
-                <div
-                  key={app.id}
-                  onClick={() => setSelectedApplicant(app.id)}
-                  className={`group relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer backdrop-blur-xl ${
-                    selectedApplicant === app.id
-                      ? isDark
-                        ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30'
-                        : 'bg-white border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
-                      : isDark
-                      ? 'bg-slate-900/40 border-white/5 hover:border-white/20 hover:bg-slate-900/70'
-                      : 'bg-white/60 border-slate-200/60 hover:bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className={`font-bold text-sm transition-colors ${
-                        selectedApplicant === app.id
-                          ? isDark ? 'text-amber-300' : 'text-amber-700'
-                          : isDark ? 'text-slate-200' : 'text-slate-800'
-                      }`}>
-                        {app.name}
-                      </h3>
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">{app.id} • {app.institution}</p>
-                    </div>
-
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider font-mono border ${
-                      app.status === 'VALIDATED'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                        : app.status === 'FLAGGED'
-                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                        : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                    }`}>
-                      {app.status}
-                    </span>
-                  </div>
-
-                  <div className={`grid grid-cols-2 gap-3 pt-3 border-t text-xs font-mono ${
-                    isDark ? 'border-white/5' : 'border-slate-100'
-                  }`}>
-                    <div>
-                      <span className="text-slate-400 text-[10px] block font-sans">Required Target</span>
-                      <span className="font-bold text-slate-300">£{app.targetGBP.toLocaleString()}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 text-[10px] block font-sans">28-Day Min Balance</span>
-                      <span className={`font-bold ${app.min28Day >= app.targetGBP * 1.1 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        £{app.min28Day.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-black tracking-tight text-white">£13,761</span>
+              <span className="text-xs font-bold font-mono text-[#F5B651] mt-1">GBP Equiv.</span>
             </div>
           </div>
-        )}
 
-        {/* Right Side: Main Detail & Matrix Workspace */}
-        <div className={`col-span-12 ${activeRole === 'APPLICANT' ? 'lg:col-span-12' : 'lg:col-span-8'} space-y-6`}>
-          {/* Header Applicant Info Glass Panel */}
-          <div className={`p-6 rounded-3xl border backdrop-blur-xl transition-all duration-500 ${
-            isDark
-              ? 'bg-slate-900/50 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]'
-              : 'bg-white/80 border-slate-200/80 shadow-sm'
+          {/* Current vs Required Rows */}
+          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto pt-2 border-t border-white/5 font-mono">
+            <div className="text-center">
+              <span className="text-slate-400 text-xs block">Current</span>
+              <span className="text-lg font-bold text-white mt-1 block">₦18,450,000</span>
+            </div>
+            <div className="text-center border-l border-white/10">
+              <span className="text-slate-400 text-xs block">Required</span>
+              <span className="text-lg font-bold text-white mt-1 block">₦19,200,000</span>
+            </div>
+          </div>
+
+          {/* FX Volatility Warning */}
+          <div className={`mt-6 p-3 rounded-xl border max-w-md mx-auto flex items-center justify-center space-x-2 font-mono text-xs ${
+            isDark ? 'bg-[#171D2D] border-white/5 text-[#F5B651]' : 'bg-amber-50 border-amber-200 text-amber-800'
           }`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <div className="flex items-center space-x-3">
-                  <h2 className="text-2xl font-black tracking-tight">{activeRole === 'APPLICANT' ? currentUser.name : currentApp.name}</h2>
-                  <span className={`text-xs font-mono px-3 py-1 rounded-full border ${
-                    isDark ? 'bg-slate-800 border-white/10 text-amber-300' : 'bg-slate-100 border-slate-200 text-amber-800'
-                  }`}>
-                    {activeRole === 'APPLICANT' ? 'APP-8941' : currentApp.id}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1.5 flex items-center space-x-2">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{activeRole === 'APPLICANT' ? 'University of Manchester' : currentApp.institution}</span>
-                  <span>•</span>
-                  <span>{activeRole === 'APPLICANT' ? 'UK Student Visa (Tier 4)' : currentApp.route}</span>
-                </p>
-              </div>
+            <TrendingUp className="w-4 h-4 text-[#F5B651]" />
+            <span className="font-semibold">FX Volatility Warning: +5% Buffer Applied</span>
+          </div>
+        </div>
 
-              <div className="flex items-center space-x-3">
-                <div className={`p-3 rounded-2xl border text-right font-mono ${
-                  isDark ? 'bg-slate-950/60 border-white/10' : 'bg-slate-50 border-slate-200'
-                }`}>
-                  <span className="text-[10px] text-slate-400 uppercase font-sans tracking-wider block">Risk Rating</span>
-                  <span className="text-xs font-bold text-emerald-400 flex items-center justify-end space-x-1 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>LOW RISK</span>
-                  </span>
-                </div>
-              </div>
+        {/* 2. 28-DAY MATURITY RULES CARD */}
+        <div className={`p-6 rounded-3xl border transition-all duration-500 ${
+          isDark ? 'bg-[#101522] border-white/10' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2 font-mono">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-bold text-white">28-Day Maturity Rules</span>
             </div>
-
-            {/* Sub-Tab Navigation Bar */}
-            <div className="flex space-x-2 mt-6 pt-6 border-t border-white/5 overflow-x-auto">
-              {[
-                { id: 'matrix', label: '28-Day Matrix', icon: BarChart3 },
-                { id: 'anomalies', label: 'Anomaly Detector', icon: AlertTriangle },
-                { id: 'mbs', label: 'MBS PDF Forensic', icon: FileCheck2 },
-                { id: 'certificate', label: 'UKVI Certificate', icon: Award }
-              ].map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all duration-300 ${
-                      activeTab === tab.id
-                        ? isDark
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-                          : 'bg-amber-500 text-slate-950 shadow-md'
-                        : isDark
-                        ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <span className="px-3 py-1 rounded-lg bg-[#262118] border border-[#F5B651]/30 text-[#F5B651] text-xs font-mono font-bold">
+              Readiness: Sept 24, 2026
+            </span>
           </div>
 
-          {/* Matrix Tab Content */}
-          {activeTab === 'matrix' && (
-            <div className="space-y-6">
-              {/* Metric Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <div className={`p-5 rounded-2xl border backdrop-blur-xl ${
-                  isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
-                }`}>
-                  <span className="text-xs text-slate-400 font-medium">28-Day Lowest Balance</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-2xl font-black font-mono text-emerald-400">
-                      £{(activeRole === 'APPLICANT' ? 14850 : currentApp.min28Day).toLocaleString()}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-emerald-400/80 font-mono mt-1 block">✓ Compliant Threshold</span>
-                </div>
+          <h3 className="text-lg font-bold text-white mb-4">Day 19 of 28 Days Uninterrupted</h3>
 
-                <div className={`p-5 rounded-2xl border backdrop-blur-xl ${
-                  isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
-                }`}>
-                  <span className="text-xs text-slate-400 font-medium">Target + 10% FX Buffer</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-2xl font-black font-mono text-amber-400">
-                      £{((activeRole === 'APPLICANT' ? 13340 : currentApp.targetGBP) * 1.1).toLocaleString()}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono mt-1 block">Target: £{(activeRole === 'APPLICANT' ? 13340 : currentApp.targetGBP).toLocaleString()}</span>
-                </div>
+          {/* Segmented Dual Bar */}
+          <div className="w-full bg-[#1E2638] h-2.5 rounded-full overflow-hidden flex">
+            <div className="bg-[#F5B651] h-full rounded-full transition-all duration-500" style={{ width: '67.8%' }}></div>
+          </div>
+        </div>
 
-                <div className={`p-5 rounded-2xl border backdrop-blur-xl ${
-                  isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
-                }`}>
-                  <span className="text-xs text-slate-400 font-medium">UKVI Rule Status</span>
-                  <div className="flex items-center space-x-2 mt-2 text-emerald-400">
-                    <CheckCircle2 className="w-6 h-6" />
-                    <span className="text-2xl font-black tracking-tight">PASSED</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono mt-1 block">28 / 28 Consecutive Days</span>
-                </div>
-              </div>
+        {/* 3. FINANCIAL INGESTION SOURCES LIST */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider px-1">
+            Financial Ingestion Sources
+          </h3>
 
-              {/* Glass Bar Matrix Chart Visualizer */}
-              <div className={`p-6 rounded-3xl border backdrop-blur-xl ${
-                isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
-              }`}>
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-tight">28-Day Daily Closing Balance Timeline</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Automated GBP conversion via live OANDA spot rates</p>
-                  </div>
-                  <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    28 Days Verified
-                  </span>
-                </div>
-
-                <div className="h-40 flex items-end justify-between space-x-2 pt-6">
-                  {Array.from({ length: 28 }).map((_, i) => {
-                    const heightPercent = 65 + Math.sin(i * 0.5) * 20 + (i === 12 ? -15 : 0);
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center group relative">
-                        <div
-                          style={{ height: `${heightPercent}%` }}
-                          className={`w-full rounded-t-md transition-all duration-300 ${
-                            heightPercent < 55
-                              ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]'
-                              : 'bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                          }`}
-                        />
-                        <span className="text-[9px] text-slate-400 mt-2 font-mono">D{i + 1}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Forensic Tab Content */}
-          {activeTab === 'mbs' && (
-            <div className={`p-6 rounded-3xl border backdrop-blur-xl space-y-5 ${
-              isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* GTBank API Sync */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+              isDark ? 'bg-[#101522] border-white/10' : 'bg-white border-slate-200'
             }`}>
               <div className="flex items-center space-x-3">
-                <FileCheck2 className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-bold">MyBankStatement (MBS) Forensic Audit Inspection</h3>
-              </div>
-
-              <div className={`p-4 rounded-2xl border font-mono text-xs space-y-3 ${
-                isDark ? 'bg-slate-950/80 border-white/10' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                  <span className="text-slate-400">Digital RSA-2048 Cryptographic Signature:</span>
-                  <span className="text-emerald-400 font-bold flex items-center space-x-1">
-                    <Check className="w-4 h-4" />
-                    <span>AUTHENTIC (GTBank RSA Root)</span>
-                  </span>
+                <div className="p-2.5 rounded-xl bg-[#182032] text-[#F5B651]">
+                  <Building2 className="w-5 h-5" />
                 </div>
-                <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                  <span className="text-slate-400">PDF Embedded Vector Fonts Integrity:</span>
-                  <span className="text-emerald-400 font-bold flex items-center space-x-1">
-                    <Check className="w-4 h-4" />
-                    <span>UNMODIFIED (No Photoshop layers)</span>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Transaction Balance Reconciliation:</span>
-                  <span className="text-emerald-400 font-bold flex items-center space-x-1">
-                    <Check className="w-4 h-4" />
-                    <span>100% MATCH (28/28 Snapshots)</span>
-                  </span>
+                <div>
+                  <h4 className="text-sm font-bold text-white">GTBank</h4>
+                  <span className="text-[11px] font-mono text-slate-400">API Sync</span>
                 </div>
               </div>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00E676] shadow-[0_0_8px_#00E676]"></span>
             </div>
-          )}
 
-          {/* Certificate Tab */}
-          {activeTab === 'certificate' && (
-            <div className={`p-8 rounded-3xl border backdrop-blur-xl text-center space-y-6 ${
-              isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+            {/* Zenith Parser SMS Agent */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+              isDark ? 'bg-[#101522] border-white/10' : 'bg-white border-slate-200'
             }`}>
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
-                <Award className="w-8 h-8" />
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-[#182032] text-[#F5B651]">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Zenith Parser</h4>
+                  <span className="text-[11px] font-mono text-slate-400">SMS Agent</span>
+                </div>
               </div>
-
-              <div>
-                <h3 className="text-lg font-bold">Official UKVI Proof of Funds Certificate</h3>
-                <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                  Generates an encrypted, digitally-signed PDF verification report compliant with Home Office Appendix Finance rules.
-                </p>
-              </div>
-
-              <button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-8 py-3.5 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.3)] transition-all duration-300 inline-flex items-center space-x-2">
-                <Download className="w-4 h-4" />
-                <span>Export Digitally Signed PDF Certificate</span>
-              </button>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00E676] shadow-[0_0_8px_#00E676]"></span>
             </div>
-          )}
+
+            {/* MBS Ticket Statement */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+              isDark ? 'bg-[#101522] border-white/10' : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-[#182032] text-[#F5B651]">
+                  <FileCheck2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">MBS Ticket</h4>
+                  <span className="text-[11px] font-mono text-slate-400">Statement</span>
+                </div>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-[#00E676]" />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. SOURCE OF FUNDS FLAG ALERT BOX */}
+        <div className={`p-6 rounded-3xl border-l-4 border-l-[#F5B651] border-y border-r border-white/10 space-y-4 ${
+          isDark ? 'bg-[#101522]' : 'bg-white border-slate-200'
+        }`}>
+          <div className="flex items-center space-x-2 text-[#F5B651]">
+            <AlertTriangle className="w-5 h-5" />
+            <h3 className="text-base font-bold">Source of Funds Flag</h3>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+            Unexplained Deposit Flagged (₦3,500,000). To maintain uninterrupted maturity status, source verification is required.
+          </p>
+
+          <button className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#F5B651] to-[#E5A635] hover:from-[#e0a240] hover:to-[#d4962b] text-slate-950 font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/20 transition-all">
+            <Upload className="w-4 h-4" />
+            <span>Upload Deed / Gift Affidavit</span>
+          </button>
         </div>
       </div>
     </div>
