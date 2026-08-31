@@ -1,8 +1,8 @@
 import React from 'react';
-import { PremiumGlassDashboard } from './components/PremiumGlassDashboard';
+import { StitchCompliancePortal } from './components/StitchCompliancePortal';
 
 export const App: React.FC = () => {
-  return <PremiumGlassDashboard />;
+  return <StitchCompliancePortal />;
 };
 
 export default App;
