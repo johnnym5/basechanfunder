@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 
+export type UserRole = 'APPLICANT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
+
+export interface ActiveUser {
+  name: string;
+  id: string;
+  role: UserRole;
+  roleTitle: string;
+  email: string;
+}
+
 export const AdminDashboard: React.FC = () => {
+  const userProfiles: Record<UserRole, ActiveUser> = {
+    ADMIN_GOVERNANCE: { name: 'Dr. Sarah Connor', id: 'ADM-01', role: 'ADMIN_GOVERNANCE', roleTitle: 'Global Governance Admin', email: 'admin@basechanfunder.com' },
+    STAFF_AUDITOR: { name: 'J. Morgan', id: 'AUD-88', role: 'STAFF_AUDITOR', roleTitle: 'Staff Compliance Auditor', email: 'j.morgan@basechanfunder.com' },
+    APPLICANT: { name: 'Adebayo Ogunlesi', id: 'APP-8941', role: 'APPLICANT', roleTitle: 'Visa Applicant', email: 'adebayo.o@example.com' }
+  };
+
+  const [activeRole, setActiveRole] = useState<UserRole>('ADMIN_GOVERNANCE');
+  const currentUser = userProfiles[activeRole];
+
   const [bufferPercent, setBufferPercent] = useState<number>(10.0);
   const [activeTab, setActiveTab] = useState<'params' | 'roles' | 'audit' | 'vault'>('params');
 
@@ -12,26 +31,53 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-lg">
+      {/* Top Header with Trial User Switcher */}
+      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-50">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center font-black text-xl text-white shadow-purple-500/20 shadow-lg">
             A
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">Basechanfunder Admin</h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-bold tracking-tight text-white">Basechanfunder Admin</h1>
+              <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                🧪 Trial Sandbox Mode
+              </span>
+            </div>
             <p className="text-xs text-slate-400 font-medium">System Governance & Security Control Console</p>
           </div>
         </div>
 
+        {/* Top Right User Role Switcher */}
         <div className="flex items-center space-x-4">
-          <span className="px-3 py-1 text-xs rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
-            ● Vault Secrets Engine: SEALED (ACTIVE)
-          </span>
+          <div className="flex items-center space-x-2 bg-slate-950 border border-slate-800 p-1.5 rounded-xl">
+            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-purple-400">
+              {currentUser.name.charAt(0)}
+            </div>
+
+            <div className="flex flex-col text-left pr-2">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-xs font-bold text-white">{currentUser.name}</span>
+                <span className="text-[10px] text-slate-400 font-mono">({currentUser.id})</span>
+              </div>
+              <span className="text-[10px] text-purple-400 font-medium">{currentUser.roleTitle}</span>
+            </div>
+
+            {/* Role Switcher Dropdown */}
+            <select
+              value={activeRole}
+              onChange={(e) => setActiveRole(e.target.value as UserRole)}
+              className="bg-slate-900 border border-purple-500/40 text-purple-300 text-xs font-semibold px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 hover:border-purple-400 transition-all cursor-pointer"
+            >
+              <option value="ADMIN_GOVERNANCE">🔑 Switch to: Admin Governance</option>
+              <option value="STAFF_AUDITOR">🛡️ Switch to: Staff Auditor</option>
+              <option value="APPLICANT">👤 Switch to: Normal User (Applicant)</option>
+            </select>
+          </div>
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main Layout */}
       <div className="flex-1 grid grid-cols-12 gap-6 p-6">
         {/* Navigation Sidebar */}
         <div className="col-span-12 lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
