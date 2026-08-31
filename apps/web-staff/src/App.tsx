@@ -1,8 +1,8 @@
 import React from 'react';
-import { StudentPortal } from './components/StudentPortal';
+import { MasterAppPortal } from './components/MasterAppPortal';
 
 export const App: React.FC = () => {
-  return <StudentPortal />;
+  return <MasterAppPortal />;
 };
 
 export default App;
