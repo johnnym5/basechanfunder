@@ -1,8 +1,8 @@
 import React from 'react';
-import { StitchCompliancePortal } from './components/StitchCompliancePortal';
+import { StudentPortal } from './components/StudentPortal';
 
 export const App: React.FC = () => {
-  return <StitchCompliancePortal />;
+  return <StudentPortal />;
 };
 
 export default App;
