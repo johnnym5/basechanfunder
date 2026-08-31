@@ -10,18 +10,9 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  Sparkles,
-  TrendingUp,
-  Lock,
-  Search,
-  CheckCircle2,
-  Clock,
-  ArrowUpRight,
-  ShieldAlert,
-  Download,
-  FileText,
   Building2,
-  RefreshCcw,
+  CheckCircle2,
+  Download,
   Check
 } from 'lucide-react';
 
@@ -61,36 +52,33 @@ export const PremiumGlassDashboard: React.FC = () => {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-cyan-500 selection:text-white ${
+    <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-amber-500 selection:text-slate-950 ${
       isDark
-        ? 'bg-[#07090e] text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]'
-        : 'bg-slate-50 text-slate-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.08),rgba(255,255,255,0))]'
+        ? 'bg-[#07090e] text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,119,6,0.15),rgba(255,255,255,0))]'
+        : 'bg-slate-50 text-slate-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.08),rgba(255,255,255,0))]'
     }`}>
       {/* Top Navbar */}
       <header className={`sticky top-0 z-50 backdrop-blur-xl border-b transition-colors duration-500 px-8 py-3.5 flex items-center justify-between ${
         isDark
-          ? 'bg-slate-950/70 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-          : 'bg-white/70 border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'
+          ? 'bg-slate-950/80 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
+          : 'bg-white/80 border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'
       }`}>
         <div className="flex items-center space-x-4">
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
-            <div className="relative w-10 h-10 rounded-xl bg-slate-950 border border-white/20 flex items-center justify-center font-bold text-lg text-white">
-              <Sparkles className="w-5 h-5 text-cyan-400" />
-            </div>
+          <div className="relative flex items-center justify-center p-1 rounded-xl bg-slate-900/60 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+            <img src="/logo.svg" alt="Basechanfunder Logo" className="w-9 h-9 object-contain" />
           </div>
 
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="text-base font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-                Basechanfunder
+              <span className="text-base font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
+                BASECHANFUNDER
               </span>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md font-mono tracking-wider ${
                 isDark
-                  ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                  : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
               }`}>
-                PRO ENTERPRISE
+                VERIFICATION PLATFORM
               </span>
             </div>
             <p className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -104,9 +92,9 @@ export const PremiumGlassDashboard: React.FC = () => {
           {/* Light / Dark Mode Toggle */}
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className={`p-2 rounded-xl border backdrop-blur-md transition-all duration-300 flex items-center justify-center ${
+            className={`p-2.5 rounded-xl border backdrop-blur-md transition-all duration-300 flex items-center justify-center ${
               isDark
-                ? 'bg-slate-900/80 border-white/10 text-amber-400 hover:border-white/20 hover:bg-slate-800'
+                ? 'bg-slate-900/80 border-white/10 text-amber-400 hover:border-amber-500/40 hover:bg-slate-800'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
             }`}
             title="Toggle Light/Dark Theme"
@@ -114,29 +102,29 @@ export const PremiumGlassDashboard: React.FC = () => {
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Trial User Role Switcher Dropdown */}
-          <div className={`flex items-center space-x-3 px-3 py-1.5 rounded-xl border backdrop-blur-md ${
+          {/* User Role Switcher */}
+          <div className={`flex items-center space-x-3 px-3.5 py-1.5 rounded-xl border backdrop-blur-md ${
             isDark
               ? 'bg-slate-900/60 border-white/10 text-slate-200'
               : 'bg-white border-slate-200 text-slate-800 shadow-sm'
           }`}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-xs text-white shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-bold text-xs text-slate-950 shadow-md">
               {currentUser.name.charAt(0)}
             </div>
 
             <div className="flex flex-col text-left">
-              <span className="text-xs font-semibold tracking-tight">{currentUser.name}</span>
-              <span className={`text-[10px] font-medium ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>{currentUser.roleTitle}</span>
+              <span className="text-xs font-bold tracking-tight">{currentUser.name}</span>
+              <span className={`text-[10px] font-medium ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{currentUser.roleTitle}</span>
             </div>
 
             <div className="relative">
               <select
                 value={activeRole}
                 onChange={(e) => setActiveRole(e.target.value as UserRole)}
-                className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 focus:outline-none transition-all cursor-pointer ${
+                className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 focus:outline-none transition-all cursor-pointer ${
                   isDark
-                    ? 'bg-slate-950 border-white/10 text-cyan-300 hover:border-cyan-500/50'
-                    : 'bg-slate-100 border-slate-200 text-cyan-700 hover:border-cyan-400'
+                    ? 'bg-slate-950 border-white/10 text-amber-300 hover:border-amber-500/50'
+                    : 'bg-slate-100 border-slate-200 text-amber-800 hover:border-amber-400'
                 }`}
               >
                 <option value="STAFF_AUDITOR">Staff Auditor</option>
@@ -157,7 +145,7 @@ export const PremiumGlassDashboard: React.FC = () => {
       }`}>
         <div className="flex items-center space-x-2">
           {activeRole === 'STAFF_AUDITOR' ? (
-            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
           ) : activeRole === 'ADMIN_GOVERNANCE' ? (
             <KeyRound className="w-3.5 h-3.5 text-purple-400" />
           ) : (
@@ -170,7 +158,7 @@ export const PremiumGlassDashboard: React.FC = () => {
 
       {/* Main Workspace Layout */}
       <div className="p-8 max-w-7xl mx-auto grid grid-cols-12 gap-8">
-        {/* Left Side: Applicant Queue (Shown for Staff/Admin) */}
+        {/* Left Side: Applicant Queue */}
         {activeRole !== 'APPLICANT' && (
           <div className="col-span-12 lg:col-span-4 space-y-4">
             <div className={`p-4 rounded-2xl border backdrop-blur-xl flex items-center justify-between ${
@@ -192,8 +180,8 @@ export const PremiumGlassDashboard: React.FC = () => {
                   className={`group relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer backdrop-blur-xl ${
                     selectedApplicant === app.id
                       ? isDark
-                        ? 'bg-cyan-500/10 border-cyan-500/50 shadow-[0_0_30px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/30'
-                        : 'bg-white border-blue-500/50 shadow-md ring-1 ring-blue-500/20'
+                        ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30'
+                        : 'bg-white border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
                       : isDark
                       ? 'bg-slate-900/40 border-white/5 hover:border-white/20 hover:bg-slate-900/70'
                       : 'bg-white/60 border-slate-200/60 hover:bg-white hover:border-slate-300'
@@ -203,7 +191,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                     <div>
                       <h3 className={`font-bold text-sm transition-colors ${
                         selectedApplicant === app.id
-                          ? isDark ? 'text-cyan-300' : 'text-blue-600'
+                          ? isDark ? 'text-amber-300' : 'text-amber-700'
                           : isDark ? 'text-slate-200' : 'text-slate-800'
                       }`}>
                         {app.name}
@@ -255,7 +243,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   <h2 className="text-2xl font-black tracking-tight">{activeRole === 'APPLICANT' ? currentUser.name : currentApp.name}</h2>
                   <span className={`text-xs font-mono px-3 py-1 rounded-full border ${
-                    isDark ? 'bg-slate-800 border-white/10 text-cyan-300' : 'bg-slate-100 border-slate-200 text-blue-700'
+                    isDark ? 'bg-slate-800 border-white/10 text-amber-300' : 'bg-slate-100 border-slate-200 text-amber-800'
                   }`}>
                     {activeRole === 'APPLICANT' ? 'APP-8941' : currentApp.id}
                   </span>
@@ -294,11 +282,11 @@ export const PremiumGlassDashboard: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all duration-300 ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all duration-300 ${
                       activeTab === tab.id
                         ? isDark
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.3)]'
-                          : 'bg-blue-600 text-white shadow-md'
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+                          : 'bg-amber-500 text-slate-950 shadow-md'
                         : isDark
                         ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -334,7 +322,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                 }`}>
                   <span className="text-xs text-slate-400 font-medium">Target + 10% FX Buffer</span>
                   <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-2xl font-black font-mono text-cyan-400">
+                    <span className="text-2xl font-black font-mono text-amber-400">
                       £{((activeRole === 'APPLICANT' ? 13340 : currentApp.targetGBP) * 1.1).toLocaleString()}
                     </span>
                   </div>
@@ -362,7 +350,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                     <h3 className="text-sm font-bold tracking-tight">28-Day Daily Closing Balance Timeline</h3>
                     <p className="text-xs text-slate-400 mt-0.5">Automated GBP conversion via live OANDA spot rates</p>
                   </div>
-                  <span className="text-xs font-mono px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                     28 Days Verified
                   </span>
                 </div>
@@ -377,7 +365,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                           className={`w-full rounded-t-md transition-all duration-300 ${
                             heightPercent < 55
                               ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]'
-                              : 'bg-gradient-to-t from-cyan-600 to-blue-500 group-hover:from-cyan-400 group-hover:to-blue-400 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                              : 'bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                           }`}
                         />
                         <span className="text-[9px] text-slate-400 mt-2 font-mono">D{i + 1}</span>
@@ -395,7 +383,7 @@ export const PremiumGlassDashboard: React.FC = () => {
               isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
             }`}>
               <div className="flex items-center space-x-3">
-                <FileCheck2 className="w-5 h-5 text-cyan-400" />
+                <FileCheck2 className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm font-bold">MyBankStatement (MBS) Forensic Audit Inspection</h3>
               </div>
 
@@ -432,7 +420,7 @@ export const PremiumGlassDashboard: React.FC = () => {
             <div className={`p-8 rounded-3xl border backdrop-blur-xl text-center space-y-6 ${
               isDark ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-sm'
             }`}>
-              <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto text-cyan-400">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
                 <Award className="w-8 h-8" />
               </div>
 
@@ -443,7 +431,7 @@ export const PremiumGlassDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <button className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs px-8 py-3.5 rounded-xl shadow-[0_0_25px_rgba(6,182,212,0.3)] transition-all duration-300 inline-flex items-center space-x-2">
+              <button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-8 py-3.5 rounded-xl shadow-[0_0_25px_rgba(245,158,11,0.3)] transition-all duration-300 inline-flex items-center space-x-2">
                 <Download className="w-4 h-4" />
                 <span>Export Digitally Signed PDF Certificate</span>
               </button>

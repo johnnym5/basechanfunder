@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
 import {
-  KeyRound,
-  ShieldCheck,
-  UserCheck,
   Sun,
   Moon,
   ChevronDown,
-  Sparkles,
-  Settings,
   Users,
   ClipboardList,
   Lock,
-  RefreshCw,
   Sliders,
-  ShieldAlert,
-  Activity,
-  CheckCircle2
+  Activity
 } from 'lucide-react';
 
 export type UserRole = 'APPLICANT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
@@ -52,29 +44,26 @@ export const AdminDashboard: React.FC = () => {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-purple-500 selection:text-white ${
+    <div className={`min-h-screen transition-colors duration-500 font-sans selection:bg-amber-500 selection:text-slate-950 ${
       isDark
-        ? 'bg-[#07090e] text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(168,85,247,0.15),rgba(255,255,255,0))]'
-        : 'bg-slate-50 text-slate-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(147,51,234,0.08),rgba(255,255,255,0))]'
+        ? 'bg-[#07090e] text-slate-100 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,119,6,0.15),rgba(255,255,255,0))]'
+        : 'bg-slate-50 text-slate-900 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.08),rgba(255,255,255,0))]'
     }`}>
       {/* Top Navbar */}
       <header className={`sticky top-0 z-50 backdrop-blur-xl border-b transition-colors duration-500 px-8 py-3.5 flex items-center justify-between ${
         isDark
-          ? 'bg-slate-950/70 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-          : 'bg-white/70 border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'
+          ? 'bg-slate-950/80 border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
+          : 'bg-white/80 border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'
       }`}>
         <div className="flex items-center space-x-4">
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
-            <div className="relative w-10 h-10 rounded-xl bg-slate-950 border border-white/20 flex items-center justify-center font-bold text-lg text-white">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-            </div>
+          <div className="relative flex items-center justify-center p-1 rounded-xl bg-slate-900/60 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+            <img src="/logo.svg" alt="Basechanfunder Logo" className="w-9 h-9 object-contain" />
           </div>
 
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="text-base font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-                Basechanfunder Admin
+              <span className="text-base font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500">
+                BASECHANFUNDER ADMIN
               </span>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md font-mono tracking-wider ${
                 isDark
@@ -97,7 +86,7 @@ export const AdminDashboard: React.FC = () => {
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             className={`p-2 rounded-xl border backdrop-blur-md transition-all duration-300 flex items-center justify-center ${
               isDark
-                ? 'bg-slate-900/80 border-white/10 text-amber-400 hover:border-white/20 hover:bg-slate-800'
+                ? 'bg-slate-900/80 border-white/10 text-amber-400 hover:border-amber-500/40 hover:bg-slate-800'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
             }`}
           >
@@ -108,23 +97,23 @@ export const AdminDashboard: React.FC = () => {
           <div className={`flex items-center space-x-3 px-3 py-1.5 rounded-xl border backdrop-blur-md ${
             isDark ? 'bg-slate-900/60 border-white/10 text-slate-200' : 'bg-white border-slate-200 text-slate-800 shadow-sm'
           }`}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-xs text-white shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center font-bold text-xs text-slate-950 shadow-md">
               {currentUser.name.charAt(0)}
             </div>
 
             <div className="flex flex-col text-left">
-              <span className="text-xs font-semibold tracking-tight">{currentUser.name}</span>
-              <span className={`text-[10px] font-medium ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{currentUser.roleTitle}</span>
+              <span className="text-xs font-bold tracking-tight">{currentUser.name}</span>
+              <span className={`text-[10px] font-medium ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{currentUser.roleTitle}</span>
             </div>
 
             <div className="relative">
               <select
                 value={activeRole}
                 onChange={(e) => setActiveRole(e.target.value as UserRole)}
-                className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 focus:outline-none transition-all cursor-pointer ${
+                className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 focus:outline-none transition-all cursor-pointer ${
                   isDark
-                    ? 'bg-slate-950 border-white/10 text-purple-300 hover:border-purple-500/50'
-                    : 'bg-slate-100 border-slate-200 text-purple-700 hover:border-purple-400'
+                    ? 'bg-slate-950 border-white/10 text-amber-300 hover:border-amber-500/50'
+                    : 'bg-slate-100 border-slate-200 text-amber-800 hover:border-amber-400'
                 }`}
               >
                 <option value="ADMIN_GOVERNANCE">Admin Governance</option>
@@ -159,8 +148,8 @@ export const AdminDashboard: React.FC = () => {
                   className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold flex items-center space-x-3 transition-all duration-300 ${
                     activeTab === tab.id
                       ? isDark
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]'
-                        : 'bg-purple-600 text-white shadow-md'
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] font-bold'
+                        : 'bg-amber-500 text-slate-950 shadow-md font-bold'
                       : isDark
                       ? 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -197,7 +186,7 @@ export const AdminDashboard: React.FC = () => {
                         value={bufferPercent}
                         onChange={(e) => setBufferPercent(parseFloat(e.target.value) || 0)}
                         className={`px-4 py-2 rounded-xl text-sm font-mono border focus:outline-none transition-all w-32 ${
-                          isDark ? 'bg-slate-900 border-white/10 text-purple-300 focus:border-purple-500' : 'bg-white border-slate-300 text-purple-700'
+                          isDark ? 'bg-slate-900 border-white/10 text-amber-300 focus:border-amber-500' : 'bg-white border-slate-300 text-amber-800'
                         }`}
                       />
                       <span className="text-xs text-slate-400">Current: {bufferPercent}%</span>
@@ -237,7 +226,7 @@ export const AdminDashboard: React.FC = () => {
                     <tbody className="divide-y divide-white/5">
                       {auditLogs.map((log) => (
                         <tr key={log.id} className={isDark ? 'hover:bg-slate-900/40' : 'hover:bg-slate-100/50'}>
-                          <td className="p-3 text-purple-400">{log.id}</td>
+                          <td className="p-3 text-amber-400">{log.id}</td>
                           <td className="p-3 text-slate-300">{log.user}</td>
                           <td className="p-3 font-semibold text-slate-200">{log.action}</td>
                           <td className="p-3 text-slate-400">{log.detail}</td>
