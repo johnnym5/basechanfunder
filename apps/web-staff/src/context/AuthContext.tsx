@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
-export type UserRole = 'STUDENT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
+export type UserRole = 'STUDENT' | 'STAFF_AUDITOR' | 'COUNSELOR' | 'ADMIN_GOVERNANCE';
 
 export interface AppUser {
   uid: string;
@@ -34,7 +34,9 @@ const AuthContext = createContext<AuthContextValue>({
 
 // Determine role from email domain
 function deriveRole(email: string): UserRole {
-  if (email.endsWith('@basechaninternational.com')) return 'ADMIN_GOVERNANCE';
+  const lower = email.toLowerCase();
+  if (lower.endsWith('@basechaninternational.com')) return 'ADMIN_GOVERNANCE';
+  if (lower.endsWith('.basechaninternational@gmail.com')) return 'COUNSELOR';
   return 'STUDENT';
 }
 

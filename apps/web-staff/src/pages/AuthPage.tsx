@@ -213,7 +213,12 @@ export const AuthPage: React.FC = () => {
       await sendEmailVerification(cred.user);
 
       // Derive initial role
-      const role = cleanEmail.endsWith('@basechaninternational.com') ? 'ADMIN_GOVERNANCE' : 'STUDENT';
+      const lowerEmail = cleanEmail.toLowerCase();
+      const role = lowerEmail.endsWith('@basechaninternational.com')
+        ? 'ADMIN_GOVERNANCE'
+        : lowerEmail.endsWith('.basechaninternational@gmail.com')
+        ? 'COUNSELOR'
+        : 'STUDENT';
 
       // Persist profile with custom username to Firestore
       await setDoc(doc(db, 'users', cred.user.uid), {
