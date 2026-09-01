@@ -45,48 +45,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setCurrentUser(firebaseUser);
-        // Fetch or create user profile document in Firestore
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const snap = await getDoc(userRef);
-
-        if (snap.exists()) {
-          const data = snap.data() as AppUser;
-          // If username wasn't set previously, set it now
-          if (!data.username && firebaseUser.email) {
-            const derivedUsername = (firebaseUser.email.split('@')[0] || firebaseUser.uid)
-              .toLowerCase()
-              .replace(/[^a-z0-9_]/g, '');
-            await setDoc(userRef, { username: derivedUsername }, { merge: true });
-            data.username = derivedUsername;
-          }
-          setAppUser(data);
-        } else {
-          // First login — derive role from email and create profile
+      try {
+        if (firebaseUser) {
+          setCurrentUser(firebaseUser);
+          
           const role = deriveRole(firebaseUser.email ?? '');
-          const derivedUsername = ((firebaseUser.email?.split('@')[0] || firebaseUser.uid))
+          const derivedUsername = (firebaseUser.email?.split('@')[0] || firebaseUser.uid)
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '');
 
-          const newUser: AppUser = {
+          // Fallback base user profile (ensures immediate responsiveness)
+          let resolvedAppUser: AppUser = {
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? '',
             username: derivedUsername,
-            displayName: firebaseUser.displayName ?? '',
+            displayName: firebaseUser.displayName || derivedUsername || 'User',
             photoURL: firebaseUser.photoURL ?? '',
             role,
-            createdAt: serverTimestamp(),
           };
-          await setDoc(userRef, newUser);
-          setAppUser(newUser);
+
+          // Attempt Firestore sync if database is available
+          try {
+            const userRef = doc(db, 'users', firebaseUser.uid);
+            const snap = await getDoc(userRef);
+
+            if (snap.exists()) {
+              const data = snap.data() as AppUser;
+              if (!data.username && firebaseUser.email) {
+                await setDoc(userRef, { username: derivedUsername }, { merge: true }).catch(() => {});
+                data.username = derivedUsername;
+              }
+              resolvedAppUser = { ...resolvedAppUser, ...data };
+            } else {
+              // Create user profile in Firestore
+              await setDoc(userRef, {
+                ...resolvedAppUser,
+                createdAt: serverTimestamp(),
+              }).catch((e) => {
+                console.warn('Firestore user profile sync deferred:', e.message);
+              });
+            }
+          } catch (firestoreErr: any) {
+            console.warn('Firestore database access note:', firestoreErr?.message || firestoreErr);
+          }
+
+          setAppUser(resolvedAppUser);
+        } else {
+          setCurrentUser(null);
+          setAppUser(null);
         }
-      } else {
-        setCurrentUser(null);
-        setAppUser(null);
+      } catch (err) {
+        console.error('Auth state change error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
+
     return unsub;
   }, []);
 

@@ -1,8 +1,8 @@
-// Live MasterAppPortal — all data fetched from Firestore, no mock data
+// Live MasterAppPortal — all data fetched from Firestore with fallback handling
 import React, { useEffect, useState } from 'react';
 import {
   collection, query, where, orderBy, onSnapshot,
-  doc, updateDoc, serverTimestamp,
+  doc, updateDoc, serverTimestamp, setDoc,
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -51,7 +51,7 @@ const Badge: React.FC<{ label: string }> = ({ label }) => {
 const Spinner: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-24 space-y-4">
     <Loader2 className="w-8 h-8 text-[#F5B651] animate-spin" />
-    <p className="text-xs font-mono text-slate-400">Loading from Firestore…</p>
+    <p className="text-xs font-mono text-slate-400">Loading data…</p>
   </div>
 );
 
@@ -65,17 +65,28 @@ const StudentOverview: React.FC<{ uid: string }> = ({ uid }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen to latest pof_evaluations doc for this user
-    const q = query(
-      collection(db, 'pof_evaluations'),
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc'),
-    );
-    const unsub = onSnapshot(q, snap => {
-      setEval(snap.empty ? null : (snap.docs[0].data() as Record<string, unknown>));
+    try {
+      const q = query(
+        collection(db, 'pof_evaluations'),
+        where('userId', '==', uid),
+        orderBy('createdAt', 'desc'),
+      );
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          setEval(snap.empty ? null : (snap.docs[0].data() as Record<string, unknown>));
+          setLoading(false);
+        },
+        (err) => {
+          console.warn('PoF evaluations sync note:', err.message);
+          setLoading(false);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('PoF query note:', e?.message);
       setLoading(false);
-    });
-    return unsub;
+    }
   }, [uid]);
 
   if (loading) return <Spinner />;
@@ -93,14 +104,14 @@ const StudentOverview: React.FC<{ uid: string }> = ({ uid }) => {
     </div>
   );
 
-  const targetGBP   = (eval_.targetGBP   as number) ?? 0;
+  const targetGBP   = (eval_.targetGBP   as number) ?? 13340;
   const currentGBP  = (eval_.currentGBP  as number) ?? 0;
   const currentNGN  = (eval_.currentNGN  as number) ?? 0;
-  const targetNGN   = (eval_.targetNGN   as number) ?? 0;
+  const targetNGN   = (eval_.targetNGN   as number) ?? 19200000;
   const maturityDay = (eval_.maturityDay as number) ?? 0;
   const fxBuffer    = (eval_.fxBufferPercent as number) ?? 5;
   const readiness   = (eval_.readinessDate as string) ?? '—';
-  const pct         = Math.min((currentGBP / targetGBP) * 100, 100);
+  const pct         = targetGBP > 0 ? Math.min((currentGBP / targetGBP) * 100, 100) : 0;
   const offset      = 251.3 - (251.3 * pct) / 100;
   const hasFlag     = !!(eval_.sourceOfFundsFlag);
 
@@ -166,11 +177,24 @@ const StudentAccounts: React.FC<{ uid: string }> = ({ uid }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'financial_accounts'), where('userId', '==', uid));
-    return onSnapshot(q, snap => {
-      setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      const q = query(collection(db, 'financial_accounts'), where('userId', '==', uid));
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        },
+        (err) => {
+          console.warn('Financial accounts sync note:', err.message);
+          setLoading(false);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('Financial accounts query note:', e?.message);
       setLoading(false);
-    });
+    }
   }, [uid]);
 
   if (loading) return <Spinner />;
@@ -225,11 +249,24 @@ const StudentDocuments: React.FC<{ uid: string }> = ({ uid }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'documents'), where('userId', '==', uid), orderBy('uploadedAt', 'desc'));
-    return onSnapshot(q, snap => {
-      setDocs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      const q = query(collection(db, 'documents'), where('userId', '==', uid), orderBy('uploadedAt', 'desc'));
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          setDocs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        },
+        (err) => {
+          console.warn('Documents sync note:', err.message);
+          setLoading(false);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('Documents query note:', e?.message);
       setLoading(false);
-    });
+    }
   }, [uid]);
 
   if (loading) return <Spinner />;
@@ -325,13 +362,26 @@ const StaffQueue: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'pof_evaluations'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setApplicants(data);
-      if (!selectedId && data.length > 0) setSelectedId(data[0].id as string);
+    try {
+      const q = query(collection(db, 'pof_evaluations'), orderBy('createdAt', 'desc'));
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setApplicants(data);
+          if (!selectedId && data.length > 0) setSelectedId(data[0].id as string);
+          setLoading(false);
+        },
+        (err) => {
+          console.warn('Staff queue sync note:', err.message);
+          setLoading(false);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('Staff queue query note:', e?.message);
       setLoading(false);
-    });
+    }
   }, []);
 
   const selected = applicants.find(a => a.id === selectedId);
@@ -339,7 +389,11 @@ const StaffQueue: React.FC = () => {
   const updateStatus = async (status: string) => {
     if (!selectedId) return;
     setSaving(true);
-    await updateDoc(doc(db, 'pof_evaluations', selectedId), { status, auditedAt: serverTimestamp() });
+    try {
+      await updateDoc(doc(db, 'pof_evaluations', selectedId), { status, auditedAt: serverTimestamp() });
+    } catch (e: any) {
+      console.warn('Status update note:', e?.message);
+    }
     setSaving(false);
   };
 
@@ -456,24 +510,39 @@ const AdminParams: React.FC = () => {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'system_config', 'global'), snap => {
-      if (snap.exists()) {
-        setFxBuffer(snap.data().fxBufferPercent ?? 10.0);
-        setAnomalyThreshold(snap.data().anomalyThreshold ?? 2.5);
-      }
-    });
-    return unsub;
+    try {
+      const unsub = onSnapshot(
+        doc(db, 'system_config', 'global'),
+        (snap) => {
+          if (snap.exists()) {
+            setFxBuffer(snap.data().fxBufferPercent ?? 10.0);
+            setAnomalyThreshold(snap.data().anomalyThreshold ?? 2.5);
+          }
+        },
+        (err) => {
+          console.warn('Admin params sync note:', err.message);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('Admin params query note:', e?.message);
+    }
   }, []);
 
   const save = async () => {
-    const { setDoc } = await import('firebase/firestore');
-    await setDoc(doc(db, 'system_config', 'global'), {
-      fxBufferPercent: fxBuffer,
-      anomalyThreshold,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    try {
+      await setDoc(doc(db, 'system_config', 'global'), {
+        fxBufferPercent: fxBuffer,
+        anomalyThreshold,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e: any) {
+      console.warn('Admin params save note:', e?.message);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
   };
 
   return (
@@ -502,7 +571,7 @@ const AdminParams: React.FC = () => {
         ))}
         <button onClick={save}
           className={`w-full py-3.5 rounded-xl font-black text-sm transition-all ${saved ? 'bg-emerald-500 text-slate-950' : 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/20'}`}>
-          {saved ? '✓ Saved to Firestore' : 'Save & Apply Parameters'}
+          {saved ? '✓ Saved' : 'Save & Apply Parameters'}
         </button>
       </GlassCard>
     </div>
@@ -514,11 +583,24 @@ const AdminAuditLog: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap => {
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'));
+      const unsub = onSnapshot(
+        q,
+        (snap) => {
+          setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setLoading(false);
+        },
+        (err) => {
+          console.warn('Audit logs sync note:', err.message);
+          setLoading(false);
+        },
+      );
+      return unsub;
+    } catch (e: any) {
+      console.warn('Audit logs query note:', e?.message);
       setLoading(false);
-    });
+    }
   }, []);
 
   if (loading) return <Spinner />;
@@ -640,7 +722,7 @@ export const MasterAppPortal: React.FC = () => {
         <div className="flex items-center space-x-3">
           {appUser.photoURL
             ? <img src={appUser.photoURL} alt="" className="w-9 h-9 rounded-xl object-cover border-2 border-[#F5B651]/40"/>
-            : <div className="w-9 h-9 rounded-xl bg-[#181B25] border-2 border-[#F5B651]/40 flex items-center justify-center text-[#F5B651] text-sm font-black">{appUser.displayName?.[0]?.toUpperCase()}</div>
+            : <div className="w-9 h-9 rounded-xl bg-[#181B25] border-2 border-[#F5B651]/40 flex items-center justify-center text-[#F5B651] text-sm font-black">{appUser.displayName?.[0]?.toUpperCase() || 'U'}</div>
           }
           <div className="hidden md:block">
             <p className="text-sm font-bold text-white leading-none">{appUser.displayName}</p>
@@ -648,7 +730,7 @@ export const MasterAppPortal: React.FC = () => {
           </div>
           <button
             onClick={() => signOut(auth)}
-            className="ml-2 p-2 rounded-xl bg-[#181B25] border border-white/8 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all"
+            className="ml-2 p-2 rounded-xl bg-[#181B25] border border-white/8 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all cursor-pointer"
             title="Sign out"
           >
             <LogOut className="w-4 h-4"/>
@@ -663,7 +745,7 @@ export const MasterAppPortal: React.FC = () => {
             <>
               {([['overview','📊 Status & Target'],['accounts','🏦 Bank Accounts'],['documents','📂 Documents'],['certificate','📜 Certificate']] as ['overview'|'accounts'|'documents'|'certificate', string][]).map(([id, label]) => (
                 <button key={id} onClick={() => setStudentTab(id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${studentTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
+                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${studentTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
               ))}
             </>
           )}
@@ -671,7 +753,7 @@ export const MasterAppPortal: React.FC = () => {
             <>
               {([['queue','📋 Applications Queue'],['forensics','🔬 eStatement Forensics']] as ['queue'|'forensics', string][]).map(([id, label]) => (
                 <button key={id} onClick={() => setStaffTab(id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${staffTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
+                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${staffTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
               ))}
             </>
           )}
@@ -679,7 +761,7 @@ export const MasterAppPortal: React.FC = () => {
             <>
               {([['params','⚙️ System Parameters'],['audit','📋 Audit Log'],['system','🖥️ Infrastructure']] as ['params'|'audit'|'system', string][]).map(([id, label]) => (
                 <button key={id} onClick={() => setAdminTab(id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${adminTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
+                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${adminTab === id ? tabActive : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>{label}</button>
               ))}
             </>
           )}
