@@ -399,20 +399,20 @@ export const StudentMobileFirstDashboard: React.FC<{
             </div>
           )}
 
-          {/* PROFILE FAB BUTTON with Blue Border Ring */}
+          {/* PROFILE FAB BUTTON with Blue Border Ring & Solid Background */}
           <button
             onClick={() => {
               setIsProfileOpen(!isProfileOpen);
               if (!isProfileOpen) setHasUnreadNotification(false);
             }}
             aria-label="Student Profile Menu"
-            className="relative w-10 h-10 rounded-2xl border-2 border-blue-500 shadow-md shadow-blue-500/20 bg-slate-900 flex items-center justify-center transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer"
+            className="relative w-11 h-11 rounded-2xl border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222] flex items-center justify-center transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer z-50"
           >
             {appUser?.photoURL ? (
               <img
                 src={appUser.photoURL}
                 alt="Profile Avatar"
-                className="w-full h-full object-cover rounded-xl"
+                className="w-full h-full object-cover rounded-xl bg-slate-800"
               />
             ) : (
               <span className="text-xs font-black text-blue-400 uppercase">
@@ -422,36 +422,48 @@ export const StudentMobileFirstDashboard: React.FC<{
 
             {/* PERSISTENT RED DOT at Bottom-Left Corner */}
             {hasUnreadNotification && (
-              <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-[#030712] shadow-sm animate-pulse" />
+              <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-[#030712] shadow-sm animate-pulse z-10" />
             )}
           </button>
 
-          {/* COLLAPSIBLE PROFILE POPOVER MENU */}
+          {/* BACKDROP OVERLAY FOR PROFILE MENU */}
           {isProfileOpen && (
-            <div className="absolute right-0 top-12 mt-2 w-72 bg-[#0D111A]/98 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+            <div
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsProfileOpen(false)}
+            />
+          )}
+
+          {/* COLLAPSIBLE PROFILE POPOVER MENU (Solid 100% Opaque Background) */}
+          {isProfileOpen && (
+            <div className="absolute right-0 top-14 mt-2 w-72 bg-[#0B1222] border-2 border-blue-500/30 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
               {/* User Header */}
-              <div className="flex items-center space-x-3 pb-3 border-b border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center font-black text-blue-400 text-sm">
-                  {name?.[0]?.toUpperCase() || 'S'}
+              <div className="flex items-center space-x-3 pb-3 border-b border-white/10">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center font-black text-blue-400 text-sm overflow-hidden">
+                  {appUser?.photoURL ? (
+                    <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    name?.[0]?.toUpperCase() || 'S'
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-white uppercase truncate">{name}</p>
-                  <p className="text-[10px] font-mono text-slate-400 truncate">@{appUser?.username || 'student'}</p>
+                  <p className="text-xs font-black text-white uppercase truncate">{name}</p>
+                  <p className="text-[10px] font-mono text-blue-400 truncate">@{appUser?.username || 'student'}</p>
                 </div>
               </div>
 
               {/* Menu Actions */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {/* a. Light / Dark Mode Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5 hover:text-white transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
                 >
                   <div className="flex items-center space-x-2.5">
                     {isDark ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
                     <span>{isDark ? 'Dark Theme' : 'Light Theme'}</span>
                   </div>
-                  <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-white/5 text-slate-400">
+                  <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
                     Toggle
                   </span>
                 </button>
@@ -462,7 +474,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                     setIsProfileOpen(false);
                     setIsSupportOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5 hover:text-white transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
                 >
                   <div className="flex items-center space-x-2.5">
                     <MessageCircle className="w-4 h-4 text-emerald-400" />
@@ -480,7 +492,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                     setIsNotificationsOpen(true);
                     setHasUnreadNotification(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/5 hover:text-white transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
                 >
                   <div className="flex items-center space-x-2.5">
                     <Bell className="w-4 h-4 text-amber-400" />
@@ -496,7 +508,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                 {/* Quick Test Notification Trigger */}
                 <button
                   onClick={handleTriggerTestNotification}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-medium text-slate-400 hover:bg-blue-500/10 hover:text-blue-400 transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-medium text-slate-300 hover:bg-blue-500/10 hover:text-blue-400 transition-all cursor-pointer"
                 >
                   <div className="flex items-center space-x-2.5">
                     <Sparkles className="w-3.5 h-3.5 text-blue-400" />
@@ -506,10 +518,10 @@ export const StudentMobileFirstDashboard: React.FC<{
               </div>
 
               {/* Sign Out */}
-              <div className="pt-2 border-t border-white/5">
+              <div className="pt-2 border-t border-white/10">
                 <button
                   onClick={() => signOut(auth)}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all"
+                  className="w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>

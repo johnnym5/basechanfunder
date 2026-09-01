@@ -1,289 +1,755 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  doc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../context/AuthContext';
+import {
+  Users,
+  ShieldCheck,
+  AlertTriangle,
+  Clock,
+  Zap,
+  Search,
+  ChevronRight,
+  Activity,
+  X,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  ShieldAlert,
+  Loader2,
+  Settings2,
+  Trash2,
+  Save,
+  Sparkles,
+  MoreVertical,
+  Eye
+} from 'lucide-react';
+import { ProfessionalSpinner } from './ui/LoadingStates';
+import { ManualOverrideModal } from './ManualOverrideModal';
+import { AdminTimerModal } from './AdminTimerModal';
+import { useTheme } from '../context/ThemeContext';
 
-export type UserRole = 'APPLICANT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
+// --- Types ---
 
-export interface ActiveUser {
-  name: string;
+type ComplianceStatus = 'CLEARED' | 'NEEDS_TOPUP' | 'NEAR_MATURITY' | 'AT_RISK' | 'PENDING' | 'NEW';
+
+interface Student {
   id: string;
-  role: UserRole;
-  roleTitle: string;
+  name: string;
   email: string;
+  status: ComplianceStatus;
+  consecutiveDays: number;
+  balanceGbp: number;
+  targetGbp: number;
+  anomalyRatio: number;
+  lastUpdate: string;
+  createdAt: string; // ISO string
+  isNew: boolean;
+  expirationDate: string | null;
+  timerCustomMessage: string | null;
+  isTimerActive: boolean;
+  pendingRequest?: {
+    type: 'FINANCE' | 'DAYS_EXTENSION';
+    amountNgn?: number;
+    daysRequested?: number;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: any;
+  };
 }
 
-export const StaffDashboard: React.FC = () => {
-  // Trial Mode User Profiles
-  const userProfiles: Record<UserRole, ActiveUser> = {
-    STAFF_AUDITOR: { name: 'J. Morgan', id: 'AUD-88', role: 'STAFF_AUDITOR', roleTitle: 'Staff Compliance Auditor', email: 'j.morgan@basechanfunder.com' },
-    APPLICANT: { name: 'Adebayo Ogunlesi', id: 'APP-8941', role: 'APPLICANT', roleTitle: 'Visa Applicant', email: 'adebayo.o@example.com' },
-    ADMIN_GOVERNANCE: { name: 'Dr. Sarah Connor', id: 'ADM-01', role: 'ADMIN_GOVERNANCE', roleTitle: 'Global Governance Admin', email: 'admin@basechanfunder.com' }
+// --- Sub-Components ---
+
+const StatCard: React.FC<{ label: string; value: number | string; icon: any; color: string; onClick?: () => void; isActive?: boolean }> = ({
+  label, value, icon: Icon, color, onClick, isActive
+}) => {
+  const { theme } = useTheme();
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left border p-5 rounded-3xl backdrop-blur-md relative overflow-hidden group transition-all ${
+        theme === 'dark'
+          ? `bg-slate-900/40 border-white/5 ${isActive ? 'border-amber-500/50 bg-amber-500/5 shadow-lg shadow-amber-500/5' : 'hover:border-white/10'}`
+          : `bg-white border-slate-200 shadow-sm ${isActive ? 'border-amber-500 ring-2 ring-amber-500/10' : 'hover:border-slate-300'}`
+      }`}
+    >
+      <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity ${color}`}>
+        <Icon className="w-16 h-16" />
+      </div>
+      <div className={`p-2 rounded-xl border w-fit mb-3 ${color} ${
+        theme === 'dark' ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
+      }`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>{value}</p>
+      <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600'}`}>{label}</p>
+    </button>
+  );
+};
+
+const StatusBadge: React.FC<{ status: ComplianceStatus; isNew?: boolean }> = ({ status, isNew }) => {
+  const { theme } = useTheme();
+  const styles: Record<string, string> = {
+    CLEARED: theme === 'dark' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200',
+    NEEDS_TOPUP: theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-600 border-amber-200',
+    NEAR_MATURITY: theme === 'dark' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200',
+    AT_RISK: theme === 'dark' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-600 border-rose-200',
+    PENDING: theme === 'dark' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-50 text-slate-500 border-slate-200',
+    NEW: theme === 'dark' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-200',
   };
 
-  const [activeRole, setActiveRole] = useState<UserRole>('STAFF_AUDITOR');
-  const currentUser = userProfiles[activeRole];
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter whitespace-nowrap shadow-sm ${styles[status] || styles.PENDING}`}>
+        {status.replace('_', ' ')}
+      </span>
+      {isNew && (
+        <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 uppercase tracking-widest animate-pulse">
+          New
+        </span>
+      )}
+    </div>
+  );
+};
 
-  const [selectedApplicant, setSelectedApplicant] = useState<string>('APP-2026-8941');
-  const [activeTab, setActiveTab] = useState<'matrix' | 'anomalies' | 'mbs' | 'certificate' | 'settings'>('matrix');
+interface StaffDashboardProps {
+  onInspect?: (id: string) => void;
+}
 
-  const applicants = [
-    { id: 'APP-2026-8941', name: 'Adebayo Ogunlesi', route: 'UK Student Visa (Tier 4)', targetGBP: 13340, status: 'VALIDATED', risk: 'LOW', min28Day: 14850.00, anomalyRatio: 0.12 },
-    { id: 'APP-2026-9012', name: 'Chioma Nwosu', route: 'Skilled Worker Visa', targetGBP: 18500, status: 'FLAGGED', risk: 'HIGH', min28Day: 17200.00, anomalyRatio: 3.45 },
-    { id: 'APP-2026-9155', name: 'Kowshik Rahman', route: 'Graduate Route', targetGBP: 11200, status: 'PENDING', risk: 'MEDIUM', min28Day: 12100.00, anomalyRatio: 1.80 }
-  ];
+export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect }) => {
+  const { appUser, role } = useAuth();
+  const { theme } = useTheme();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<ComplianceStatus | 'ALL' | 'REQUESTS'>('ALL');
+  const [requestTypeFilter, setRequestTypeFilter] = useState<'ALL' | 'FINANCE' | 'DAYS'>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
-  const currentApp = applicants.find(a => a.id === selectedApplicant) || applicants[0];
+  // Modal & Drawer State
+  const [isOverrideOpen, setIsOverrideOpen] = useState(false);
+  const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form State for Editing
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    balanceGbp: 0,
+    targetGbp: 0,
+    consecutiveDays: 0,
+    totalTargetDays: 28,
+    visaRoute: '',
+    counselor: 'Unassigned'
+  });
+
+  const isAdmin = role === 'ADMIN_GOVERNANCE';
+
+  // 1. Subscribe to all evaluations
+  useEffect(() => {
+    const q = query(collection(db, 'pof_evaluations'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const currentTime = Date.now();
+      const data = snap.docs.map(docSnap => {
+        const d = docSnap.data();
+
+        // 24-hour expiration logic
+        const createdMillis = d.createdAt?.seconds ? d.createdAt.seconds * 1000 : currentTime;
+        const elapsedHours = (currentTime - createdMillis) / (1000 * 60 * 60);
+        const isNew = elapsedHours <= 24;
+
+        // Compute consecutive days from start date
+        const start = d.startDate ? new Date(d.startDate).getTime() : null;
+        const days = start ? Math.min(Math.max(Math.floor((Date.now() - start) / (86400000)) + 1, 1), 28) : 0;
+
+        // Determine status if not explicitly set
+        let status = (d.status || 'PENDING') as any;
+        if (status === 'VALIDATED') status = 'CLEARED';
+
+        // "Almost Done" logic: users with less than 7 days left to reach 28
+        if (days >= 21 && days < 28 && status !== 'CLEARED') status = 'NEAR_MATURITY';
+
+        if (d.anomalyRatio > 2.5) status = 'AT_RISK';
+
+        return {
+          id: docSnap.id,
+          name: d.userName || 'Unknown Student',
+          email: d.userEmail || '',
+          status,
+          consecutiveDays: days,
+          balanceGbp: 0,
+          targetGbp: d.targetGBP || 0,
+          anomalyRatio: d.anomalyRatio || 0,
+          lastUpdate: d.updatedAt?.seconds ? new Date(d.updatedAt.seconds * 1000).toLocaleTimeString() : 'Just now',
+          createdAt: new Date(createdMillis).toISOString(),
+          isNew,
+          expirationDate: d.expirationDate || null,
+          timerCustomMessage: d.timerCustomMessage || null,
+          isTimerActive: d.isTimerActive || false
+        } as Student;
+      });
+      setStudents(data);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  // 2. Subscribe to top-up requests
+  useEffect(() => {
+    const q = query(collection(db, 'topup_requests'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
+  // 3. Subscribe to all financial accounts
+  useEffect(() => {
+    const q = query(collection(db, 'financial_accounts'));
+    const unsub = onSnapshot(q, (snap) => {
+      const accs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAccounts(accs);
+    });
+    return unsub;
+  }, []);
+
+  // 4. Merge data
+  const liveStudents = useMemo(() => {
+    return students.map(s => {
+      const studentAccs = accounts.filter(a => a.userId === s.id || a.userEmail === s.email);
+      const totalGbp = studentAccs.reduce((sum, curr) => sum + (Number(curr.balanceGBP) || 0), 0);
+      const studentRequest = requests.find(r => r.userId === s.id || r.userEmail === s.email);
+      return { ...s, balanceGbp: totalGbp, pendingRequest: studentRequest };
+    });
+  }, [students, accounts, requests]);
+
+  const stats = useMemo(() => ({
+    total: liveStudents.length,
+    cleared: liveStudents.filter(s => s.status === 'CLEARED').length,
+    topUpRequests: requests.length,
+    nearMaturity: liveStudents.filter(s => s.status === 'NEAR_MATURITY').length,
+    atRisk: liveStudents.filter(s => s.status === 'AT_RISK').length,
+    newUsers: liveStudents.filter(s => s.isNew).length
+  }), [liveStudents, requests]);
+
+  const filteredStudents = useMemo(() => {
+    return liveStudents.filter(s => {
+      let matchesFilter = true;
+      if (filter === 'ALL') matchesFilter = true;
+      else if (filter === 'CLEARED') matchesFilter = s.status === 'CLEARED';
+      else if (filter === 'NEAR_MATURITY') matchesFilter = s.status === 'NEAR_MATURITY';
+      else if (filter === 'AT_RISK') matchesFilter = s.status === 'AT_RISK';
+      else if (filter === 'REQUESTS') {
+        matchesFilter = !!s.pendingRequest;
+        if (matchesFilter && requestTypeFilter !== 'ALL') {
+          matchesFilter = s.pendingRequest?.type === requestTypeFilter;
+        }
+      }
+
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           s.email.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [liveStudents, filter, requestTypeFilter, searchTerm]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'pof_evaluations', id), {
+        status: 'VALIDATED',
+        updatedAt: serverTimestamp()
+      });
+      setSelectedStudent(null);
+    } catch (e) {
+      console.error('Approve error:', e);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedStudent) return;
+    setIsSubmitting(true);
+    try {
+      const studentRef = doc(db, 'pof_evaluations', selectedStudent.id);
+
+      // Calculate new start date if days changed
+      const newStart = new Date();
+      newStart.setDate(newStart.getDate() - editFormData.consecutiveDays + 1);
+
+      await updateDoc(studentRef, {
+        userName: editFormData.name,
+        targetGBP: editFormData.targetGbp,
+        currentBalanceGBP: editFormData.balanceGbp,
+        startDate: newStart.toISOString().split('T')[0],
+        updatedAt: serverTimestamp()
+      });
+
+      setIsEditMode(false);
+    } catch (e) {
+      console.error('Update error:', e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!selectedStudent) return;
+    if (!window.confirm(`Are you sure you want to PERMANENTLY erase ${selectedStudent.name}'s profile?`)) return;
+
+    setIsSubmitting(true);
+    try {
+      await deleteDoc(doc(db, 'pof_evaluations', selectedStudent.id));
+      setSelectedStudent(null);
+    } catch (e) {
+      console.error('Delete error:', e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[60vh] flex items-center justify-center">
+        <ProfessionalSpinner message="Loading please wait..." />
+      </div>
+    );
+  }
+
+  const tabs = ['ALL', 'CLEARED', 'NEEDS_TOPUP', 'NEAR_MATURITY', 'AT_RISK'];
+  if (isAdmin) tabs.splice(1, 0, 'NEW');
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Navbar with Trial Mode User Role Switcher */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-xl text-white shadow-blue-500/20 shadow-lg">
-            B
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-lg font-bold tracking-tight text-white">Basechanfunder</h1>
-              <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                🧪 Trial Sandbox Mode
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 font-medium">UKVI 28-Day Proof of Funds Compliance Platform</p>
-          </div>
-        </div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans">
 
-        {/* Top Right User Role Switcher */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-slate-950 border border-slate-800 p-1.5 rounded-xl">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-blue-400">
-              {currentUser.name.charAt(0)}
-            </div>
-
-            <div className="flex flex-col text-left pr-2">
-              <div className="flex items-center space-x-1.5">
-                <span className="text-xs font-bold text-white">{currentUser.name}</span>
-                <span className="text-[10px] text-slate-400 font-mono">({currentUser.id})</span>
-              </div>
-              <span className="text-[10px] text-blue-400 font-medium">{currentUser.roleTitle}</span>
-            </div>
-
-            {/* Role Selection Dropdown */}
-            <select
-              value={activeRole}
-              onChange={(e) => setActiveRole(e.target.value as UserRole)}
-              className="bg-slate-900 border border-blue-500/40 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-blue-400 transition-all cursor-pointer"
-            >
-              <option value="APPLICANT">👤 Switch to: Normal User (Applicant)</option>
-              <option value="STAFF_AUDITOR">🛡️ Switch to: Staff Auditor</option>
-              <option value="ADMIN_GOVERNANCE">🔑 Switch to: Admin Governance</option>
-            </select>
-          </div>
-        </div>
-      </header>
-
-      {/* Role Banner Alert */}
-      <div className={`px-6 py-2 border-b text-xs flex items-center justify-between font-mono ${
-        activeRole === 'ADMIN_GOVERNANCE'
-          ? 'bg-purple-950/60 border-purple-800/80 text-purple-300'
-          : activeRole === 'STAFF_AUDITOR'
-          ? 'bg-blue-950/60 border-blue-800/80 text-blue-300'
-          : 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'
-      }`}>
-        <span>
-          <strong>CURRENT PERMISSION LEVEL:</strong> {currentUser.role} — {currentUser.roleTitle} ({currentUser.email})
-        </span>
-        <span className="text-[11px] underline cursor-pointer hover:text-white">
-          Active Mode: {activeRole === 'APPLICANT' ? 'Self-Service Applicant Tracker' : activeRole === 'STAFF_AUDITOR' ? 'Auditor Queue & Verification' : 'Full Admin System Parameters'}
-        </span>
+      {/* 1. Statistics (Clickable Filters) */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          label="Total Students"
+          value={stats.total}
+          icon={Users}
+          color="text-slate-300"
+          onClick={() => setFilter('ALL')}
+          isActive={filter === 'ALL'}
+        />
+        <StatCard
+          label="Cleared"
+          value={stats.cleared}
+          icon={CheckCircle2}
+          color="text-emerald-400"
+          onClick={() => setFilter('CLEARED')}
+          isActive={filter === 'CLEARED'}
+        />
+        <StatCard
+          label="Top Up Request"
+          value={stats.topUpRequests}
+          icon={Zap}
+          color="text-amber-400"
+          onClick={() => setFilter('REQUESTS')}
+          isActive={filter === 'REQUESTS'}
+        />
+        <StatCard
+          label="Almost Done"
+          value={stats.nearMaturity}
+          icon={Clock}
+          color="text-cyan-400"
+          onClick={() => setFilter('NEAR_MATURITY')}
+          isActive={filter === 'NEAR_MATURITY'}
+        />
+        <StatCard
+          label="Risky"
+          value={stats.atRisk}
+          icon={ShieldAlert}
+          color="text-rose-400"
+          onClick={() => setFilter('AT_RISK')}
+          isActive={filter === 'AT_RISK'}
+        />
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="flex-1 grid grid-cols-12 gap-6 p-6">
-        {/* Left Sidebar - Queue (Only for Staff / Admin) */}
-        {activeRole !== 'APPLICANT' && (
-          <div className="col-span-12 lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Queue: Visa Applications</h2>
-              <span className="text-xs font-mono text-slate-400">3 Active</span>
-            </div>
+      {/* 2. List Header & Search */}
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+             <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+             <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+               {filter === 'ALL' ? 'All Students' : filter === 'REQUESTS' ? 'Pending Requests' : filter.replace('_', ' ')}
+             </h3>
+             {filter !== 'ALL' && (
+               <button
+                 onClick={() => {
+                   setFilter('ALL');
+                   setRequestTypeFilter('ALL');
+                 }}
+                 className="text-[9px] font-black text-slate-500 hover:text-amber-600 uppercase tracking-widest ml-2 transition-colors"
+               >
+                 (Reset)
+               </button>
+             )}
+          </div>
 
-            <div className="space-y-3 flex-1 overflow-y-auto">
-              {applicants.map((app) => (
-                <div
-                  key={app.id}
-                  onClick={() => setSelectedApplicant(app.id)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                    selectedApplicant === app.id
-                      ? 'bg-blue-600/10 border-blue-500/50 shadow-lg shadow-blue-500/5'
-                      : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700'
-                  }`}
+          {filter === 'REQUESTS' && (
+            <div className="flex items-center space-x-2 bg-slate-900/40 p-1 rounded-xl border border-white/5">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'FINANCE', label: 'Finance' },
+                { id: 'DAYS_EXTENSION', label: 'Days Extension' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setRequestTypeFilter(t.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${requestTypeFilter === t.id ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-bold text-sm text-slate-100">{app.name}</h3>
-                      <p className="text-xs text-slate-400 font-mono">{app.id} • {app.route}</p>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        app.status === 'VALIDATED'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : app.status === 'FLAGGED'
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}
-                    >
-                      {app.status}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-800/50 text-xs">
-                    <div>
-                      <span className="text-slate-500 block text-[10px]">Target Requirement</span>
-                      <span className="font-mono font-semibold text-slate-200">£{app.targetGBP.toLocaleString()}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block text-[10px]">28-Day Min Balance</span>
-                      <span className={`font-mono font-semibold ${app.min28Day >= app.targetGBP * 1.1 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        £{app.min28Day.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                  {t.label}
+                </button>
               ))}
             </div>
+          )}
+
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search students..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`border rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-amber-500/50 transition-all w-full md:w-64 backdrop-blur-md ${
+                theme === 'dark' ? 'bg-slate-900/50 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-950'
+              }`}
+            />
           </div>
-        )}
+        </div>
 
-        {/* Right Main Content */}
-        <div className={`col-span-12 ${activeRole === 'APPLICANT' ? 'lg:col-span-12' : 'lg:col-span-8'} bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col space-y-6`}>
-          {/* Applicant Banner */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-950 p-4 rounded-xl border border-slate-800/80 gap-4">
-            <div>
-              <div className="flex items-center space-x-3">
-                <h2 className="text-xl font-bold text-white">{activeRole === 'APPLICANT' ? currentUser.name : currentApp.name}</h2>
-                <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-mono">
-                  {activeRole === 'APPLICANT' ? 'APP-2026-8941' : currentApp.id}
-                </span>
+        {/* 3. Student Table */}
+        <div className={`border rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl transition-colors duration-500 ${
+          theme === 'dark' ? 'bg-slate-900/20 border-white/5' : 'bg-white border-slate-200'
+        }`}>
+          <div className="overflow-x-auto">
+            {filteredStudents.length === 0 ? (
+              <div className="p-20 text-center space-y-4">
+                <Users className="w-12 h-12 text-slate-300 mx-auto opacity-20" />
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No matching students found</p>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Route: <span className="text-slate-200">{activeRole === 'APPLICANT' ? 'UK Student Visa (Tier 4)' : currentApp.route}</span> | Target UKVI Requirement: <span className="font-mono text-blue-400">£{(activeRole === 'APPLICANT' ? 13340 : currentApp.targetGBP).toLocaleString()}</span>
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Risk Rating</span>
-                <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded ${
-                  (activeRole === 'APPLICANT' ? 'LOW' : currentApp.risk) === 'LOW' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                }`}>
-                  {activeRole === 'APPLICANT' ? 'LOW' : currentApp.risk} RISK
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex space-x-2 border-b border-slate-800 pb-2">
-            {[
-              { id: 'matrix', label: '📊 28-Day Balance Matrix' },
-              { id: 'anomalies', label: '⚠️ Anomaly & Cash Influx' },
-              { id: 'mbs', label: '📑 MBS PDF Inspection' },
-              { id: 'certificate', label: '📜 Compliance Certificate' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Matrix Tab */}
-          {activeTab === 'matrix' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-500">28-Day Lowest Closing Balance</span>
-                  <p className="text-xl font-bold font-mono text-emerald-400 mt-1">
-                    £{(activeRole === 'APPLICANT' ? 14850 : currentApp.min28Day).toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-500">Target + 10% FX Buffer</span>
-                  <p className="text-xl font-bold font-mono text-blue-400 mt-1">
-                    £{((activeRole === 'APPLICANT' ? 13340 : currentApp.targetGBP) * 1.1).toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-500">UKVI Compliance Status</span>
-                  <p className="text-xl font-bold text-emerald-400 mt-1">PASSED</p>
-                </div>
-              </div>
-
-              {/* Matrix Timeline Graphic */}
-              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4">28-Day Consecutive Balance Timeline</h3>
-                <div className="h-32 flex items-end justify-between space-x-1.5 pt-6">
-                  {Array.from({ length: 28 }).map((_, i) => {
-                    const heightPercent = 60 + Math.sin(i * 0.5) * 25 + (i === 14 ? -20 : 0);
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center group relative">
-                        <div
-                          style={{ height: `${heightPercent}%` }}
-                          className={`w-full rounded-t transition-all ${
-                            heightPercent < 45 ? 'bg-rose-500' : 'bg-blue-500 group-hover:bg-blue-400'
+            ) : (
+              <table className="w-full text-left font-sans">
+                <thead>
+                  <tr className={`text-[10px] font-black uppercase tracking-widest border-b transition-colors ${
+                    theme === 'dark' ? 'bg-slate-950/40 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    <th className="px-8 py-5">Student Name</th>
+                    <th className="px-8 py-5">Status</th>
+                    <th className="px-8 py-5">Request</th>
+                    <th className="px-8 py-5 text-right">View</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y transition-colors ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-100'}`}>
+                  {filteredStudents.map((student) => (
+                    <tr
+                      key={student.id}
+                      onClick={() => onInspect?.(student.id)}
+                      className={`transition-all group cursor-pointer ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
+                    >
+                      <td className="px-8 py-6">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-xs transition-colors ${
+                            theme === 'dark' ? 'bg-slate-800 border-white/10 text-amber-500' : 'bg-slate-100 border-slate-200 text-amber-600'
+                          }`}>
+                            {student.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold leading-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</p>
+                            <p className="text-[10px] font-mono text-slate-500 mt-1 truncate max-w-[150px] uppercase">{student.email || student.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <StatusBadge status={student.status} isNew={student.isNew} />
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="space-y-1">
+                          {student.pendingRequest ? (
+                            <div className="flex items-center space-x-2">
+                               <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                               <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">
+                                 {student.pendingRequest.type === 'FINANCE' ? 'Finance Top Up Requested' : 'Days Extension Requested'}
+                               </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-60">No Request Yet</span>
+                          )}
+                          <p className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600'}`}>
+                             Balance: £{student.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })} / £{student.targetGbp.toLocaleString()}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStudent(student);
+                          }}
+                          className={`p-2 rounded-xl border transition-all ${
+                            theme === 'dark'
+                              ? 'bg-slate-800 border-white/5 text-slate-400 hover:bg-amber-500 hover:text-slate-950'
+                              : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-amber-500 hover:text-white'
                           }`}
-                        />
-                        <span className="text-[8px] text-slate-500 mt-2 font-mono">D{i + 1}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'anomalies' && (
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-semibold text-slate-200">Financial Anomaly & Cash Influx Analysis</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Single-day cash deposit spikes are calculated against historical median balances. Anomaly ratios &lt; 2.5 indicate zero suspicious cash injections.
-              </p>
-            </div>
-          )}
-
-          {activeTab === 'mbs' && (
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-semibold text-slate-200">MyBankStatement (MBS) Verification</h3>
-              <div className="border border-slate-800 rounded-lg p-4 bg-slate-900/50 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Digital Signature Verification:</span>
-                  <span className="text-emerald-400 font-semibold font-mono">✓ VALID (GTBank RSA-2048)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Embedded PDF Font Integrity:</span>
-                  <span className="text-emerald-400 font-semibold font-mono">✓ ORIGINAL (No editing layers detected)</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'certificate' && (
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 text-center space-y-4">
-              <h3 className="text-sm font-semibold text-slate-200">Official UKVI Proof of Funds Certificate</h3>
-              <p className="text-xs text-slate-400">Download digitally-signed compliance certificate for Home Office visa submission.</p>
-              <button className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-lg shadow-blue-600/30 transition-all">
-                Download UKVI Certificate (PDF)
-              </button>
-            </div>
-          )}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
+
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-700" onClick={() => setSelectedStudent(null)}>
+          <div className={`w-full max-w-xl border-l h-screen shadow-2xl animate-in slide-in-from-left fade-in duration-1000 ease-in-out overflow-y-auto ${
+            theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
+          }`} onClick={e => e.stopPropagation()}>
+
+            <div className={`sticky top-0 p-8 border-b backdrop-blur-xl z-20 flex justify-between items-center ${
+              theme === 'dark' ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-100'
+            }`}>
+              <div>
+                <h3 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>Student Info</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1 uppercase">Reviewing Compliance Profile</p>
+              </div>
+              <button onClick={() => setSelectedStudent(null)} className={`p-3 rounded-2xl transition-all ${
+                theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
+              }`}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-8">
+              {!isEditMode ? (
+                <>
+                  <div className={`border p-6 rounded-[2.5rem] flex items-center space-x-6 ${
+                    theme === 'dark' ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
+                  }`}>
+                    <div className={`w-20 h-20 rounded-3xl border flex items-center justify-center font-black text-2xl transition-colors ${
+                      theme === 'dark' ? 'bg-slate-900 border-white/10 text-amber-500' : 'bg-white border-slate-200 text-amber-600'
+                    }`}>
+                      {selectedStudent.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <button
+                      onClick={() => {
+                        if (onInspect) onInspect(selectedStudent.id);
+                        setSelectedStudent(null);
+                      }}
+                      className="text-left group/name"
+                    >
+                      <h4 className={`text-xl font-black leading-none transition-all group-hover/name:text-amber-500 ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>
+                        {selectedStudent.name}
+                      </h4>
+                    </button>
+                      <p className="text-xs font-mono text-slate-500 mt-2 uppercase">{selectedStudent.email}</p>
+                      <div className="mt-4">
+                        <StatusBadge status={selectedStudent.status} isNew={selectedStudent.isNew} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className={`p-5 rounded-3xl border ${theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
+                      <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Current Balance</p>
+                      <p className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>£{selectedStudent.balanceGbp.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Compliance Actions</h5>
+
+                    {selectedStudent.status !== 'CLEARED' && (
+                      <button
+                        onClick={() => handleApprove(selectedStudent.id)}
+                        className="w-full flex items-center justify-between p-6 bg-gradient-to-tr from-amber-400 to-amber-600 rounded-3xl text-slate-950 font-black text-sm uppercase tracking-widest shadow-xl shadow-amber-500/10 hover:shadow-amber-500/20 transition-all"
+                      >
+                        <span>Approve student</span>
+                        <CheckCircle2 className="w-5 h-5" />
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setIsEditMode(true)}
+                        className={`flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                        }`}
+                      >
+                        <span>Edit</span>
+                        <Settings2 className="w-5 h-5 text-blue-500" />
+                      </button>
+                      <button
+                        onClick={handleDeleteProfile}
+                        className={`flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-rose-500/10 hover:text-rose-400' : 'bg-white border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-600 shadow-sm'
+                        }`}
+                      >
+                        <span>Delete</span>
+                        <Trash2 className="w-5 h-5 text-rose-500" />
+                      </button>
+                    </div>
+
+                    <button className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                      theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                    }`}>
+                      <span>View history</span>
+                      <Activity className="w-5 h-5 text-cyan-500" />
+                    </button>
+
+                    <button className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                      theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                    }`}>
+                      <span>Message Student</span>
+                      <FileText className="w-5 h-5 text-emerald-500" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (onInspect) onInspect(selectedStudent.id);
+                        setSelectedStudent(null);
+                      }}
+                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-amber-500/10 hover:text-amber-500' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                      }`}
+                    >
+                      <span>View student page</span>
+                      <Eye className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      onClick={() => setIsOverrideOpen(true)}
+                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                      }`}
+                    >
+                      <span>Manual Change</span>
+                      <Settings2 className="w-5 h-5 text-amber-500" />
+                    </button>
+
+                    <button
+                      onClick={() => setIsTimerModalOpen(true)}
+                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-amber-500/10 hover:text-amber-500' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                      }`}
+                    >
+                      <span>Set Expiry Timer</span>
+                      <Clock className="w-5 h-5 text-amber-500" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Student Identity</label>
+                      <input
+                        type="text"
+                        value={editFormData.name}
+                        onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                        className={`w-full border rounded-2xl px-4 py-3 text-xs focus:outline-none focus:border-amber-500 ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-950'
+                        }`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Available Balance (£)</label>
+                      <input
+                        type="number"
+                        value={editFormData.balanceGbp}
+                        onChange={(e) => setEditFormData({...editFormData, balanceGbp: parseFloat(e.target.value)})}
+                        className={`w-full border rounded-2xl px-4 py-3 text-xs font-bold focus:outline-none focus:border-amber-500 ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-emerald-400' : 'bg-slate-50 border-slate-200 text-emerald-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Required Target (£)</label>
+                      <input
+                        type="number"
+                        value={editFormData.targetGbp}
+                        onChange={(e) => setEditFormData({...editFormData, targetGbp: parseFloat(e.target.value)})}
+                        className={`w-full border rounded-2xl px-4 py-3 text-xs focus:outline-none focus:border-amber-500 ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-950'
+                        }`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Completed Days</label>
+                      <input
+                        type="number"
+                        value={editFormData.consecutiveDays}
+                        onChange={(e) => setEditFormData({...editFormData, consecutiveDays: parseInt(e.target.value)})}
+                        className={`w-full border rounded-2xl px-4 py-3 text-xs font-bold focus:outline-none focus:border-amber-500 ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-amber-500' : 'bg-slate-50 border-slate-200 text-amber-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Target Days</label>
+                      <input
+                        type="number"
+                        value={editFormData.totalTargetDays}
+                        onChange={(e) => setEditFormData({...editFormData, totalTargetDays: parseInt(e.target.value)})}
+                        className={`w-full border rounded-2xl px-4 py-3 text-xs focus:outline-none focus:border-amber-500 ${
+                          theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-950'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setIsEditMode(false)}
+                      className={`flex-1 px-6 py-4 rounded-2xl border font-bold text-xs uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={isSubmitting}
+                      className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-tr from-amber-400 to-amber-600 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-amber-500/10 active:scale-95"
+                    >
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ManualOverrideModal
+        isOpen={isOverrideOpen}
+        onClose={() => setIsOverrideOpen(false)}
+        student={selectedStudent}
+        performedBy={appUser?.email || 'system'}
+      />
+
+      <AdminTimerModal
+        isOpen={isTimerModalOpen}
+        onClose={() => setIsTimerModalOpen(false)}
+        student={selectedStudent}
+      />
     </div>
   );
 };
