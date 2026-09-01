@@ -7,9 +7,27 @@ import {
   sendEmailVerification,
   AuthError,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, User, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  ShieldCheck,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  User,
+  AtSign,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 
 type AuthMode = 'login' | 'signup';
 
@@ -45,11 +63,17 @@ const Field: React.FC<{
 // ─── Main Auth Page ────────────────────────────────────────────
 export const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  
+  // Form State
+  const [identifier, setIdentifier] = useState(''); // Can be Username OR Email on login
+  const [email, setEmail] = useState('');           // Explicit email on signup
+  const [username, setUsername] = useState('');     // Explicit username on signup
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  
+  // Status State
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,24 +83,73 @@ export const AuthPage: React.FC = () => {
     switch (err.code) {
       case 'auth/user-not-found':
       case 'auth/wrong-password':
-      case 'auth/invalid-credential': return 'Invalid email or password. Please try again.';
-      case 'auth/email-already-in-use': return 'An account with this email already exists.';
-      case 'auth/weak-password': return 'Password must be at least 6 characters.';
-      case 'auth/invalid-email': return 'Please enter a valid email address.';
-      case 'auth/popup-closed-by-user': return 'Google sign-in was cancelled. Please try again.';
-      case 'auth/network-request-failed': return 'Network error. Check your connection and try again.';
-      default: return err.message;
+      case 'auth/invalid-credential':
+        return 'Invalid username/email or password. Please try again.';
+      case 'auth/email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'auth/weak-password':
+        return 'Password must be at least 6 characters.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in was cancelled. Please try again.';
+      case 'auth/network-request-failed':
+        return 'Network error. Check your connection and try again.';
+      default:
+        return err.message;
     }
   };
 
-  // ── Email/Password login
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // ── Login with Username OR Email
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSuccess('');
-    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    setError('');
+    setSuccess('');
+
+    const rawIdentifier = identifier.trim();
+    if (!rawIdentifier || !password) {
+      setError('Please enter your username/email and password.');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      let resolvedEmail = rawIdentifier;
+
+      // If user did NOT enter an email (no '@'), resolve username to email from Firestore
+      if (!rawIdentifier.includes('@')) {
+        const cleanUsername = rawIdentifier.toLowerCase().replace(/^@/, '');
+        
+        // 1. Query Firestore for exact username match
+        const usernameQuery = query(
+          collection(db, 'users'),
+          where('username', '==', cleanUsername)
+        );
+        const usernameSnap = await getDocs(usernameQuery);
+
+        if (!usernameSnap.empty) {
+          resolvedEmail = usernameSnap.docs[0].data().email;
+        } else {
+          // 2. Fallback check for displayName match
+          const nameQuery = query(
+            collection(db, 'users'),
+            where('displayName', '==', rawIdentifier)
+          );
+          const nameSnap = await getDocs(nameQuery);
+
+          if (!nameSnap.empty) {
+            resolvedEmail = nameSnap.docs[0].data().email;
+          } else {
+            setError(`No account found with username "@${cleanUsername}". Please verify your username or sign in with your email.`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Execute Firebase Authentication with resolved email
+      await signInWithEmailAndPassword(auth, resolvedEmail, password);
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -84,30 +157,76 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  // ── Email/Password sign up
-  const handleEmailSignup = async (e: React.FormEvent) => {
+  // ── Registration with Full Name, Custom Username & Email
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSuccess('');
-    if (!name.trim()) { setError('Please enter your full name.'); return; }
-    if (!email || !password) { setError('Please fill in all fields.'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    setError('');
+    setSuccess('');
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    const cleanUsername = (username.trim() || email.split('@')[0] || '')
+      .toLowerCase()
+      .replace(/^@/, '')
+      .replace(/[^a-z0-9_]/g, '');
+
+    if (!cleanName) {
+      setError('Please enter your full name.');
+      return;
+    }
+    if (!cleanUsername) {
+      setError('Please enter a valid username (letters, numbers, and underscores).');
+      return;
+    }
+    if (!cleanEmail || !password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(cred.user, { displayName: name.trim() });
+      // Check if username is already registered in Firestore
+      const existingUserQuery = query(
+        collection(db, 'users'),
+        where('username', '==', cleanUsername)
+      );
+      const existingUserSnap = await getDocs(existingUserQuery);
+
+      if (!existingUserSnap.empty) {
+        setError(`The username "@${cleanUsername}" is already taken. Please choose another username.`);
+        setLoading(false);
+        return;
+      }
+
+      // Create Firebase Auth user
+      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      await updateProfile(cred.user, { displayName: cleanName });
       await sendEmailVerification(cred.user);
-      // Create Firestore user doc
-      const role = email.endsWith('@basechaninternational.com') ? 'ADMIN_GOVERNANCE' : 'STUDENT';
+
+      // Derive initial role
+      const role = cleanEmail.endsWith('@basechaninternational.com') ? 'ADMIN_GOVERNANCE' : 'STUDENT';
+
+      // Persist profile with custom username to Firestore
       await setDoc(doc(db, 'users', cred.user.uid), {
         uid: cred.user.uid,
-        email,
-        displayName: name.trim(),
+        email: cleanEmail,
+        username: cleanUsername,
+        displayName: cleanName,
         photoURL: '',
         role,
         createdAt: serverTimestamp(),
       });
-      setSuccess('Account created! Please check your email to verify your account.');
+
+      setSuccess(`Account created! You can now log in using "@${cleanUsername}" or your email.`);
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -115,13 +234,13 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  // ── Google sign-in / sign-up
+  // ── Google SSO
   const handleGoogle = async () => {
-    setError(''); setSuccess('');
+    setError('');
+    setSuccess('');
     setGoogleLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      // AuthContext handles Firestore profile creation on first login
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -134,13 +253,20 @@ export const AuthPage: React.FC = () => {
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-[#090D16] font-sans p-4 relative overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.06) 0%, #090D16 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.04) 0%, transparent 55%)' }}
+      style={{
+        background:
+          'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.06) 0%, #090D16 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.04) 0%, transparent 55%)',
+      }}
     >
       {/* Ambient orbs */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)' }} />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)' }} />
+      <div
+        className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)' }}
+      />
+      <div
+        className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)' }}
+      />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo + Brand */}
@@ -163,10 +289,14 @@ export const AuthPage: React.FC = () => {
         >
           {/* Mode toggle */}
           <div className="flex rounded-xl bg-[#0A0D14] border border-white/8 p-1">
-            {(['login', 'signup'] as AuthMode[]).map(m => (
+            {(['login', 'signup'] as AuthMode[]).map((m) => (
               <button
                 key={m}
-                onClick={() => { setMode(m); setError(''); setSuccess(''); }}
+                onClick={() => {
+                  setMode(m);
+                  setError('');
+                  setSuccess('');
+                }}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                   mode === m
                     ? 'bg-gradient-to-r from-[#F5B651] to-[#E5A635] text-slate-950 shadow-md'
@@ -192,26 +322,48 @@ export const AuthPage: React.FC = () => {
           )}
 
           {/* Form */}
-          <form onSubmit={isLogin ? handleEmailLogin : handleEmailSignup} className="space-y-4">
-            {!isLogin && (
+          <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
+            {isLogin ? (
+              /* LOGIN MODE: Username or Email */
               <Field
-                label="Full Name"
-                value={name}
-                onChange={setName}
-                placeholder="e.g. Chidi Ogunlesi"
+                label="Username or Email Address"
+                value={identifier}
+                onChange={setIdentifier}
+                placeholder="username or you@example.com"
                 icon={<User className="w-4 h-4" />}
-                autoComplete="name"
+                autoComplete="username"
               />
+            ) : (
+              /* SIGNUP MODE: Full Name, Username, Email */
+              <>
+                <Field
+                  label="Full Name"
+                  value={name}
+                  onChange={setName}
+                  placeholder="e.g. Chidi Ogunlesi"
+                  icon={<User className="w-4 h-4" />}
+                  autoComplete="name"
+                />
+                <Field
+                  label="Username"
+                  value={username}
+                  onChange={setUsername}
+                  placeholder="e.g. chidi_ogunlesi"
+                  icon={<AtSign className="w-4 h-4" />}
+                  autoComplete="username"
+                />
+                <Field
+                  label="Email Address"
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  placeholder="you@example.com"
+                  icon={<Mail className="w-4 h-4" />}
+                  autoComplete="email"
+                />
+              </>
             )}
-            <Field
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="you@example.com"
-              icon={<Mail className="w-4 h-4" />}
-              autoComplete="email"
-            />
+
             <Field
               label="Password"
               type={showPwd ? 'text' : 'password'}
@@ -221,11 +373,16 @@ export const AuthPage: React.FC = () => {
               icon={<Lock className="w-4 h-4" />}
               autoComplete={isLogin ? 'current-password' : 'new-password'}
               toggle={
-                <button type="button" onClick={() => setShowPwd(!showPwd)} className="cursor-pointer hover:text-white transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(!showPwd)}
+                  className="cursor-pointer hover:text-white transition-colors"
+                >
                   {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               }
             />
+
             {!isLogin && (
               <Field
                 label="Confirm Password"
@@ -241,7 +398,7 @@ export const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#F5B651] to-[#E5A635] text-slate-950 font-black text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all disabled:opacity-60 flex items-center justify-center space-x-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#F5B651] to-[#E5A635] text-slate-950 font-black text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all disabled:opacity-60 flex items-center justify-center space-x-2 cursor-pointer"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
@@ -259,16 +416,28 @@ export const AuthPage: React.FC = () => {
           <button
             onClick={handleGoogle}
             disabled={googleLoading}
-            className="w-full py-3 rounded-xl bg-[#181B25] border border-white/10 hover:border-white/25 text-white font-semibold text-sm flex items-center justify-center space-x-3 transition-all disabled:opacity-60"
+            className="w-full py-3 rounded-xl bg-[#181B25] border border-white/10 hover:border-white/25 text-white font-semibold text-sm flex items-center justify-center space-x-3 transition-all disabled:opacity-60 cursor-pointer"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
             ) : (
               <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
               </svg>
             )}
             <span>Continue with Google</span>

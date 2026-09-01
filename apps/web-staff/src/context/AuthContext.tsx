@@ -11,6 +11,7 @@ export type UserRole = 'STUDENT' | 'STAFF_AUDITOR' | 'ADMIN_GOVERNANCE';
 export interface AppUser {
   uid: string;
   email: string;
+  username?: string;
   displayName: string;
   photoURL: string;
   role: UserRole;
@@ -34,7 +35,6 @@ const AuthContext = createContext<AuthContextValue>({
 // Determine role from email domain
 function deriveRole(email: string): UserRole {
   if (email.endsWith('@basechaninternational.com')) return 'ADMIN_GOVERNANCE';
-  // Staff auditor emails can be extended here e.g. @basechanfunder.co.uk
   return 'STUDENT';
 }
 
@@ -52,13 +52,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const snap = await getDoc(userRef);
 
         if (snap.exists()) {
-          setAppUser(snap.data() as AppUser);
+          const data = snap.data() as AppUser;
+          // If username wasn't set previously, set it now
+          if (!data.username && firebaseUser.email) {
+            const derivedUsername = (firebaseUser.email.split('@')[0] || firebaseUser.uid)
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, '');
+            await setDoc(userRef, { username: derivedUsername }, { merge: true });
+            data.username = derivedUsername;
+          }
+          setAppUser(data);
         } else {
           // First login — derive role from email and create profile
           const role = deriveRole(firebaseUser.email ?? '');
+          const derivedUsername = ((firebaseUser.email?.split('@')[0] || firebaseUser.uid))
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '');
+
           const newUser: AppUser = {
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? '',
+            username: derivedUsername,
             displayName: firebaseUser.displayName ?? '',
             photoURL: firebaseUser.photoURL ?? '',
             role,
