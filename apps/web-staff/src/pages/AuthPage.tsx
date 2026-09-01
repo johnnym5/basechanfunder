@@ -273,11 +273,6 @@ export const AuthPage: React.FC = () => {
             )}
             <span>Continue with Google</span>
           </button>
-
-          {/* Admin hint */}
-          <p className="text-center text-[10px] font-mono text-slate-600 leading-relaxed">
-            Accounts using <span className="text-[#F5B651]">@basechaninternational.com</span> are automatically granted Admin Governance access.
-          </p>
         </div>
       </div>
     </div>
