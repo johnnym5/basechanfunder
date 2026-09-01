@@ -714,4 +714,5 @@ export const StudentLightDashboard: React.FC<{
   );
 };
 
-export default StudentLightDashboard;
+export { StudentMobileFirstDashboard } from './StudentMobileFirstDashboard';
+export default StudentMobileFirstDashboard;
