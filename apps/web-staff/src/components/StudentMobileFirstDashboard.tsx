@@ -521,13 +521,13 @@ export const StudentMobileFirstDashboard: React.FC<{
       </header>
 
       {/* MAIN MOBILE CONTENT CONTAINER */}
-      <main className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5 pb-12">
+      <main className="w-full px-3.5 sm:px-6 py-4 space-y-4 max-w-4xl mx-auto pb-12">
 
         {/* PRIMARY ACTION BUTTON: New Top-Up Request */}
         <div>
           <button
             onClick={() => isStaff && onStaffAction ? onStaffAction() : setIsTopUpModalOpen(true)}
-            className="w-full flex items-center justify-center space-x-2.5 py-3.5 px-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98]"
+            className="w-full flex items-center justify-center space-x-2 py-3 px-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             <span>{isStaff ? 'New Top-Up Update' : 'New Top-Up Request'}</span>
@@ -536,10 +536,10 @@ export const StudentMobileFirstDashboard: React.FC<{
 
         {/* METRIC CARDS HORIZONTAL CAROUSEL */}
         <section>
-          <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 pt-1">
 
             {/* CARD 1: Total Liquid Converted Balance */}
-            <div className="w-[88%] sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
+            <div className="w-full sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div>
@@ -579,7 +579,7 @@ export const StudentMobileFirstDashboard: React.FC<{
             </div>
 
             {/* CARD 2: Statutory Holding & Expiration Timer */}
-            <div className="w-[88%] sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0F172A] border border-white/10 flex flex-col justify-between">
+            <div className="w-full sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0F172A] border border-white/10 flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div>

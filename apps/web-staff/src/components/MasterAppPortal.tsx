@@ -106,7 +106,7 @@ export const MasterAppPortal: React.FC = () => {
 
   return (
     <div className={`h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 ${
-      theme === 'dark' ? 'bg-[#0a0f1e] text-slate-100' : 'bg-slate-50 text-slate-900'
+      theme === 'dark' ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
       {/* Simulation Warning (Sticky Top) */}
       {isSimulating && (
