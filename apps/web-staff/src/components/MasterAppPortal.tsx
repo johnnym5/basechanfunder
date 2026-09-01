@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
-import { RoleSimulationBar } from './RoleSimulationBar';
 import { useTheme } from '../context/ThemeContext';
 
 // Import View Components
@@ -47,11 +46,6 @@ import { StaffQueue } from './StaffQueue';
 import { StudentSupportChat } from './StudentSupportChat';
 import { AdminSupportDesk } from './AdminSupportDesk';
 import { StaffStudentViewMode } from './StaffStudentViewMode';
-
-// Dummy/Placeholder sub-components for views not yet refactored
-const AccountLinker = () => <div className="p-8 text-white">Account Linker Content</div>;
-const DocumentVault = () => <div className="p-8 text-white">Document Vault Content</div>;
-const CertificateGenerator = () => <div className="p-8 text-white">Certificate Generator Content</div>;
 
 export const MasterAppPortal: React.FC = () => {
   const { appUser: realUser, role: realRole, currentUser } = useAuth();

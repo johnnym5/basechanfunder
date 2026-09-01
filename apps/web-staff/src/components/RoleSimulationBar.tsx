@@ -19,24 +19,16 @@ interface SimulationTarget {
 interface RoleSimulationBarProps {
   activeRole: UserRole | null;
   targetUser: SimulationTarget | null;
+  availableTargets?: SimulationTarget[];
   onRoleChange: (role: UserRole) => void;
   onTargetChange: (target: SimulationTarget) => void;
   onExit: () => void;
 }
 
-const MOCK_STUDENTS: SimulationTarget[] = [
-  { id: 'STU-001', name: 'David Osei' },
-  { id: 'STU-002', name: 'Fatima Bello' },
-  { id: 'STU-003', name: 'Egbase John Mary' },
-];
-
-const MOCK_COUNSELORS: SimulationTarget[] = [
-  { id: 'CNS-001', name: 'Sarah Jenkins' },
-];
-
 export const RoleSimulationBar: React.FC<RoleSimulationBarProps> = ({
   activeRole,
   targetUser,
+  availableTargets = [],
   onRoleChange,
   onTargetChange,
   onExit
@@ -47,7 +39,7 @@ export const RoleSimulationBar: React.FC<RoleSimulationBarProps> = ({
         {/* Warning Indicator */}
         <div className="flex items-center space-x-2 text-slate-950">
           <ShieldAlert className="w-5 h-5 fill-slate-950/20" />
-          <span className="text-xs font-black uppercase tracking-widest">Simulation Active</span>
+          <span className="text-xs font-black uppercase tracking-widest text-red-700">Admin Impersonation Active</span>
         </div>
 
         <div className="h-6 w-px bg-slate-950/10" />
@@ -90,34 +82,22 @@ export const RoleSimulationBar: React.FC<RoleSimulationBarProps> = ({
           {/* Dropdown Menu */}
           <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all translate-y-2 group-hover:translate-y-0">
              <div className="p-3 border-b border-slate-100 bg-slate-50">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Entities</span>
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Users in Database</span>
              </div>
              <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-               {activeRole === 'STUDENT' ? (
-                 MOCK_STUDENTS.map(s => (
+               {availableTargets.length > 0 ? (
+                 availableTargets.map(u => (
                    <button
-                     key={s.id}
-                     onClick={() => onTargetChange(s)}
+                     key={u.id}
+                     onClick={() => onTargetChange(u)}
                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-amber-500 hover:text-slate-950 transition-all flex items-center justify-between"
                    >
-                     <span>{s.name}</span>
-                     <span className="text-[9px] opacity-60">{s.id}</span>
-                   </button>
-                 ))
-               ) : activeRole === 'COUNSELOR' ? (
-                 MOCK_COUNSELORS.map(c => (
-                   <button
-                     key={c.id}
-                     onClick={() => onTargetChange(c)}
-                     className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-amber-500 hover:text-slate-950 transition-all flex items-center justify-between"
-                   >
-                     <span>{c.name}</span>
-                     <span className="text-[9px] opacity-60">{c.id}</span>
+                     <span className="truncate">{u.name}</span>
                    </button>
                  ))
                ) : (
                  <div className="p-4 text-center">
-                   <p className="text-[10px] font-bold text-slate-400 italic">No specific context needed for Admin view.</p>
+                   <p className="text-[10px] font-bold text-slate-400 italic">No registered users in live database.</p>
                  </div>
                )}
              </div>

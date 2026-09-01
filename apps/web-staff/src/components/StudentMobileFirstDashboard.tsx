@@ -355,20 +355,22 @@ export const StudentMobileFirstDashboard: React.FC<{
     }`}>
 
       {/* TOP HEADER: Clean Title + Profile FAB */}
-      <header className="sticky top-0 z-40 px-4 pt-4 pb-3 backdrop-blur-xl border-b transition-colors border-white/5 bg-[#030712]/90 flex items-center justify-between">
+      <header className={`sticky top-0 z-40 px-4 pt-4 pb-3 backdrop-blur-xl border-b transition-colors flex items-center justify-between ${
+        isDark ? 'bg-[#030712]/95 border-white/5' : 'bg-white/95 border-slate-200 shadow-xs'
+      }`}>
         <div className="flex-1 min-w-0 pr-3">
-          <h1 className="text-lg sm:text-xl font-black tracking-tight uppercase truncate text-white">
+          <h1 className={`text-lg sm:text-xl font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Hello, {name || 'Student'}
           </h1>
-          <p className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider truncate">
-            Welcome to your <span className="text-blue-400 font-bold">Basechan Funder</span> dashboard
+          <p className={`text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Welcome to your <span className="text-blue-600 font-bold">Basechan Funder</span> dashboard
           </p>
         </div>
 
         {/* TOP-RIGHT PROFILE FAB & ANIMATED NOTIFICATION BANNER CONTAINER */}
         <div className="relative flex items-center" ref={profileMenuRef}>
 
-          {/* 5-SECOND SLIDE-OUT NOTIFICATION BANNER */}
+          {/* SLIDE-OUT NOTIFICATION BANNER */}
           {activeToast && !isProfileOpen && (
             <div
               onClick={() => {
@@ -376,70 +378,83 @@ export const StudentMobileFirstDashboard: React.FC<{
                 setActiveToast(null);
                 setHasUnreadNotification(false);
               }}
-              className={`absolute right-12 z-50 flex items-center gap-2.5 bg-slate-900/95 border border-blue-500/40 shadow-[0_4px_25px_rgba(59,130,246,0.3)] rounded-2xl px-3.5 py-2 max-w-[260px] sm:max-w-[320px] cursor-pointer backdrop-blur-2xl transition-all duration-400 ${
+              className={`absolute right-12 z-50 flex items-center gap-2.5 border shadow-xl rounded-2xl px-3.5 py-2 max-w-[260px] sm:max-w-[320px] cursor-pointer backdrop-blur-2xl transition-all duration-400 ${
+                isDark
+                  ? 'bg-slate-900/95 border-blue-500/40 text-white shadow-[0_4px_25px_rgba(59,130,246,0.3)]'
+                  : 'bg-white border-blue-200 text-slate-900 shadow-[0_4px_25px_rgba(0,0,0,0.15)]'
+              } ${
                 isToastRetracting
                   ? 'opacity-0 translate-x-10 scale-90'
                   : 'animate-in slide-in-from-right-8 fade-in duration-300'
               }`}
             >
               <div className="w-6 h-6 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
-                <Bell className="w-3.5 h-3.5 text-blue-400 animate-bounce" />
+                <Bell className="w-3.5 h-3.5 text-blue-500 animate-bounce" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase text-blue-400 tracking-wider truncate">
-                    {activeToast.title}
-                  </p>
-                  <span className="text-[8px] font-mono text-slate-500 ml-1 shrink-0">5s</span>
-                </div>
-                <p className="text-[10px] text-slate-200 truncate leading-tight mt-0.5">
+                <p className="text-[10px] font-black uppercase text-blue-600 tracking-wider truncate">
+                  {activeToast.title}
+                </p>
+                <p className={`text-[10px] truncate leading-tight mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>
                   {activeToast.message}
                 </p>
               </div>
             </div>
           )}
 
-          {/* PROFILE FAB BUTTON with Blue Border Ring & Solid Background */}
+          {/* PROFILE FAB BUTTON with Blue Border Ring & Adaptive Theme Background */}
           <button
             onClick={() => {
               setIsProfileOpen(!isProfileOpen);
               if (!isProfileOpen) setHasUnreadNotification(false);
             }}
             aria-label="Student Profile Menu"
-            className="relative w-11 h-11 rounded-2xl border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222] flex items-center justify-center transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer z-50"
+            className={`relative w-11 h-11 rounded-full border-2 transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer z-50 flex items-center justify-center ${
+              isDark
+                ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222]'
+                : 'border-blue-600 shadow-md shadow-blue-500/20 bg-white'
+            }`}
           >
             {appUser?.photoURL ? (
               <img
                 src={appUser.photoURL}
                 alt="Profile Avatar"
-                className="w-full h-full object-cover rounded-xl bg-slate-800"
+                className="w-full h-full object-cover rounded-full bg-slate-800"
               />
             ) : (
-              <span className="text-xs font-black text-blue-400 uppercase">
+              <span className="text-xs font-black text-blue-600 uppercase">
                 {name?.[0]?.toUpperCase() || 'S'}
               </span>
             )}
 
             {/* PERSISTENT RED DOT at Bottom-Left Corner */}
             {hasUnreadNotification && (
-              <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-[#030712] shadow-sm animate-pulse z-10" />
+              <span className={`absolute -bottom-1 -left-1 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 shadow-sm animate-pulse z-10 ${
+                isDark ? 'border-[#030712]' : 'border-white'
+              }`} />
             )}
           </button>
 
           {/* BACKDROP OVERLAY FOR PROFILE MENU */}
           {isProfileOpen && (
             <div
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
               onClick={() => setIsProfileOpen(false)}
             />
           )}
 
-          {/* COLLAPSIBLE PROFILE POPOVER MENU (Solid 100% Opaque Background) */}
+          {/* COLLAPSIBLE PROFILE POPOVER MENU (Adaptive Solid Background) */}
           {isProfileOpen && (
-            <div className="absolute right-0 top-14 mt-2 w-72 bg-[#0B1222] border-2 border-blue-500/30 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+            <div className={`absolute right-0 top-14 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:w-72 rounded-3xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right border-2 ${
+              isDark
+                ? 'bg-[#0B1222] border-blue-500/30 text-white shadow-[0_20px_60px_rgba(0,0,0,0.95)]'
+                : 'bg-white border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)]'
+            }`}>
               {/* User Header */}
-              <div className="flex items-center space-x-3 pb-3 border-b border-white/10">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center font-black text-blue-400 text-sm overflow-hidden">
+              <div className={`flex items-center space-x-3 pb-3 border-b ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm overflow-hidden border shrink-0 ${
+                  isDark ? 'bg-blue-500/20 border-blue-500/40 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'
+                }`}>
                   {appUser?.photoURL ? (
                     <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -447,8 +462,8 @@ export const StudentMobileFirstDashboard: React.FC<{
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-white uppercase truncate">{name}</p>
-                  <p className="text-[10px] font-mono text-blue-400 truncate">@{appUser?.username || 'student'}</p>
+                  <p className={`text-xs font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{name}</p>
+                  <p className={`text-[10px] font-mono truncate ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>@{appUser?.username || 'student'}</p>
                 </div>
               </div>
 
@@ -457,15 +472,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                 {/* a. Light / Dark Mode Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
+                  }`}
                 >
                   <div className="flex items-center space-x-2.5">
-                    {isDark ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
+                    {isDark ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
                     <span>{isDark ? 'Dark Theme' : 'Light Theme'}</span>
                   </div>
-                  <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    Toggle
-                  </span>
                 </button>
 
                 {/* b. Compliance Support Chat Trigger */}
@@ -474,15 +488,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                     setIsProfileOpen(false);
                     setIsSupportOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
+                  }`}
                 >
                   <div className="flex items-center space-x-2.5">
-                    <MessageCircle className="w-4 h-4 text-emerald-400" />
+                    <MessageCircle className="w-4 h-4 text-emerald-500" />
                     <span>Compliance Support</span>
                   </div>
-                  <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Live
-                  </span>
                 </button>
 
                 {/* c. Notifications & System Alerts Drawer Link */}
@@ -492,36 +505,27 @@ export const StudentMobileFirstDashboard: React.FC<{
                     setIsNotificationsOpen(true);
                     setHasUnreadNotification(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
+                  }`}
                 >
                   <div className="flex items-center space-x-2.5">
-                    <Bell className="w-4 h-4 text-amber-400" />
+                    <Bell className="w-4 h-4 text-amber-500" />
                     <span>Notifications & Alerts</span>
                   </div>
                   {notificationsList.length > 0 && (
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500 text-white font-mono">
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white font-mono">
                       {notificationsList.length}
                     </span>
                   )}
                 </button>
-
-                {/* Quick Test Notification Trigger */}
-                <button
-                  onClick={handleTriggerTestNotification}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-medium text-slate-300 hover:bg-blue-500/10 hover:text-blue-400 transition-all cursor-pointer"
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Trigger 5s Test Alert</span>
-                  </div>
-                </button>
               </div>
 
               {/* Sign Out */}
-              <div className="pt-2 border-t border-white/10">
+              <div className={`pt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
                 <button
                   onClick={() => signOut(auth)}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                  className="w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>
@@ -746,38 +750,40 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       {/* NOTIFICATIONS DRAWER */}
       {isNotificationsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#0D111A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-white/5 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border ${
+            isDark ? 'bg-[#0D1424] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
               <div className="flex items-center space-x-2">
-                <Bell className="w-4 h-4 text-blue-400" />
-                <h3 className="text-xs font-black uppercase text-white tracking-wider">System Alerts & Logs</h3>
+                <Bell className="w-4 h-4 text-blue-600" />
+                <h3 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>System Alerts & Logs</h3>
               </div>
-              <button onClick={() => setIsNotificationsOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-white">
+              <button onClick={() => setIsNotificationsOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="max-h-80 overflow-y-auto divide-y divide-white/5 p-2">
-              {notificationsList.map(n => (
-                <div key={n.id} className="p-3 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-blue-400">{n.title}</span>
-                    <span className="text-[8px] font-mono text-slate-500">{n.time}</span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-snug">{n.message}</p>
+            <div className={`max-h-80 overflow-y-auto divide-y p-2 ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
+              {notificationsList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  No active notifications
                 </div>
-              ))}
+              ) : (
+                notificationsList.map(n => (
+                  <div key={n.id} className="p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-blue-600">{n.title}</span>
+                      <span className="text-[8px] font-mono text-slate-400">{n.time}</span>
+                    </div>
+                    <p className={`text-xs leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{n.message}</p>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="p-3 border-t border-white/5 bg-slate-950/40 flex justify-between items-center">
-              <button
-                onClick={handleTriggerTestNotification}
-                className="text-[10px] font-bold text-blue-400 hover:underline"
-              >
-                Send Test 5s Alert
-              </button>
+            <div className={`p-3 border-t flex justify-end items-center ${isDark ? 'border-white/5 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
               <button
                 onClick={() => setIsNotificationsOpen(false)}
-                className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-bold text-white"
+                className="px-4 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Close
               </button>
@@ -803,11 +809,13 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       {/* CONNECT BANK MODAL */}
       {isConnectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#0D111A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl p-5 space-y-4">
-            <div className="flex justify-between items-center border-b border-white/5 pb-3">
-              <h3 className="text-sm font-black uppercase text-white tracking-wider">Connect Bank Account</h3>
-              <button onClick={() => setIsConnectModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl p-5 space-y-4 border ${
+            isDark ? 'bg-[#0D1424] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+              <h3 className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>Connect Bank Account</h3>
+              <button onClick={() => setIsConnectModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>

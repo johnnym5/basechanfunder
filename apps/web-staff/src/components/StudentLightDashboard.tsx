@@ -265,9 +265,10 @@ export const StudentLightDashboard: React.FC<{
   }
 
   return (
-    <div className={`min-h-screen font-sans p-6 md:p-10 animate-in fade-in duration-700 transition-all duration-500 relative ${
-      isDark ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
-    } ${expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''}`}>
+    <div className="relative overflow-hidden min-h-screen">
+      <div className={`min-h-screen font-sans p-6 md:p-10 animate-in fade-in duration-700 transition-all duration-500 ${
+        isDark ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
+      } ${expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none select-none' : ''}`}>
 
       {/* Expiry Warning Banner */}
       {expiryInfo.isNearExpiry && !expiryInfo.isExpired && (
@@ -287,7 +288,10 @@ export const StudentLightDashboard: React.FC<{
               </p>
             </div>
           </div>
-          <button className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-amber-500/10 active:scale-95">
+          <button
+            onClick={() => setIsTopUpModalOpen(true)}
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-amber-500/10 active:scale-95"
+          >
             Add More Time / Request Extension
           </button>
         </div>
@@ -710,6 +714,40 @@ export const StudentLightDashboard: React.FC<{
         onSuccess={() => {}}
       />
 
+      {expiryInfo.isExpired && (
+        <div className="fixed inset-0 z-[190] flex items-center justify-center pointer-events-none select-none overflow-hidden">
+          <span className="text-[12vw] font-black text-rose-500/20 uppercase tracking-tighter rotate-[-12deg] border-y-8 border-rose-500/20 py-4 px-20">
+            EXPIRED
+          </span>
+        </div>
+      )}
+
+      {isExpiredModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className={`w-full max-w-md rounded-[2.5rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500">
+                <Lock className="w-10 h-10" />
+              </div>
+              <div>
+                <h3 className={`text-2xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Account Expired</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Evaluation Period Concluded</p>
+              </div>
+              <div className={`p-6 rounded-2xl border italic text-xs font-medium leading-relaxed ${isDark ? 'bg-slate-950 border-white/5 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
+                "{evaluation?.timerCustomMessage || 'Your evaluation period has ended. Please contact your counselor to extend access.'}"
+              </div>
+              <button
+                onClick={() => setIsExpiredModalOpen(false)}
+                className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      </div>
     </div>
   );
 };
