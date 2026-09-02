@@ -1,5 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { ShieldAlert, RefreshCcw, Home } from 'lucide-react';
+import { ShieldAlert, RefreshCcw, Home, Copy, Check } from 'lucide-react';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface Props {
   children?: ReactNode;
@@ -8,20 +10,52 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
+    copied: false
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, copied: false };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public async componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+
+    try {
+      // 1. Check if Error Audit Log is enabled in global config
+      const configSnap = await getDoc(doc(db, 'system_config', 'global'));
+      const isLoggingEnabled = configSnap.exists() ? configSnap.data().errorAuditLog !== false : true;
+
+      if (isLoggingEnabled) {
+        // 2. Log the error to forensic_audit collection
+        await addDoc(collection(db, 'forensic_audit'), {
+          type: 'RUNTIME_ERROR',
+          message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack,
+          userAgent: navigator.userAgent,
+          url: window.location.href,
+          createdAt: serverTimestamp(),
+          severity: 'CRITICAL'
+        });
+      }
+    } catch (logErr) {
+      console.warn('Forensic logging failed:', logErr);
+    }
   }
+
+  private copyError = () => {
+    if (this.state.error) {
+      navigator.clipboard.writeText(this.state.error.stack || this.state.error.toString());
+      this.setState({ copied: true });
+      setTimeout(() => this.setState({ copied: false }), 2000);
+    }
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -40,7 +74,14 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {this.state.error && (
-              <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl text-[10px] font-mono text-rose-400/80 text-left overflow-auto max-h-32">
+              <div className="relative group/error p-4 bg-slate-950 border border-white/5 rounded-2xl text-[10px] font-mono text-rose-400/80 text-left overflow-auto max-h-32">
+                <button
+                  onClick={this.copyError}
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/5 text-slate-500 hover:text-white transition-all opacity-0 group-hover/error:opacity-100"
+                  title="Copy full error stack"
+                >
+                  {this.state.copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
                 {this.state.error.toString()}
               </div>
             )}

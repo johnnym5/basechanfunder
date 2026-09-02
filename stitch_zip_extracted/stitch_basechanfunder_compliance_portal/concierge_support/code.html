@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Applicant Support &amp; Help</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#111c2d",
+                      "inverse-primary": "#855300",
+                      "background": "#0f131c",
+                      "on-secondary": "#4d2600",
+                      "surface-container-high": "#262a34",
+                      "surface-bright": "#353943",
+                      "primary": "#ffc174",
+                      "surface": "#0f131c",
+                      "tertiary-fixed": "#d8e3fb",
+                      "secondary": "#ffb77d",
+                      "primary-fixed": "#ffddb8",
+                      "on-background": "#dfe2ef",
+                      "primary-fixed-dim": "#ffb95f",
+                      "secondary-container": "#d97707",
+                      "outline": "#a08e7a",
+                      "tertiary-container": "#a6b1c8",
+                      "error": "#ffb4ab",
+                      "on-error": "#690005",
+                      "surface-container": "#1c1f29",
+                      "on-tertiary-container": "#394457",
+                      "surface-tint": "#ffb95f",
+                      "error-container": "#93000a",
+                      "on-primary": "#472a00",
+                      "on-surface": "#dfe2ef",
+                      "tertiary-fixed-dim": "#bcc7de",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "surface-container-highest": "#31353f",
+                      "inverse-surface": "#dfe2ef",
+                      "tertiary": "#c1cce4",
+                      "outline-variant": "#534434",
+                      "on-tertiary": "#263143",
+                      "on-primary-container": "#613b00",
+                      "on-primary-fixed-variant": "#653e00",
+                      "surface-container-lowest": "#0a0e17",
+                      "on-tertiary-fixed-variant": "#3c475a",
+                      "primary-container": "#f59e0b",
+                      "on-surface-variant": "#d8c3ad",
+                      "on-error-container": "#ffdad6",
+                      "surface-variant": "#31353f",
+                      "surface-dim": "#0f131c",
+                      "on-secondary-container": "#432100",
+                      "surface-container-low": "#181b25",
+                      "inverse-on-surface": "#2c303a",
+                      "on-secondary-fixed": "#2f1500",
+                      "secondary-fixed": "#ffdcc3",
+                      "on-primary-fixed": "#2a1700",
+                      "secondary-fixed-dim": "#ffb77d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "stack-md": "24px",
+                      "container-padding-desktop": "40px",
+                      "stack-sm": "12px",
+                      "stack-lg": "48px",
+                      "gutter": "24px",
+                      "base": "8px",
+                      "container-padding-mobile": "20px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "JetBrains Mono"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "display-lg-mobile": [
+                              "Inter"
+                      ],
+                      "metric-xl": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "letterSpacing": "0em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.04em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.03em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "metric-xl": [
+                              "36px",
+                              {
+                                      "lineHeight": "44px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            color: #dfe2ef;
+            overflow-x: hidden;
+        }
+        
+        /* Level 0 Base Background Effect */
+        .bg-obsidian-glow {
+            background: radial-gradient(circle at top right, rgba(30, 41, 59, 0.6) 0%, transparent 60%),
+                        radial-gradient(circle at bottom left, rgba(30, 41, 59, 0.4) 0%, transparent 50%);
+            background-color: #090D16;
+            background-attachment: fixed;
+        }
+
+        /* Level 1 Surface */
+        .glass-surface {
+            background-color: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Level 2 Floating/Active */
+        .glass-surface-active:hover {
+            border-color: rgba(255, 193, 116, 0.5); /* Primary Gold */
+            box-shadow: 0 0 15px rgba(255, 193, 116, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* Primary Button */
+        .btn-primary {
+            background: linear-gradient(135deg, #ffc174 0%, #d97707 100%);
+            color: #2a1700; /* on-primary-fixed */
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 0 4px rgba(255, 193, 116, 0.4);
+        }
+
+        /* Hide scrollbar for clean aesthetic */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-obsidian-glow antialiased font-body-md text-body-md min-h-screen flex flex-col relative pb-32">
+<!-- Ambient Light Orbs -->
+<div class="fixed top-20 left-0 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+<div class="fixed bottom-40 right-0 w-80 h-80 bg-tertiary-fixed/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-container-padding-mobile h-16 bg-surface/65 backdrop-blur-xl dark:bg-surface/65 border-b border-white/15 flat no shadows">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:opacity-80 transition-opacity cursor-pointer">
+<img alt="User Profile Photo" class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional individual serving as a user profile photo, set against a deep obsidian dark background, illuminated by subtle, sophisticated lighting creating a premium luxury fintech aesthetic, strictly adhering to high-contrast minimalism." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzP0MWSMirxIWCQBv0pafwCbYJq_7PA0ZrWLj6EaXAgAA3AP6JDOy-kK_5Vf9w5OhYe5Ddoudw53T9t8zonb5g5Ge0bxCqTcf4xm7mHgI4uvKI86-zngR0GgDuSEnWYVtmN3QGWB4SK0KVn7xWXO2SKwUpxDmmGIG8m2JnOY3AFEbolHUXPjY6N2jNkMtB4aqk4yCvFmMrw4XjQPobXquAfmJdOVduHcVCSPP8Au-ICZP2MnhgY_Ya2w"/>
+</div>
+<h1 class="font-headline-md text-headline-md-mobile font-bold text-primary">Concierge &amp; Support</h1>
+</div>
+<button class="text-primary dark:text-primary hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-7xl mx-auto px-container-padding-mobile pt-24 pb-stack-lg z-10 flex flex-col gap-stack-lg">
+<!-- Hero Section -->
+<section class="flex flex-col gap-stack-sm items-center text-center mt-stack-md">
+<h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">How can we assist you?</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">Our dedicated compliance officers and support team are here to ensure your application journey is seamless.</p>
+</section>
+<!-- Primary Action Card -->
+<section class="w-full">
+<div class="glass-surface glass-surface-active rounded-xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group cursor-pointer">
+<!-- Inner Glow on hover handled by CSS, let's add a visual accent -->
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+<div class="flex items-center gap-6 z-10">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Chat with Compliance Officer</h3>
+<p class="text-on-surface-variant font-body-md text-body-md">Get instant help regarding complex visa rules and fund verifications.</p>
+</div>
+</div>
+<button class="btn-primary font-label-sm text-label-sm uppercase px-8 py-4 rounded-lg whitespace-nowrap font-bold z-10 w-full md:w-auto text-center">
+                    Start Chat
+                </button>
+</div>
+</section>
+<!-- Bento Grid Layout for secondary sections -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter w-full">
+<!-- FAQ Section (2/3 width on desktop) -->
+<section class="md:col-span-8 flex flex-col gap-stack-sm">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-tertiary-fixed">quiz</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Frequently Asked Questions</h3>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Accordion 1 -->
+<details class="glass-surface rounded-xl overflow-hidden group cursor-pointer" open="">
+<summary class="p-6 font-body-lg text-body-lg text-on-surface font-semibold flex justify-between items-center outline-none list-none">
+                            How does the 28-day rule work?
+                            <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-6 pb-6 text-on-surface-variant font-body-md text-body-md border-t border-white/5 pt-4">
+                            The 28-day rule requires that your required maintenance funds must have been in your bank account for at least 28 consecutive days before the date of your application. The end date of this 28-day period must be within 31 days of the application date.
+                        </div>
+</details>
+<!-- Accordion 2 -->
+<details class="glass-surface rounded-xl overflow-hidden group cursor-pointer">
+<summary class="p-6 font-body-lg text-body-lg text-on-surface font-semibold flex justify-between items-center outline-none list-none">
+                            Accepted SOF sources
+                            <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-6 pb-6 text-on-surface-variant font-body-md text-body-md border-t border-white/5 pt-4">
+                            Valid sources of funds (SOF) include personal savings, proceeds from property sales, verified investments, and documented gifts from direct family members. All sources require comprehensive paper trails.
+                        </div>
+</details>
+<!-- Accordion 3 -->
+<details class="glass-surface rounded-xl overflow-hidden group cursor-pointer">
+<summary class="p-6 font-body-lg text-body-lg text-on-surface font-semibold flex justify-between items-center outline-none list-none">
+                            FX Buffer explanation
+                            <span class="material-symbols-outlined text-on-surface-variant group-open:rotate-180 transition-transform">expand_more</span>
+</summary>
+<div class="px-6 pb-6 text-on-surface-variant font-body-md text-body-md border-t border-white/5 pt-4">
+                            An FX (Foreign Exchange) buffer is an additional margin (typically 5-10%) added to your required funds to protect against currency fluctuations during the processing period, ensuring you don't fall below the minimum threshold.
+                        </div>
+</details>
+</div>
+</section>
+<!-- Visa Guide Links (1/3 width on desktop) -->
+<section class="md:col-span-4 flex flex-col gap-stack-sm">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-tertiary-fixed">book</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Visa Guides</h3>
+</div>
+<div class="glass-surface rounded-xl p-4 flex flex-col gap-2">
+<a class="flex items-center justify-between p-4 rounded-lg hover:bg-white/5 transition-colors group" href="#">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">public</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">UKVI Guidelines</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm group-hover:text-primary transition-colors group-hover:translate-x-1">arrow_forward</span>
+</a>
+<div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+<a class="flex items-center justify-between p-4 rounded-lg hover:bg-white/5 transition-colors group" href="#">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">public</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">IRCC Requirements</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm group-hover:text-primary transition-colors group-hover:translate-x-1">arrow_forward</span>
+</a>
+<div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+<a class="flex items-center justify-between p-4 rounded-lg hover:bg-white/5 transition-colors group" href="#">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">description</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Document Checklist</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm group-hover:text-primary transition-colors group-hover:translate-x-1">arrow_forward</span>
+</a>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface/65 backdrop-blur-xl dark:bg-surface/65 border-t border-white/15 flat no shadows">
+<!-- Inactive: Dashboard -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors w-16 group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform duration-200" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard</span>
+</a>
+<!-- Inactive: Banks -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors w-16 group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform duration-200" style="font-variation-settings: 'FILL' 0;">account_balance</span>
+<span class="font-label-sm text-label-sm">Banks</span>
+</a>
+<!-- Inactive: Documents -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors w-16 group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform duration-200" style="font-variation-settings: 'FILL' 0;">folder_shared</span>
+<span class="font-label-sm text-label-sm">Documents</span>
+</a>
+<!-- Active: Support -->
+<a class="flex flex-col items-center justify-center text-primary font-bold bg-primary/10 rounded-full py-1 px-4 w-auto active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+<span class="font-label-sm text-label-sm">Support</span>
+</a>
+</nav>
+<script>
+        // Simple script to handle accordion exclusive open behavior if desired
+        const details = document.querySelectorAll("details");
+        details.forEach((targetDetail) => {
+            targetDetail.addEventListener("click", () => {
+                details.forEach((detail) => {
+                    if (detail !== targetDetail) {
+                        detail.removeAttribute("open");
+                    }
+                });
+            });
+        });
+    </script>
+</body></html>

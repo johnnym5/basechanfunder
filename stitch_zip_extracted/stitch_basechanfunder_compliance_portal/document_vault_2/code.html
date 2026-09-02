@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Applicant Document Center - Basechanfunder</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#111c2d",
+                        "inverse-primary": "#855300",
+                        "background": "#0f131c",
+                        "on-secondary": "#4d2600",
+                        "surface-container-high": "#262a34",
+                        "surface-bright": "#353943",
+                        "primary": "#ffc174",
+                        "surface": "#0f131c",
+                        "tertiary-fixed": "#d8e3fb",
+                        "secondary": "#ffb77d",
+                        "primary-fixed": "#ffddb8",
+                        "on-background": "#dfe2ef",
+                        "primary-fixed-dim": "#ffb95f",
+                        "secondary-container": "#d97707",
+                        "outline": "#a08e7a",
+                        "tertiary-container": "#a6b1c8",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "surface-container": "#1c1f29",
+                        "on-tertiary-container": "#394457",
+                        "surface-tint": "#ffb95f",
+                        "error-container": "#93000a",
+                        "on-primary": "#472a00",
+                        "on-surface": "#dfe2ef",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "surface-container-highest": "#31353f",
+                        "inverse-surface": "#dfe2ef",
+                        "tertiary": "#c1cce4",
+                        "outline-variant": "#534434",
+                        "on-tertiary": "#263143",
+                        "on-primary-container": "#613b00",
+                        "on-primary-fixed-variant": "#653e00",
+                        "surface-container-lowest": "#0a0e17",
+                        "on-tertiary-fixed-variant": "#3c475a",
+                        "primary-container": "#f59e0b",
+                        "on-surface-variant": "#d8c3ad",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#31353f",
+                        "surface-dim": "#0f131c",
+                        "on-secondary-container": "#432100",
+                        "surface-container-low": "#181b25",
+                        "inverse-on-surface": "#2c303a",
+                        "on-secondary-fixed": "#2f1500",
+                        "secondary-fixed": "#ffdcc3",
+                        "on-primary-fixed": "#2a1700",
+                        "secondary-fixed-dim": "#ffb77d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "24px",
+                        "container-padding-desktop": "40px",
+                        "stack-sm": "12px",
+                        "stack-lg": "48px",
+                        "gutter": "24px",
+                        "base": "8px",
+                        "container-padding-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "metric-xl": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700" }],
+                        "metric-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            background-image: radial-gradient(circle at 50% 0%, rgba(30, 41, 59, 0.4) 0%, transparent 60%);
+            min-height: 100vh;
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .gold-glow:hover {
+            box-shadow: 0 0 15px 2px rgba(255, 193, 116, 0.2);
+            border-color: rgba(255, 193, 116, 0.5);
+        }
+
+        /* Pulse animation for reviewing status */
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(255, 193, 116, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 193, 116, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 193, 116, 0); }
+        }
+        .status-pulse {
+            animation: pulse-gold 2s infinite;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface font-body-md pb-24 md:hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-container-padding-mobile h-16 bg-surface/65 backdrop-blur-xl dark:bg-surface/65 border-b border-white/15">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-white/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">person</span>
+</div>
+<h1 class="font-headline-md text-headline-md-mobile font-bold text-primary tracking-tight">Basechanfunder</h1>
+</div>
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 px-container-padding-mobile flex flex-col gap-stack-md">
+<!-- Screen Title & Context -->
+<section class="flex flex-col gap-base">
+<h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Document Vault</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">End-to-end encrypted file storage.</p>
+</section>
+<!-- Filter Chips -->
+<section class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="glass-panel px-4 py-2 rounded-full whitespace-nowrap font-label-sm text-label-sm text-primary border-primary/50 bg-primary/10">All Documents</button>
+<button class="glass-panel px-4 py-2 rounded-full whitespace-nowrap font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors">Pending Review</button>
+<button class="glass-panel px-4 py-2 rounded-full whitespace-nowrap font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors">Verified</button>
+<button class="glass-panel px-4 py-2 rounded-full whitespace-nowrap font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors">Flagged</button>
+</section>
+<!-- Document List -->
+<section class="flex flex-col gap-stack-sm relative z-10">
+<!-- Document Item 1: Verified -->
+<div class="glass-panel rounded-xl p-4 flex items-center justify-between gold-glow transition-all duration-300 group cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">description</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface font-semibold">Bank Statement Q3</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PDF • 2.4 MB • Oct 12</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="flex items-center gap-1 bg-[#0f131c] px-2 py-1 rounded-full border border-[rgba(16,185,129,0.2)]">
+<span class="material-symbols-outlined text-[14px] text-emerald-400" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-sm text-[10px] text-emerald-400 uppercase tracking-wider">Verified</span>
+</div>
+</div>
+</div>
+<!-- Document Item 2: Reviewing -->
+<div class="glass-panel rounded-xl p-4 flex items-center justify-between gold-glow transition-all duration-300 group cursor-pointer relative overflow-hidden">
+<!-- Subtle background highlight for reviewing status -->
+<div class="absolute inset-0 bg-primary/5 opacity-50"></div>
+<div class="flex items-center gap-4 relative z-10">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">contract</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface font-semibold">Gift Affidavit (Signed)</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PDF • 1.1 MB • Just now</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1 relative z-10">
+<div class="flex items-center gap-1 bg-[#0f131c] px-2 py-1 rounded-full border border-primary/30">
+<div class="w-2 h-2 rounded-full bg-primary status-pulse mr-1"></div>
+<span class="font-label-sm text-[10px] text-primary uppercase tracking-wider">Reviewing</span>
+</div>
+</div>
+</div>
+<!-- Document Item 3: Flagged -->
+<div class="glass-panel rounded-xl p-4 flex items-center justify-between gold-glow transition-all duration-300 group cursor-pointer border-error/20">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">badge</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface font-semibold">Passport Bio-page</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">JPG • 4.8 MB • Oct 10</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="flex items-center gap-1 bg-[#0f131c] px-2 py-1 rounded-full border border-[rgba(245,158,11,0.2)]">
+<span class="material-symbols-outlined text-[14px] text-amber-500" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="font-label-sm text-[10px] text-amber-500 uppercase tracking-wider">Flagged</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button -->
+<div class="fixed bottom-24 right-container-padding-mobile z-40">
+<button class="bg-gradient-to-br from-primary to-primary-fixed-dim text-on-primary rounded-full p-4 flex items-center justify-center shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:shadow-[0_0_15px_rgba(255,193,116,0.3)] transition-all active:scale-95">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+</button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface/65 backdrop-blur-xl dark:bg-surface/65 border-t border-white/15">
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors group cursor-pointer">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform duration-200">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Dashboard</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors group cursor-pointer">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform duration-200">account_balance</span>
+<span class="font-label-sm text-label-sm mt-1">Banks</span>
+</div>
+<div class="flex flex-col items-center justify-center text-primary font-bold bg-primary/10 rounded-full py-1 px-4 scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder_shared</span>
+<span class="font-label-sm text-label-sm mt-1">Documents</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed-dim transition-colors group cursor-pointer">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform duration-200">support_agent</span>
+<span class="font-label-sm text-label-sm mt-1">Support</span>
+</div>
+</nav>
+</body></html>

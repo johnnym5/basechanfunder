@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings - Obsidian Prime</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#dfe2ef",
+                        "secondary": "#ffb77d",
+                        "on-secondary-container": "#432100",
+                        "on-primary": "#472a00",
+                        "on-secondary-fixed": "#2f1500",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "tertiary-container": "#a6b1c8",
+                        "on-primary-fixed": "#2a1700",
+                        "tertiary": "#c1cce4",
+                        "tertiary-fixed": "#d8e3fb",
+                        "surface-container-high": "#262a34",
+                        "primary": "#ffc174",
+                        "surface-container-highest": "#31353f",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#d8c3ad",
+                        "secondary-fixed": "#ffdcc3",
+                        "surface-bright": "#353943",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "inverse-primary": "#855300",
+                        "on-secondary": "#4d2600",
+                        "surface-container-low": "#181b25",
+                        "surface-variant": "#31353f",
+                        "surface-container-lowest": "#0a0e17",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#534434",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#653e00",
+                        "secondary-container": "#d97707",
+                        "primary-fixed": "#ffddb8",
+                        "primary-container": "#f59e0b",
+                        "on-primary-container": "#613b00",
+                        "outline": "#a08e7a",
+                        "on-background": "#dfe2ef",
+                        "on-tertiary": "#263143",
+                        "on-tertiary-fixed": "#111c2d",
+                        "surface-tint": "#ffb95f",
+                        "on-tertiary-fixed-variant": "#3c475a",
+                        "inverse-on-surface": "#2c303a",
+                        "surface-dim": "#0f131c",
+                        "surface-container": "#1c1f29",
+                        "background": "#0f131c",
+                        "primary-fixed-dim": "#ffb95f",
+                        "surface": "#0f131c",
+                        "on-surface": "#dfe2ef",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "on-tertiary-container": "#394457",
+                        "error": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "stack-md": "24px",
+                        "container-padding-mobile": "20px",
+                        "stack-sm": "12px",
+                        "stack-lg": "48px",
+                        "container-padding-desktop": "40px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "metric-xl": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "metric-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            background-image: radial-gradient(circle at 50% 0%, rgba(30, 41, 59, 0.4) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+        
+        /* Glassmorphism utility classes */
+        .glass-surface {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 1px solid rgba(255, 255, 255, 0.10);
+        }
+
+        .glass-input {
+            background: rgba(2, 6, 23, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            border-color: #ffc174;
+            box-shadow: inset 0 0 10px rgba(255, 193, 116, 0.1);
+            outline: none;
+        }
+
+        .glow-hover:hover {
+            border-color: rgba(255, 193, 116, 0.5);
+            box-shadow: 0 0 15px rgba(255, 193, 116, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ffddb8 0%, #f59e0b 100%);
+            color: #2a1700;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(255, 193, 116, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            color: #dfe2ef;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0e17; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #31353f; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a08e7a; 
+        }
+        
+        /* Checkbox Styling */
+        .custom-checkbox {
+            appearance: none;
+            background-color: rgba(2, 6, 23, 0.8);
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.15em;
+            transform: translateY(-0.075em);
+            display: grid;
+            place-content: center;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .custom-checkbox::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em #ffc174;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+
+        .custom-checkbox:checked::before {
+            transform: scale(1);
+        }
+        
+        .custom-checkbox:checked {
+            border-color: #ffc174;
+        }
+        
+        /* Toggle Styling */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #ffc174;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: rgba(255, 193, 116, 0.2);
+            border-color: #ffc174;
+        }
+        .toggle-checkbox:checked + .toggle-label:after {
+            transform: translateX(100%);
+            background-color: #ffc174;
+        }
+    </style>
+</head>
+<body class="text-on-background font-body-md bg-background antialiased selection:bg-primary selection:text-on-primary min-h-screen">
+<!-- TopNavBar (Mobile Only) -->
+<header class="md:hidden fixed top-0 w-full h-16 bg-surface-container-lowest/40 backdrop-blur-md border-b border-white/10 z-30 flex items-center justify-between px-gutter">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-weight="fill">shield</span>
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Obsidian Compliance</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-all scale-95 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-all scale-95 duration-200">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-variant overflow-hidden border border-white/10">
+<img alt="Administrator Profile" class="w-full h-full object-cover" data-alt="A macro photography shot of an intricately detailed abstract 3d geometric pattern in deep obsidian black with subtle hints of warm gold reflecting off polished edges. High contrast, studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbEVgXGFm73psvsLfMfT0ehBvUzTmzNu6HJ416D7sZYWnm3PWkUNb5AprnPk6pgMjO_y5e3Ka46BTPhpZrF0xlKyOZd7ox-_Lpj-zQfqQ31CzexLKZgWgjgqQUjqFIm-oKaHZHUbim77wJ7j2f0pszR9NCqfVoqO2Ue6-u2scnZsVSM8iSrnrUJ2tEdJcPEG5TYBXtQpfm1PvnhrqH3ScZmADfqfUidKkgJDD_7ixu866j8LVdlqi2ig"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden md:flex fixed left-0 top-0 h-screen w-72 flex-col bg-surface-container-low/65 backdrop-blur-xl border-r border-white/10 shadow-2xl z-40">
+<!-- Header -->
+<div class="p-gutter border-b border-white/5 flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-surface-variant border border-white/10 overflow-hidden flex-shrink-0">
+<img alt="Institution Logo" class="w-full h-full object-cover" data-alt="A stark, minimalist vector graphic logo featuring sharp, stylized O and P letterforms intersecting. Executed in polished obsidian black and bright metallic gold against a dark gradient background. Corporate, authoritative, high-end fintech identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnP789xWFTGS28ylWSNWIB2ul_zMR-x3ll32BaArmBGOcdCdMOaeP-vm4nQxHgSyftQY4fNN9lHsPz7f6dzpwViaZz10Ojxz9TViWXNtHdQHdWmHPUhkcGh2Gwv3rxdwwbHlISdAlxlKmabK8wyascfAkUGTh-3A2eNja59bTb3_xQ4ohEpOcvIym2Vxyddfpl1erRKIvhe-miT0q4pGnJo5cuKtisTYd7pTVg-jeZHkSnO6quPcx7xA"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight truncate">Obsidian Prime</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest truncate">Enterprise Compliance</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 overflow-y-auto py-stack-sm px-3 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">security</span>
+<span class="font-body-md text-body-md">Audit Console</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">gavel</span>
+<span class="font-body-md text-body-md">Governance</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">analytics</span>
+<span class="font-body-md text-body-md">Telemetry</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">description</span>
+<span class="font-body-md text-body-md">Documents</span>
+</a>
+<!-- ACTIVE TAB -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-primary/5 transition-colors duration-300 ease-in-out relative" href="#">
+<!-- Active Indicator Glow -->
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary blur-[2px] opacity-70"></div>
+<span class="material-symbols-outlined text-primary" data-weight="fill">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-white/5 hover:text-on-surface transition-colors duration-300 ease-in-out group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">contact_support</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+</div>
+<!-- Footer CTA -->
+<div class="p-gutter border-t border-white/5">
+<button class="w-full btn-secondary font-body-md text-body-md font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span>
+                Compliance Report
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-16 md:pt-0 md:ml-72 min-h-screen relative overflow-hidden flex flex-col">
+<!-- Atmospheric Orbs (Background) -->
+<div class="absolute top-0 right-0 w-[800px] h-[800px] bg-primary opacity-[0.02] rounded-full blur-[120px] pointer-events-none translate-x-1/3 -translate-y-1/3"></div>
+<div class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary opacity-[0.03] rounded-full blur-[100px] pointer-events-none -translate-x-1/4 translate-y-1/4"></div>
+<div class="flex-1 p-container-padding-mobile md:p-container-padding-desktop max-w-[1440px] mx-auto w-full z-10 space-y-stack-lg">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-6">
+<div>
+<h2 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Administrative Settings</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2">Manage security protocols, integrations, and operational preferences for Basechanfunder.</p>
+</div>
+<div class="flex gap-3">
+<button class="btn-secondary font-body-md text-body-md px-6 py-2 rounded-lg">Discard Changes</button>
+<button class="btn-primary font-body-md text-body-md font-semibold px-6 py-2 rounded-lg">Save Configuration</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Navigation/TOC (Sticky) -->
+<div class="lg:col-span-3 hidden lg:block">
+<div class="sticky top-stack-md space-y-2">
+<a class="block px-4 py-2 border-l-2 border-primary text-primary font-bold text-body-md transition-colors" href="#profile">Profile &amp; Identity</a>
+<a class="block px-4 py-2 border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 font-body-md transition-colors" href="#security">Security &amp; Compliance</a>
+<a class="block px-4 py-2 border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 font-body-md transition-colors" href="#api">API &amp; Integration</a>
+<a class="block px-4 py-2 border-l-2 border-transparent text-on-surface-variant hover:text-on-surface hover:border-white/20 font-body-md transition-colors" href="#preferences">Interface Preferences</a>
+</div>
+</div>
+<!-- Right Column: Settings Sections -->
+<div class="lg:col-span-9 space-y-stack-lg">
+<!-- 1. Profile & Identity -->
+<section class="glass-surface rounded-xl p-gutter glow-hover transition-all duration-300" id="profile">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl">badge</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Profile &amp; Identity</h3>
+</div>
+<div class="flex flex-col md:flex-row gap-8 items-start">
+<!-- Avatar Upload -->
+<div class="flex flex-col items-center gap-4">
+<div class="relative group cursor-pointer">
+<div class="w-32 h-32 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-primary transition-colors duration-300">
+<img alt="Julian Obsidian Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of an executive auditor, mid-40s, sharp features, wearing a tailored dark suit. Dramatic studio lighting with a subtle cool undertone against an absolute black background. Deep obsidian corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtXttJcX_leqoq2SlQ5uSXMhCTosCklkuJtZpuTx8uW1HeO0CDCzMl5dxsVyIp3z44aQBOdBRpjUxRvebJ6llfvzPWXkJQinjXez2sxx78f8HLCbZJRYKIVtSlNmLwVAyNXAlAZt9c8Usun_2e-9cJRAQbpAIdCFOa_G2NDHoFAOHR59JFuRpnctOv_NlEJ6aKxmOUnViAGRwpOb9DaeuS5hEmTK16_zboSeZ9Uiq47ex3QBUgC-KGkQ"/>
+</div>
+<div class="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-sm">
+<span class="material-symbols-outlined text-white">photo_camera</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">JPG, GIF or PNG. Max 1MB.</span>
+</div>
+<!-- Form Fields -->
+<div class="flex-1 w-full space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest block">Full Name</label>
+<input class="w-full glass-input rounded-lg px-4 py-3 font-body-md text-on-surface" readonly="" type="text" value="Julian Obsidian"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest block">Institutional Role</label>
+<input class="w-full glass-input rounded-lg px-4 py-3 font-body-md text-primary font-semibold" readonly="" type="text" value="Principal Auditor"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest block">Email Address</label>
+<input class="w-full glass-input rounded-lg px-4 py-3 font-body-md text-on-surface" type="email" value="julian.obsidian@basechanfunder.gov"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest block">Clearance Level</label>
+<div class="flex items-center gap-2 p-3 bg-error-container/20 border border-error-container/50 rounded-lg">
+<span class="material-symbols-outlined text-error text-sm">verified_user</span>
+<span class="font-label-sm text-label-sm text-error uppercase tracking-widest">Omega Protocol Active</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</body></html>

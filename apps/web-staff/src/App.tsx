@@ -7,6 +7,7 @@ import { MasterAppPortal } from './components/MasterAppPortal';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LandingPage } from './pages/LandingPage';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { Toaster } from 'sonner';
 
 const AppInner: React.FC = () => {
   const { currentUser, loading } = useAuth();
@@ -17,6 +18,7 @@ const AppInner: React.FC = () => {
 
   return (
     <ErrorBoundary>
+      <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/" element={currentUser ? <MasterAppPortal /> : <Navigate to="/auth" />} />
         <Route path="/auth" element={!currentUser ? <AuthPage /> : <Navigate to="/" />} />

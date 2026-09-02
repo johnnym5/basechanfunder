@@ -1,46 +1,54 @@
-# Implementation Plan: Admin Timer, 7-Day Warning, and Expired UI
+# Implementation Plan: FCM Push Notifications & Deep-Linking
 
-This plan covers the implementation of the POF expiration engine, including admin controls, student warnings, and the locked expired state.
+This plan outlines the integration of Firebase Cloud Messaging (FCM) for multi-platform push notifications (Android, Web) with support for interactive deep-linking and real-time UI drawer synchronization.
 
 ## Proposed Changes
 
-### 1. Data Model Updates
-Update the student record creation to include the new timer fields.
+### [Component] Backend Notification Service (apps/server)
 
-#### [MODIFY] [AddStudentModal.tsx](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/src/components/AddStudentModal.tsx)
-- Initialize `expirationDate: null`, `timerCustomMessage: null`, and `isTimerActive: false` in both `handleAddRegistered` and `handleManualSubmit`.
+#### [NEW] [notificationService.ts](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/server/src/services/notificationService.ts)
+- Implement `DeviceTokenManagementService` to handle device registration.
+- Implement `MultiChannelDispatcherEngine` to send notifications via FCM and record them in Firestore.
 
----
-
-### 2. Admin Timer Control
-Ensure the Admin can set expiration dates and custom messages.
-
-#### [MODIFY] [AdminTimerModal.tsx](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/src/components/AdminTimerModal.tsx)
-- Verify `handleSave` correctly persists `expirationDate`, `timerCustomMessage`, and `isTimerActive`. (Existing implementation looks mostly correct, will ensure it aligns with requirements).
+#### [NEW] [notification.controller.ts](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/server/src/controllers/notification.controller.ts)
+- Add `POST /api/v1/notifications/register-device` endpoint.
 
 ---
 
-### 3. Student Dashboard Expiration Engine
-Implement the warning banner, expiry modal, and locked overlay.
+### [Component] Web Frontend (apps/web-staff)
 
-#### [MODIFY] [StudentLightDashboard.tsx](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/src/components/StudentLightDashboard.tsx)
-- **7-Day Warning Banner**: Enhance the existing amber banner with a "Add More Time / Request Extension" action.
-- **Expired State**:
-    - Add a bold "EXPIRED" overlay that covers the entire screen when `isExpired` is true.
-    - Implement a specific `ExpiredModal` to display the `timerCustomMessage` set by the Admin.
-    - Ensure the dashboard is greased out and non-interactive.
+#### [NEW] [firebase-messaging-sw.js](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/public/firebase-messaging-sw.js)
+- Background FCM message handler.
+- Notification click listener for deep-linking.
+
+#### [MODIFY] [AuthContext.tsx](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/src/context/AuthContext.tsx)
+- Add logic to request notification permission and register FCM token upon login.
+
+#### [MODIFY] [StudentMobileFirstDashboard.tsx](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/web-staff/src/components/StudentMobileFirstDashboard.tsx)
+- Integrate real-time notification sync for the red dot and the itemized list in the "Notifications & Alerts" drawer.
 
 ---
+
+### [Component] Android App (apps/mobile-android)
+
+#### [NEW] [MyFirebaseMessagingService.kt](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/mobile-android/app/src/main/java/app/basechan_funder/MyFirebaseMessagingService.kt)
+- Native FCM message receiver.
+- Build system notifications with deep-link Intent extras.
+
+#### [MODIFY] [AndroidManifest.xml](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/mobile-android/app/src/main/AndroidManifest.xml)
+- Register `MyFirebaseMessagingService`.
+- Add necessary FCM permissions and meta-data.
+
+#### [MODIFY] [MainActivity.kt](file:///C:/Users/HP/Documents/CODING/Basechanfunder/apps/mobile-android/app/src/main/java/app/basechan_funder/MainActivity.kt)
+- Handle deep-link Intents to navigate the WebView to the correct route.
 
 ## Verification Plan
 
-### Automated Tests
-- Not applicable for this UI-heavy task (manual verification preferred).
+### Automated Verification
+- Trigger simulated notifications via the backend service and verify FCM delivery.
 
 ### Manual Verification
-1. **Initial State**: Create a new student and verify no timer is active in the Student view.
-2. **7-Day Warning**: In Admin view, set an expiration date 5 days in the future. Log in as the student and verify the amber warning banner appears.
-3. **Expired State**: In Admin view, set an expiration date in the past. Log in as the student and verify:
-    - The dashboard is grayscale and non-interactive.
-    - A bold "EXPIRED" overlay is visible.
-    - A modal pops up with the custom message from the Admin.
+1.  **Device Registration**: Log in on a device and verify the FCM token is saved to the user's Firestore profile.
+2.  **Foreground Notification**: Receive a notification while the app is open and verify the red dot updates.
+3.  **Background Notification**: Send a push notification while the app is backgrounded, verify the OS banner appears.
+4.  **Deep-Linking**: Tap the notification and verify the app opens to the specified route (e.g., transaction details).

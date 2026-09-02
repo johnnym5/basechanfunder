@@ -10,7 +10,8 @@ import {
   where,
   getDocs,
   onSnapshot,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +35,8 @@ import {
   Save,
   Sparkles,
   MoreVertical,
-  Eye
+  Eye,
+  ArrowUpRight
 } from 'lucide-react';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { ManualOverrideModal } from './ManualOverrideModal';
@@ -289,6 +291,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           isApproved: d.isApproved !== undefined ? d.isApproved : false,
           consecutiveDays: days,
           balanceGbp: 0,
+          currentBalanceNgn: d.currentBalanceNgn || 0,
           targetGbp: d.targetGBP || 0,
           anomalyRatio: d.anomalyRatio || 0,
           lastUpdate: d.updatedAt?.seconds ? new Date(d.updatedAt.seconds * 1000).toLocaleTimeString() : 'Just now',
@@ -335,10 +338,22 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
   // 4. Merge data
   const liveStudents = useMemo(() => {
+    const LIVE_FX = 1945.50;
+
     // Start with existing student evaluations
     const merged: Student[] = students.map(s => {
       const studentAccs = accounts.filter(a => a.userId === s.userId || a.userEmail === s.email);
-      const totalGbp = studentAccs.reduce((sum, curr) => sum + (Number(curr.balanceGBP) || 0), 0);
+
+      // Sum all bank accounts (handle both balanceGbp and balanceGBP casing)
+      const accountsTotalGbp = studentAccs.reduce((sum, curr) =>
+        sum + (Number(curr.balanceGbp) || Number(curr.balanceGBP) || 0), 0
+      );
+
+      // Add manual balance override from evaluation doc
+      const manualTotalGbp = (s as any).currentBalanceNgn / LIVE_FX;
+
+      const totalGbp = accountsTotalGbp + manualTotalGbp;
+
       const studentRequest = requests.find(r => r.userId === s.userId || r.userEmail === s.email);
 
       // Sync details from users collection if available
@@ -382,7 +397,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const stats = useMemo(() => ({
     total: liveStudents.length,
     cleared: liveStudents.filter(s => s.status === 'CLEARED').length,
-    topUpRequests: liveStudents.filter(s => !!s.pendingRequest).length,
+    topUpRequired: liveStudents.filter(s => !!s.pendingRequest || s.status === 'NEEDS_TOPUP').length,
     nearMaturity: liveStudents.filter(s => s.status === 'NEAR_MATURITY').length,
     atRisk: liveStudents.filter(s => s.status === 'AT_RISK').length,
     unapproved: liveStudents.filter(s => !s.isApproved).length,
@@ -401,10 +416,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       else if (filter === 'AT_RISK') matchesFilter = s.status === 'AT_RISK';
       else if (filter === 'UNAPPROVED') matchesFilter = !s.isApproved;
       else if (filter === 'REQUESTS') {
-        matchesFilter = !!s.pendingRequest;
+        matchesFilter = !!s.pendingRequest || s.status === 'NEEDS_TOPUP';
         if (matchesFilter && requestTypeFilter !== 'ALL') {
-          const mappedType = requestTypeFilter === 'FINANCE' ? 'TOP_UP' : 'EXTENSION';
-          matchesFilter = s.pendingRequest?.type === mappedType;
+          if (s.pendingRequest) {
+            const mappedType = requestTypeFilter === 'FINANCE' ? 'TOP_UP' : 'EXTENSION';
+            matchesFilter = s.pendingRequest?.type === mappedType;
+          } else {
+            // If system flagged but no request, we treat it as Finance Addition by default
+            matchesFilter = requestTypeFilter === 'FINANCE';
+          }
         }
       }
 
@@ -560,11 +580,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           isActive={filter === 'CLEARED'}
         />
         <StatCard
-          label="Top Up Request"
-          value={stats.topUpRequests}
+          label="Top Up Required"
+          value={stats.topUpRequired}
           icon={Zap}
           color="text-amber-400"
-          onClick={() => setFilter('REQUESTS')}
+          onClick={() => {
+            setFilter('REQUESTS');
+            setRequestTypeFilter('ALL');
+          }}
           isActive={filter === 'REQUESTS'}
         />
         <StatCard
@@ -580,7 +603,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           value={stats.unapproved}
           icon={ShieldAlert}
           color="text-rose-400"
-          onClick={() => setFilter('UNAPPROVED')}
+          onClick={() => {
+            setFilter('UNAPPROVED');
+            setRequestTypeFilter('ALL');
+          }}
           isActive={filter === 'UNAPPROVED'}
         />
       </div>
@@ -673,7 +699,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                   {filteredStudents.map((student) => (
                     <tr
                       key={student.id}
-                      onClick={() => onInspect?.(student.id)}
+                      onClick={() => setSelectedStudent(student)}
                       className={`transition-all group cursor-pointer ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
                     >
                       <td className="px-4 md:px-8 py-4 md:py-6">
@@ -684,7 +710,19 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                             {student.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div className="min-w-0">
-                            <p className={`text-xs md:text-sm font-bold leading-tight transition-colors truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</p>
+                            <div className="flex items-center gap-2">
+                               <p className={`text-xs md:text-sm font-bold leading-tight transition-colors truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</p>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   if (onInspect) onInspect(student.id);
+                                 }}
+                                 className="p-1 rounded-md bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all"
+                                 title="View Full Dashboard"
+                               >
+                                 <ArrowUpRight className="w-3 h-3" />
+                               </button>
+                            </div>
                             {!student.isApproved && (
                                <span className="inline-block px-1.5 py-0.5 rounded bg-rose-500 text-white text-[7px] font-black uppercase tracking-tighter mt-1 animate-pulse">Waiting Approval</span>
                             )}
@@ -702,6 +740,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                <span className="text-[9px] md:text-[10px] font-black text-amber-500 uppercase tracking-widest">
                                  {student.pendingRequest.type === 'TOP_UP' ? 'Finance Top Up' : 'Days Extension'}
+                               </span>
+                            </div>
+                          ) : student.status === 'NEEDS_TOPUP' ? (
+                            <div className="flex items-center space-x-2">
+                               <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                               <span className="text-[9px] md:text-[10px] font-black text-rose-500 uppercase tracking-widest">
+                                 System Flag: Low Funds
                                </span>
                             </div>
                           ) : (
@@ -759,26 +804,24 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
             <div className="p-8 space-y-8">
               {!isEditMode ? (
                 <>
-                  <div className={`border p-6 rounded-[2.5rem] flex items-center space-x-6 ${
-                    theme === 'dark' ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
-                  }`}>
+                  <div
+                    onClick={() => {
+                      if (onInspect) onInspect(selectedStudent.id);
+                      setSelectedStudent(null);
+                    }}
+                    className={`border p-6 rounded-[2.5rem] flex items-center space-x-6 cursor-pointer group/card transition-all ${
+                      theme === 'dark' ? 'bg-slate-950 border-white/5 hover:border-amber-500/30' : 'bg-slate-50 border-slate-200 shadow-sm hover:shadow-md'
+                    }`}
+                  >
                     <div className={`w-20 h-20 rounded-full border flex items-center justify-center font-black text-2xl transition-colors ${
                       theme === 'dark' ? 'bg-slate-900 border-white/10 text-amber-500' : 'bg-white border-slate-200 text-amber-600'
                     }`}>
                       {selectedStudent.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>
-                      <button
-                      onClick={() => {
-                        if (onInspect) onInspect(selectedStudent.id);
-                        setSelectedStudent(null);
-                      }}
-                      className="text-left group/name"
-                    >
-                      <h4 className={`text-xl font-black leading-none transition-all group-hover/name:text-amber-500 ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>
+                      <h4 className={`text-xl font-black leading-none transition-all group-hover/card:text-amber-500 ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>
                         {selectedStudent.name}
                       </h4>
-                    </button>
                       <p className="text-xs font-mono text-slate-500 mt-2 uppercase">{selectedStudent.email}</p>
                       <div className="mt-4 flex items-center gap-2">
                         <StatusBadge status={selectedStudent.status} isNew={selectedStudent.isNew} />
@@ -789,8 +832,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
                   <div className="grid grid-cols-1 gap-4">
                     <div className={`p-5 rounded-3xl border ${theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200'}`}>
-                      <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Current Balance</p>
-                      <p className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>£{selectedStudent.balanceGbp.toLocaleString()}</p>
+                      <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Consolidated Total Balance</p>
+                      <p className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>£{selectedStudent.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
 
@@ -925,19 +968,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                     >
                       <span>Message Student</span>
                       <FileText className="w-5 h-5 text-emerald-500" />
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (onInspect) onInspect(selectedStudent.id);
-                        setSelectedStudent(null);
-                      }}
-                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
-                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-amber-500/10 hover:text-amber-500' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
-                      }`}
-                    >
-                      <span>View student page</span>
-                      <Eye className="w-5 h-5" />
                     </button>
 
                     <button

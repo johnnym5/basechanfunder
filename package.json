@@ -1,0 +1,15 @@
+{
+  "name": "basechanfunder-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --workspace=@basechanfunder/web-staff",
+    "admin": "npm run dev --workspace=@basechanfunder/web-admin"
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "devDependencies": {
+    "vite-plugin-pwa": "^1.3.0"
+  }
+}

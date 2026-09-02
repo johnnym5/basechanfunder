@@ -21,6 +21,8 @@ import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTheme } from '../context/ThemeContext';
 
+import { MAJOR_CURRENCIES } from '../constants';
+
 // --- Types ---
 
 type SettingTab = 'risk' | 'destinations' | 'api' | 'security';
@@ -33,7 +35,7 @@ interface RiskConfig {
 }
 
 interface ApiConfig {
-  monoKey: string;
+  monoPublicKey: string;
   okraToken: string;
   oandaRefresh: number;
 }
@@ -41,6 +43,7 @@ interface ApiConfig {
 interface SecurityConfig {
   emailAlerts: boolean;
   smsGraceTrigger: boolean;
+  errorAuditLog: boolean;
   sessionTimeout: number;
 }
 
@@ -61,7 +64,7 @@ export const SettingsConsole: React.FC = () => {
   });
 
   const [api, setApi] = useState<ApiConfig>({
-    monoKey: 'sk_live_********************',
+    monoPublicKey: 'test_pk_********************',
     okraToken: 'tok_live_******************',
     oandaRefresh: 900
   });
@@ -69,8 +72,11 @@ export const SettingsConsole: React.FC = () => {
   const [security, setSecurity] = useState<SecurityConfig>({
     emailAlerts: true,
     smsGraceTrigger: false,
+    errorAuditLog: true,
     sessionTimeout: 60
   });
+
+  const [defaultCurrency, setDefaultCurrency] = useState('NGN');
 
   // Global App Params (Rate etc)
   const [globalParams, setGlobalParams] = useState({
@@ -90,15 +96,17 @@ export const SettingsConsole: React.FC = () => {
           gracePeriodHours: data.gracePeriodHours || 24
         });
         setApi({
-          monoKey: data.monoKey || 'sk_live_********************',
+          monoPublicKey: data.monoPublicKey || 'test_pk_********************',
           okraToken: data.okraToken || 'tok_live_******************',
           oandaRefresh: data.oandaRefresh || 900
         });
         setSecurity({
           emailAlerts: data.emailAlerts ?? true,
           smsGraceTrigger: data.smsGraceTrigger ?? false,
+          errorAuditLog: data.errorAuditLog ?? true,
           sessionTimeout: data.sessionTimeout || 60
         });
+        setDefaultCurrency(data.defaultCurrency || 'NGN');
         setGlobalParams({
           fxRate: data.fxRate || 1945.50,
           lastUpdate: data.updatedAt?.seconds
@@ -118,6 +126,7 @@ export const SettingsConsole: React.FC = () => {
         ...risk,
         ...api,
         ...security,
+        defaultCurrency,
         fxRate: globalParams.fxRate,
         updatedAt: serverTimestamp()
       }, { merge: true });
@@ -214,6 +223,26 @@ export const SettingsConsole: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-8">
               <div className="space-y-4">
+                <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Default Local Currency</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {MAJOR_CURRENCIES.slice(0, 15).map((curr) => (
+                    <button
+                      key={curr.code}
+                      onClick={() => setDefaultCurrency(curr.code)}
+                      className={`py-3 rounded-xl border text-[10px] font-black transition-all ${
+                        defaultCurrency === curr.code
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
+                          : theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-500 hover:text-white' : 'bg-white border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {curr.code} ({curr.symbol})
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium italic uppercase tracking-tight">Set the default operational currency for new student evaluations.</p>
+              </div>
+
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>FX Volatility Buffer (%)</label>
                   <span className="text-sm font-black text-amber-500 font-mono">{risk.fxBuffer}%</span>
@@ -272,7 +301,8 @@ export const SettingsConsole: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {activeTab === 'destinations' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -301,15 +331,17 @@ export const SettingsConsole: React.FC = () => {
         {activeTab === 'api' && (
           <div className="max-w-2xl space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mono Open Banking Key</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mono Public Key (Sandbox/Live)</label>
               <div className="relative">
                 <input
-                  type="password" value={api.monoKey} readOnly
+                  type="text"
+                  value={api.monoPublicKey}
+                  onChange={(e) => setApi({...api, monoPublicKey: e.target.value})}
                   className={`w-full border rounded-2xl px-4 py-4 text-xs font-mono text-emerald-500 focus:outline-none ${
                     theme === 'dark' ? 'bg-slate-950 border-white/10' : 'bg-slate-50 border-slate-200'
                   }`}
+                  placeholder="test_pk_..."
                 />
-                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-amber-500 uppercase hover:text-amber-600">Rotate</button>
               </div>
             </div>
             <div className="space-y-2">
@@ -356,6 +388,21 @@ export const SettingsConsole: React.FC = () => {
                 className={`w-12 h-6 rounded-full transition-all relative ${security.smsGraceTrigger ? 'bg-emerald-500' : 'bg-slate-800'}`}
               >
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security.smsGraceTrigger ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+
+            <div className={`flex items-center justify-between p-6 border rounded-3xl ${
+              theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
+            }`}>
+              <div>
+                <h4 className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Error Audit Log</h4>
+                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">Enable forensic tracking of UI/API reference errors.</p>
+              </div>
+              <button
+                onClick={() => setSecurity({...security, errorAuditLog: !security.errorAuditLog})}
+                className={`w-12 h-6 rounded-full transition-all relative ${security.errorAuditLog ? 'bg-emerald-500' : 'bg-slate-800'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security.errorAuditLog ? 'left-7' : 'left-1'}`} />
               </button>
             </div>
           </div>

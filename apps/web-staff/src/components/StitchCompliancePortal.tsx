@@ -68,7 +68,7 @@ export const StitchCompliancePortal: React.FC = () => {
           <img
             src="/logo.png"
             alt="Logo"
-            style={{ mixBlendMode: 'screen' }}
+            style={{ mixBlendMode: 'multiply' }}
             className="w-9 h-9 object-contain filter drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]"
           />
           <div>

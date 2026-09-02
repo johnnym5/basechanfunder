@@ -86,7 +86,7 @@ export const AuthPage: React.FC = () => {
   const [success, setSuccess] = useState('');
 
   // ── Detect environment
-  const isWebView = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.chrome;
+  const isWebView = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !(window as any).chrome;
 
   // ── Handle Redirect Result
   React.useEffect(() => {
@@ -277,12 +277,8 @@ export const AuthPage: React.FC = () => {
     setSuccess('');
     setGoogleLoading(true);
     try {
-      if (isWebView) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        const cred = await signInWithPopup(auth, googleProvider);
-        await handlePostAuth(cred.user);
-      }
+      const cred = await signInWithPopup(auth, googleProvider);
+      await handlePostAuth(cred.user);
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -318,9 +314,10 @@ export const AuthPage: React.FC = () => {
         <div className="text-center mb-8 space-y-3">
           <div className="flex justify-center">
             <img
-              src={isDark ? "/logo_white.png" : "/logo.png"}
+              src="/logo.png"
               alt="Basechan Funder Logo"
               className="h-16 sm:h-20 object-contain drop-shadow-md"
+              style={{ mixBlendMode: 'multiply' }}
             />
           </div>
           <p className="text-xs text-slate-400 font-mono">Proof of Funds Compliance & Verification Platform</p>

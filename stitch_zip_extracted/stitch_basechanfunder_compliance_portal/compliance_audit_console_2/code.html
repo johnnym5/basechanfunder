@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Compliance Audit Console - Basechanfunder</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "secondary-fixed-dim": "#ffb77d",
+                            "on-secondary-fixed-variant": "#6e3900",
+                            "secondary-fixed": "#ffdcc3",
+                            "inverse-surface": "#dfe2ef",
+                            "tertiary-container": "#a6b1c8",
+                            "on-primary-container": "#613b00",
+                            "surface": "#0f131c",
+                            "on-surface": "#dfe2ef",
+                            "inverse-on-surface": "#2c303a",
+                            "surface-container-high": "#262a34",
+                            "surface-container": "#1c1f29",
+                            "surface-bright": "#353943",
+                            "on-tertiary": "#263143",
+                            "on-secondary-container": "#432100",
+                            "on-error": "#690005",
+                            "surface-container-lowest": "#0a0e17",
+                            "on-primary": "#472a00",
+                            "tertiary-fixed": "#d8e3fb",
+                            "surface-container-low": "#181b25",
+                            "surface-dim": "#0f131c",
+                            "error-container": "#93000a",
+                            "on-tertiary-container": "#394457",
+                            "on-surface-variant": "#d8c3ad",
+                            "background": "#0f131c",
+                            "on-tertiary-fixed": "#111c2d",
+                            "primary": "#ffc174",
+                            "primary-fixed": "#ffddb8",
+                            "on-primary-fixed-variant": "#653e00",
+                            "tertiary": "#c1cce4",
+                            "on-error-container": "#ffdad6",
+                            "on-background": "#dfe2ef",
+                            "on-secondary": "#4d2600",
+                            "surface-container-highest": "#31353f",
+                            "secondary": "#ffb77d",
+                            "primary-fixed-dim": "#ffb95f",
+                            "secondary-container": "#d97707",
+                            "on-tertiary-fixed-variant": "#3c475a",
+                            "on-secondary-fixed": "#2f1500",
+                            "primary-container": "#f59e0b",
+                            "surface-tint": "#ffb95f",
+                            "outline-variant": "#534434",
+                            "on-primary-fixed": "#2a1700",
+                            "error": "#ffb4ab",
+                            "tertiary-fixed-dim": "#bcc7de",
+                            "surface-variant": "#31353f",
+                            "outline": "#a08e7a",
+                            "inverse-primary": "#855300"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.125rem",
+                            "lg": "0.25rem",
+                            "xl": "0.5rem",
+                            "full": "0.75rem"
+                    },
+                    "spacing": {
+                            "base": "8px",
+                            "container-padding-mobile": "20px",
+                            "stack-sm": "12px",
+                            "gutter": "24px",
+                            "stack-md": "24px",
+                            "stack-lg": "48px",
+                            "container-padding-desktop": "40px"
+                    },
+                    "fontFamily": {
+                            "metric-xl": ["Inter"],
+                            "body-lg": ["Inter"],
+                            "label-sm": ["JetBrains Mono"],
+                            "body-md": ["Inter"],
+                            "display-lg": ["Inter"],
+                            "headline-md": ["Inter"],
+                            "display-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                            "metric-xl": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                            "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                            "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                            "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}],
+                            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700"}],
+                            "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                            "display-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            color: #dfe2ef;
+            overflow-x: hidden;
+        }
+        .deep-obsidian-bg {
+            background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, #090D16 100%);
+        }
+        .glass-surface {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        .glass-surface:hover {
+            border-top: 1px solid rgba(245, 158, 11, 0.5); /* Gold glow */
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+        .anomaly-glow {
+            box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        }
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.05) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97707 100%);
+            color: #0f131c;
+            border: none;
+        }
+        .btn-gold:hover {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+        .btn-emerald {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            color: #10B981;
+        }
+        .btn-emerald:hover {
+            background: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+        .btn-crimson {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #EF4444;
+        }
+        .btn-crimson:hover {
+            background: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        /* Data Grid Specifics */
+        .data-grid th {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #a6b1c8;
+            letter-spacing: 0.05em;
+        }
+        .data-grid td {
+            padding: 16px 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        .data-grid tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090D16; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2); 
+        }
+    </style>
+</head>
+<body class="deep-obsidian-bg min-h-screen flex text-on-surface">
+<!-- Ambient Glows -->
+<div class="ambient-glow top-0 left-1/4"></div>
+<div class="ambient-glow bottom-0 right-1/4" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.03) 0%, transparent 70%);"></div>
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-surface-container-low/65 backdrop-blur-xl h-screen w-72 flex-col fixed left-0 top-0 border-r border-white/10 shadow-2xl flex py-8 px-6 z-50">
+<div class="mb-12">
+<h1 class="font-display-lg text-display-lg font-bold text-primary-fixed-dim tracking-tighter">Basechanfunder</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-2 uppercase tracking-widest">Institutional Grade</p>
+</div>
+<ul class="flex flex-col space-y-2 flex-grow">
+<li>
+<a class="flex items-center space-x-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-4 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-primary/5 scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="font-body-md text-body-md">Audit Console</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="font-body-md text-body-md">Governance</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+<span class="font-body-md text-body-md">Telemetry</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-body-md text-body-md">Documents</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto">
+<button class="w-full btn-gold rounded-xl py-3 px-4 font-body-md text-body-md font-semibold flex justify-center items-center space-x-2 transition-all">
+<span class="material-symbols-outlined">add</span>
+<span>New Audit</span>
+</button>
+<ul class="flex flex-col space-y-2 mt-6">
+<li>
+<a class="flex items-center space-x-4 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-md text-body-md text-sm">Settings</span>
+</a>
+</li>
+<li>
+<a class="flex items-center space-x-4 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-body-md text-body-md text-sm">Support</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="ml-72 flex-grow flex flex-col h-screen relative">
+<!-- TopNavBar -->
+<header class="bg-surface/40 backdrop-blur-md fixed top-0 right-0 w-[calc(100%-18rem)] h-20 border-b border-white/5 flex justify-between items-center px-container-padding-desktop z-40 transition-colors">
+<!-- Search -->
+<div class="relative w-96 group focus-within:ring-1 focus-within:ring-primary/50 rounded-lg">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-[#020617]/80 border border-white/5 rounded-lg py-2 pl-10 pr-4 text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:bg-[#020617] transition-all placeholder:text-on-surface-variant/50" placeholder="Search applicant, ID, or tx hash..." type="text"/>
+</div>
+<!-- Actions & Profile -->
+<div class="flex items-center space-x-6">
+<div class="flex space-x-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="emergency_home">emergency_home</span>
+</button>
+</div>
+<button class="btn-gold px-4 py-2 rounded-lg font-label-sm text-label-sm font-semibold flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">verified_user</span>
+<span>Compliance Check</span>
+</button>
+<div class="h-8 w-px bg-white/10"></div>
+<button class="flex items-center space-x-3 text-on-surface-variant hover:text-primary transition-colors">
+<img alt="Administrator Profile" class="w-10 h-10 rounded-full object-cover border border-white/10" data-alt="A small, stylized circular avatar of a professional compliance officer with neutral lighting and a dark background, fitting a luxury fintech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZ4RxfpJpe1u1XeYBQV_Xo-7_I9vjv8_91XS1dGGGiMlv7wdEmCROGObkBeFDzGGvs-T7Kswgm9t7PLV1TzcfhH3azeh5LphqKvjx_S2h2QYPBhP_YwSluyVm6NvySvark60S7Pn93zhO53zBIpBJOlzoMAjqAaoEmkY51lz1PXoLlyC6rl0C7_6KGVWrLYnlT96Ml3kHD3lrHLPx1teVQBAosIgWVWX1izpejRX5J_ecCmcFEg18d-Q"/>
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Workspace (Split Pane) -->
+<main class="pt-24 px-container-padding-desktop pb-32 flex gap-gutter h-full overflow-hidden">
+<!-- Left Pane: Ledger & Anomalies -->
+<div class="w-7/12 flex flex-col gap-stack-md h-full overflow-y-auto pr-2 pb-4">
+<!-- Applicant Header Card -->
+<div class="glass-surface rounded-xl p-6 flex items-start justify-between">
+<div class="flex items-center space-x-6">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-3xl text-primary-fixed-dim">person</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Chidi Eze</h2>
+<div class="flex items-center space-x-4 mt-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center"><span class="material-symbols-outlined text-[14px] mr-1">badge</span> PP: NGA-92837461</span>
+<span class="w-1 h-1 rounded-full bg-white/20"></span>
+<span class="font-label-sm text-label-sm text-primary-fixed-dim uppercase flex items-center"><span class="material-symbols-outlined text-[14px] mr-1">flight_land</span> Target: Canada IRCC</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<div class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-1">Risk Score</div>
+<div class="font-metric-xl text-metric-xl text-emerald-400">82<span class="text-lg text-on-surface-variant">/100</span></div>
+</div>
+</div>
+<!-- Financial Health Chart -->
+<div class="glass-surface rounded-xl p-6 flex-shrink-0">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-body-md text-body-md font-semibold text-on-surface flex items-center">
+<span class="material-symbols-outlined mr-2 text-primary">show_chart</span>
+                            120-Day Balance Trajectory
+                        </h3>
+<span class="font-label-sm text-label-sm px-2 py-1 bg-white/5 rounded text-on-surface-variant">CAD Equivalent</span>
+</div>
+<div class="h-48 w-full relative">
+<!-- Simulated Area Chart using CSS Gradients -->
+<div class="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent rounded-b-lg border-t-2 border-primary" style="clip-path: polygon(0 80%, 20% 70%, 40% 75%, 60% 40%, 80% 30%, 100% 10%, 100% 100%, 0 100%);"></div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="w-full h-px bg-white/5"></div>
+<div class="w-full h-px bg-white/5"></div>
+<div class="w-full h-px bg-white/5"></div>
+<div class="w-full h-px bg-white/5"></div>
+</div>
+<!-- Axis Labels -->
+<div class="absolute -left-2 top-0 text-[10px] font-label-sm text-on-surface-variant transform -translate-x-full">50k</div>
+<div class="absolute -left-2 bottom-0 text-[10px] font-label-sm text-on-surface-variant transform -translate-x-full">0</div>
+</div>
+</div>
+<!-- Transaction Ledger -->
+<div class="glass-surface rounded-xl flex-grow flex flex-col overflow-hidden">
+<div class="p-6 border-b border-white/5 flex justify-between items-center bg-surface-container-low/50">
+<h3 class="font-body-md text-body-md font-semibold text-on-surface">Transaction Ledger</h3>
+<div class="flex space-x-2">
+<button class="px-3 py-1 text-xs font-label-sm bg-white/5 hover:bg-white/10 rounded text-on-surface transition-colors">All</button>
+<button class="px-3 py-1 text-xs font-label-sm bg-primary/10 text-primary border border-primary/30 rounded transition-colors">Flagged</button>
+</div>
+</div>
+<div class="overflow-y-auto flex-grow">
+<table class="w-full data-grid text-left border-collapse">
+<thead>
+<tr>
+<th>DATE</th>
+<th>REF ID</th>
+<th>TYPE</th>
+<th class="text-right">AMOUNT (CAD)</th>
+<th>STATUS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="font-label-sm">2023-10-12</td>
+<td class="font-label-sm text-on-surface-variant">TX-9821A</td>
+<td>Payroll Deposit</td>
+<td class="text-right font-metric-xl text-[16px]">+ $4,250.00</td>
+<td><span class="px-2 py-1 rounded text-xs font-label-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span></td>
+</tr>
+<!-- Anomaly Row -->
+<tr class="anomaly-glow bg-red-900/10">
+<td class="font-label-sm">2023-10-05</td>
+<td class="font-label-sm text-on-surface-variant">TX-4419X</td>
+<td>Wire Transfer In</td>
+<td class="text-right font-metric-xl text-[16px] text-primary">+ $15,000.00</td>
+<td>
+<div class="flex items-center space-x-2">
+<span class="px-2 py-1 rounded text-xs font-label-sm bg-red-500/10 text-red-400 border border-red-500/30 flex items-center">
+<span class="material-symbols-outlined text-[12px] mr-1">warning</span> Anomaly
+                                            </span>
+<span class="text-xs font-label-sm text-red-400/70" title="Anomaly Ratio">AR=4.2</span>
+</div>
+</td>
+</tr>
+<tr>
+<td class="font-label-sm">2023-09-28</td>
+<td class="font-label-sm text-on-surface-variant">TX-1102B</td>
+<td>POS Purchase</td>
+<td class="text-right font-metric-xl text-[16px] text-on-surface-variant">- $124.50</td>
+<td><span class="px-2 py-1 rounded text-xs font-label-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span></td>
+</tr>
+<tr>
+<td class="font-label-sm">2023-09-15</td>
+<td class="font-label-sm text-on-surface-variant">TX-9820A</td>
+<td>Payroll Deposit</td>
+<td class="text-right font-metric-xl text-[16px]">+ $4,250.00</td>
+<td><span class="px-2 py-1 rounded text-xs font-label-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Pane: Verification & SOF -->
+<div class="w-5/12 flex flex-col gap-stack-md h-full">
+<div class="glass-surface rounded-xl flex flex-col h-full overflow-hidden border-t border-primary/20 relative">
+<!-- Top Toolbar -->
+<div class="p-4 border-b border-white/5 bg-surface-container-lowest/80 backdrop-blur-md flex justify-between items-center z-10">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-primary">description</span>
+<h3 class="font-body-md text-body-md font-semibold text-on-surface">Sworn Affidavit of Gift</h3>
+</div>
+<div class="flex space-x-2">
+<button class="p-1.5 rounded hover:bg-white/10 text-on-surface-variant transition-colors" title="Zoom Out">
+<span class="material-symbols-outlined text-sm">zoom_out</span>
+</button>
+<button class="p-1.5 rounded hover:bg-white/10 text-on-surface-variant transition-colors" title="Zoom In">
+<span class="material-symbols-outlined text-sm">zoom_in</span>
+</button>
+<button class="p-1.5 rounded hover:bg-white/10 text-on-surface-variant transition-colors ml-2" title="Pop Out">
+<span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+</div>
+<!-- Document Viewer Area -->
+<div class="flex-grow bg-[#cbd5e1] relative overflow-hidden flex items-center justify-center p-8">
+<!-- Simulated Document -->
+<div class="bg-white w-full max-w-md h-[120%] shadow-2xl p-8 text-black font-serif relative transform -translate-y-8">
+<div class="text-center mb-6">
+<h2 class="text-xl font-bold border-b border-black pb-2 inline-block">AFFIDAVIT OF GIFT</h2>
+</div>
+<p class="mb-4 text-sm leading-relaxed">I, <strong class="bg-yellow-200">Ngozi Eze</strong>, residing at Lagos, Nigeria, do hereby solemnly affirm and declare as follows:</p>
+<p class="mb-4 text-sm leading-relaxed">1. That I am the mother of <strong>Chidi Eze</strong>.<br/>
+                                2. That on October 3, 2023, I transferred the sum of <strong>$15,000 CAD</strong> (equivalent) to his account.<br/>
+                                3. This amount is given as an absolute gift out of natural love and affection, to assist with his settlement funds for Canadian immigration.</p>
+<!-- Verification Badge Overlay -->
+<div class="absolute bottom-16 right-8 border-2 border-green-600 rounded-full p-2 w-24 h-24 flex flex-col items-center justify-center transform rotate-12 opacity-80">
+<span class="text-[10px] font-bold text-green-700 uppercase tracking-tighter">e-Signed</span>
+<span class="text-[8px] text-green-700">Oct 04 2023</span>
+<span class="material-symbols-outlined text-green-600 text-lg mt-1">verified</span>
+</div>
+</div>
+</div>
+<!-- Metadata Footer -->
+<div class="p-4 bg-surface-container-lowest/90 border-t border-white/5 z-10 flex flex-col space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Source of Funds (SOF) Linkage</span>
+<span class="px-2 py-1 rounded text-[10px] font-label-sm bg-primary/10 text-primary border border-primary/30">Matches TX-4419X</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] font-label-sm text-on-surface-variant uppercase mb-1">Encryption</div>
+<div class="font-label-sm text-xs text-on-surface flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1 text-emerald-400">lock</span> AES-256 (Valid)
+                                </div>
+</div>
+<div>
+<div class="text-[10px] font-label-sm text-on-surface-variant uppercase mb-1">Metadata Hash</div>
+<div class="font-label-sm text-[10px] text-on-surface truncate" title="0x8f2a...9c41">0x8f2a...9c41</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Global Action Bar (Fixed Bottom) -->
+<div class="absolute bottom-0 right-0 w-[calc(100%-18rem)] h-24 glass-surface bg-surface/80 border-t border-white/10 flex items-center justify-end px-container-padding-desktop space-x-4 z-40">
+<div class="mr-auto">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Reviewing: <span class="text-on-surface">Chidi Eze (1 of 4 Pending)</span></p>
+</div>
+<button class="btn-crimson px-6 py-3 rounded-lg font-body-md text-body-md font-semibold flex items-center space-x-2 transition-all">
+<span class="material-symbols-outlined">flag</span>
+<span>Issue Clarification Flag</span>
+</button>
+<button class="btn-emerald px-6 py-3 rounded-lg font-body-md text-body-md font-semibold flex items-center space-x-2 transition-all">
+<span class="material-symbols-outlined">check_circle</span>
+<span>Endorse Compliance Certificate</span>
+</button>
+</div>
+</div>
+</body></html>

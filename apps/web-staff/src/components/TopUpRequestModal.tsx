@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 interface TopUpRequestModalProps {
   isOpen: boolean;
@@ -52,7 +53,14 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // 1. Create a request record
+      // 1. Safety Check: Admins/Staff should not submit requests via this modal
+      if (appUser?.role !== 'STUDENT') {
+        toast.warning('As an Administrator/Counselor, please use the Inspector Overrides to make direct changes.');
+        onClose();
+        return;
+      }
+
+      // 2. Create a request record
       await addDoc(collection(db, 'liquidity_requests'), {
         userId: currentUser.uid,
         userName: appUser?.displayName || 'Unknown Student',

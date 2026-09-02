@@ -11,7 +11,9 @@ import {
   Activity,
   ArrowRight,
   Filter,
-  CheckCheck
+  CheckCheck,
+  Plus,
+  ShieldAlert
 } from 'lucide-react';
 import {
   collection,
@@ -23,11 +25,13 @@ import {
   serverTimestamp,
   where,
   limit,
-  doc
+  doc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from 'sonner';
 
 interface StudentThread {
   id: string;
@@ -46,8 +50,21 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [threads, setThreads] = useState<StudentThread[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchingAll, setIsSearchingAll] = useState(false);
+  const [unlinkRequests, setUnlinkRequests] = useState<any[]>([]);
   const [filterRole, setFilterRole] = useState<'All' | 'Students' | 'Counselors'>('All');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 0. Fetch all students for outgoing message lookup
+  useEffect(() => {
+    const q = query(collection(db, 'users'), where('role', '==', 'STUDENT'));
+    const unsub = onSnapshot(q, (snap) => {
+      setAllStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
 
   // 1. Fetch unique students who have messages in the last 24h
   useEffect(() => {
@@ -82,6 +99,18 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
     return unsub;
   }, []);
 
+  // 1b. Fetch Pending Unlink Requests
+  useEffect(() => {
+    const q = query(
+      collection(db, 'financial_accounts'),
+      where('unlinkStatus', '==', 'UNLINK_REQUESTED')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnlinkRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
   // 2. Fetch messages for selected student (24h window)
   useEffect(() => {
     if (!selectedStudentId) return;
@@ -103,12 +132,42 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
   }, [selectedStudentId]);
 
   const filteredThreads = useMemo(() => {
-    return threads.filter(t => {
+    // 1. If explicitly searching for ALL students (New Chat Mode)
+    if (isSearchingAll) {
+      const q = searchQuery.toLowerCase();
+
+      return allStudents
+        .filter(s => (s.displayName?.toLowerCase().includes(q)) || (s.email?.toLowerCase().includes(q)))
+        .map(s => {
+          const hasThread = threads.find(t => t.id === (s.uid || s.id));
+          if (hasThread) return hasThread;
+
+          return {
+            id: s.uid || s.id,
+            name: s.displayName || s.username || 'New Student',
+            role: 'STUDENT' as const,
+            lastMessage: 'Ready to start chat',
+            lastTime: '',
+            unreadCount: 0,
+            status: 'NEW'
+          };
+        });
+    }
+
+    // 2. Default mode: show active threads with filtering
+    const active = threads.filter(t => {
       if (filterRole === 'Students') return t.role === 'STUDENT';
       if (filterRole === 'Counselors') return t.role === 'COUNSELOR';
       return true;
     });
-  }, [threads, filterRole]);
+
+    if (searchQuery.trim().length >= 1) {
+      const q = searchQuery.toLowerCase();
+      return active.filter(t => t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q));
+    }
+
+    return active;
+  }, [threads, allStudents, filterRole, searchQuery, isSearchingAll]);
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,19 +185,46 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
       senderRole: 'ADMIN',
       senderName: 'Basechan Support',
       createdAt: serverTimestamp(),
-      isRead: true
+      isRead: true,
+      status: 'OPEN'
     });
+  };
 
-    // Update status to IN_PROGRESS (would typically be on a thread document)
-    // For now we just append to messages which have some status info
+  const handleApproveUnlink = async (accountId: string) => {
+    if (window.confirm('Accept and unlink this account? This will recalculate compliance metrics.')) {
+      await deleteDoc(doc(db, 'financial_accounts', accountId));
+      toast.success('Account unlinked successfully.');
+    }
+  };
+
+  const handleRejectUnlink = async (accountId: string, studentId: string) => {
+     if (window.confirm('Reject this unlinking request?')) {
+        await updateDoc(doc(db, 'financial_accounts', accountId), {
+           unlinkStatus: 'UNLINK_REJECTED',
+           updatedAt: serverTimestamp()
+        });
+
+        // Notify student
+        await addDoc(collection(db, 'support_messages'), {
+           studentId: studentId,
+           senderId: appUser?.uid || 'system',
+           text: "Your request to unlink your bank account has been REJECTED. Please contact support for more details.",
+           isAdmin: true,
+           senderRole: 'ADMIN',
+           senderName: 'Basechan Support',
+           createdAt: serverTimestamp(),
+           isRead: false,
+           status: 'OPEN'
+        });
+     }
   };
 
   const handleResolve = async () => {
     // Typically you'd update a thread document here.
-    alert('Ticket marked as RESOLVED');
+    toast.info('Ticket marked as RESOLVED');
   };
 
-  const selectedThread = threads.find(t => t.id === selectedStudentId);
+  const selectedThread = filteredThreads.find(t => t.id === selectedStudentId);
 
   const getBubbleStyle = (msg: any) => {
     if (msg.senderRole === 'ADMIN') return 'bg-purple-600 text-white font-bold rounded-br-none shadow-xl shadow-purple-500/10';
@@ -154,37 +240,102 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
         theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-slate-50 border-slate-200'
       }`}>
         <div className={`p-6 border-b space-y-4 ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
-          <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Desk</h3>
-
-          <div className={`flex p-1 rounded-xl border ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
-            {['All', 'Students', 'Counselors'].map((r) => (
-              <button
-                key={r}
-                onClick={() => setFilterRole(r as any)}
-                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${
-                  filterRole === r
-                    ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/10'
-                    : theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-600 hover:text-slate-950'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+          <div className="flex items-center justify-between">
+            <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Desk</h3>
+            <button
+              onClick={() => setIsSearchingAll(!isSearchingAll)}
+              className={`p-2 rounded-xl transition-all ${
+                isSearchingAll
+                  ? 'bg-amber-500 text-slate-950 shadow-lg'
+                  : theme === 'dark' ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:text-slate-950'
+              }`}
+              title="Start New Chat"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
+
+          {!isSearchingAll ? (
+            <div className={`flex p-1 rounded-xl border ${theme === 'dark' ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200 shadow-sm'}`}>
+              {['All', 'Students', 'Counselors'].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setFilterRole(r as any)}
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${
+                    filterRole === r
+                      ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/10'
+                      : theme === 'dark' ? 'text-slate-500 hover:text-white' : 'text-slate-600 hover:text-slate-950'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Global Student Lookup</span>
+              <button onClick={() => { setIsSearchingAll(false); setSearchQuery(''); }} className="text-[9px] font-bold text-slate-500 hover:text-rose-500 uppercase tracking-tighter">Cancel</button>
+            </div>
+          )}
 
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
-              placeholder="Search active tickets..."
+              placeholder={isSearchingAll ? "Enter name or email..." : "Search active tickets..."}
+              autoFocus={isSearchingAll}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full border rounded-xl pl-9 pr-4 py-2 text-[10px] focus:outline-none transition-all ${
                 theme === 'dark' ? 'bg-slate-900/50 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'
-              }`}
+              } ${isSearchingAll ? 'ring-1 ring-amber-500/30 border-amber-500/50' : ''}`}
             />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-3 space-y-2">
+          {/* Unlink Requests Notification Section */}
+          {unlinkRequests.length > 0 && (
+            <div className="mb-6 space-y-2">
+               <div className="flex items-center gap-2 px-3 mb-2">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+                  <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Action Required: Unlinks ({unlinkRequests.length})</span>
+               </div>
+               {unlinkRequests.map(req => (
+                  <div key={req.id} className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-3">
+                     <div className="flex justify-between items-start">
+                        <div>
+                           <p className="text-[11px] font-bold text-white uppercase">{req.bankName}</p>
+                           <p className="text-[9px] font-medium text-rose-300 uppercase tracking-tighter">Request by: {req.userEmail || 'User'}</p>
+                        </div>
+                     </div>
+                     <div className="p-2 rounded-lg bg-black/20 text-[9px] text-slate-300 italic border border-white/5">
+                        "{req.unlinkReason || 'No reason provided'}"
+                     </div>
+                     <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApproveUnlink(req.id)}
+                          className="flex-1 py-2 bg-emerald-500 text-slate-950 rounded-lg text-[9px] font-black uppercase tracking-tighter hover:bg-emerald-400 transition-all"
+                        >
+                           Accept
+                        </button>
+                        <button
+                          onClick={() => handleRejectUnlink(req.id, req.userId)}
+                          className="flex-1 py-2 bg-rose-900/50 text-rose-300 border border-rose-500/30 rounded-lg text-[9px] font-black uppercase tracking-tighter hover:bg-rose-900 transition-all"
+                        >
+                           Reject
+                        </button>
+                     </div>
+                  </div>
+               ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-3 mb-2">
+             <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Threads</span>
+          </div>
+
           {filteredThreads.map((thread) => (
             <button
               key={thread.id}

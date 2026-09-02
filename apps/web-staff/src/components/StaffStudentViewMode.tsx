@@ -30,6 +30,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { StudentLightDashboard } from './StudentLightDashboard';
+import { MAJOR_CURRENCIES } from '../constants';
 
 interface StaffStudentViewModeProps {
   studentId: string;
@@ -46,8 +47,9 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [balanceAdjust, setBalanceAdjust] = useState('');
   const [holdingDays, setHoldingDays] = useState('');
   const [targetGbpInput, setTargetGbpInput] = useState('');
+  const [localCurrency, setLocalCurrency] = useState('NGN');
   const [timerStartInput, setTimerStartInput] = useState('');
-  const [bankForm, setBankForm] = useState({ name: '', number: '', balance: '' });
+  const [bankForm, setBankForm] = useState({ name: '', number: '', balance: '', orgCapital: '' });
 
   useEffect(() => {
     if (!studentId) return;
@@ -59,6 +61,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
         setStudent({ id: snap.id, ...data });
         // Pre-fill setup fields if they exist
         if (data.targetGBP) setTargetGbpInput(data.targetGBP.toString());
+        if (data.localCurrency) setLocalCurrency(data.localCurrency);
         if (data.startDate) setTimerStartInput(data.startDate);
       }
       setLoading(false);
@@ -114,6 +117,11 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       detailParts.push(`target: £${targetGbpInput}`);
     }
 
+    if (localCurrency) {
+      updates.localCurrency = localCurrency;
+      detailParts.push(`currency: ${localCurrency}`);
+    }
+
     await updateDoc(doc(db, 'pof_evaluations', studentId), updates);
 
     await addDoc(collection(db, 'audit_logs'), {
@@ -131,6 +139,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const handleAddBank = async () => {
     if (!student) return;
     const balance = parseFloat(bankForm.balance) || 0;
+    const orgCapital = parseFloat(bankForm.orgCapital) || 0;
 
     await addDoc(collection(db, 'financial_accounts'), {
       userId: student.userId || studentId,
@@ -140,6 +149,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       accountType: 'SAVINGS',
       balanceNgn: balance,
       balanceGbp: balance / 1945.50,
+      orgTopUpCapitalNgn: orgCapital,
       connectionMethod: 'MANUAL_DEPOSIT',
       status: 'VERIFIED',
       lastSyncedAt: serverTimestamp(),
@@ -147,7 +157,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
     });
 
     setIsOverrideModalOpen(false);
-    setBankForm({ name: '', number: '', balance: '' });
+    setBankForm({ name: '', number: '', balance: '', orgCapital: '' });
   };
 
   if (loading) {
@@ -240,6 +250,21 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                           />
                         </div>
 
+                        <div className="space-y-2 col-span-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Local Currency</label>
+                          <select
+                            value={localCurrency}
+                            onChange={e => setLocalCurrency(e.target.value)}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          >
+                            {MAJOR_CURRENCIES.map(curr => (
+                              <option key={curr.code} value={curr.code}>
+                                {curr.code} - {curr.name} ({curr.symbol})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Timer Start Date</label>
                           <input
@@ -285,13 +310,22 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                         onChange={e => setBankForm({...bankForm, number: e.target.value})}
                         className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
                       />
-                      <input
-                        type="number"
-                        placeholder="Balance (₦)"
-                        value={bankForm.balance}
-                        onChange={e => setBankForm({...bankForm, balance: e.target.value})}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
-                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <input
+                          type="number"
+                          placeholder="Current Balance (₦)"
+                          value={bankForm.balance}
+                          onChange={e => setBankForm({...bankForm, balance: e.target.value})}
+                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Org Capital (₦)"
+                          value={bankForm.orgCapital}
+                          onChange={e => setBankForm({...bankForm, orgCapital: e.target.value})}
+                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-blue-400 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
                       <button
                         onClick={handleAddBank}
                         className="w-full py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"

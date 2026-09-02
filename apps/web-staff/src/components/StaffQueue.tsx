@@ -21,7 +21,8 @@ import {
   Clock,
   Zap,
   MoreVertical,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 import { AddStudentModal } from './AddStudentModal';
 import { TableSkeletonLoader } from './ui/LoadingStates';
@@ -198,7 +199,10 @@ export const StaffQueue: React.FC<StaffQueueProps> = ({ onInspect }) => {
                 {filtered.map((student) => (
                   <tr
                     key={student.id}
-                    onClick={() => onInspect?.(student.id)}
+                    onClick={() => {
+                      setSelectedStudent(student);
+                      setIsActionModalOpen(true);
+                    }}
                     className={`transition-all group cursor-pointer ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
                   >
                     <td className="px-8 py-7">
@@ -209,7 +213,19 @@ export const StaffQueue: React.FC<StaffQueueProps> = ({ onInspect }) => {
                           {student.name.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div>
-                          <p className={`text-sm font-bold leading-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</p>
+                          <div className="flex items-center gap-2">
+                             <p className={`text-sm font-bold leading-tight transition-colors ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{student.name}</p>
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 if (onInspect) onInspect(student.id);
+                               }}
+                               className="p-1 rounded-md bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-all"
+                               title="View Full Dashboard"
+                             >
+                               <ArrowRight className="w-2.5 h-2.5" />
+                             </button>
+                          </div>
                           <p className="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-tighter">{student.id.substring(0, 8)}</p>
                         </div>
                       </div>

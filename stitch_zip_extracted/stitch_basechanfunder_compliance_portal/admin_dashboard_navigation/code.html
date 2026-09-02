@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Basechanfunder - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#dfe2ef",
+                        "primary-fixed-dim": "#ffb95f",
+                        "on-tertiary-fixed-variant": "#3c475a",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed": "#2a1700",
+                        "surface-tint": "#ffb95f",
+                        "on-tertiary": "#263143",
+                        "surface-bright": "#353943",
+                        "surface": "#0f131c",
+                        "inverse-surface": "#dfe2ef",
+                        "inverse-primary": "#855300",
+                        "on-primary": "#472a00",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#0f131c",
+                        "on-primary-container": "#613b00",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "surface-container-lowest": "#0a0e17",
+                        "background": "#0f131c",
+                        "surface-container-highest": "#31353f",
+                        "on-error": "#690005",
+                        "surface-variant": "#31353f",
+                        "surface-container-low": "#181b25",
+                        "on-primary-fixed-variant": "#653e00",
+                        "tertiary-container": "#a6b1c8",
+                        "inverse-on-surface": "#2c303a",
+                        "primary-fixed": "#ffddb8",
+                        "on-surface-variant": "#d8c3ad",
+                        "on-background": "#dfe2ef",
+                        "tertiary": "#c1cce4",
+                        "primary": "#ffc174",
+                        "outline": "#a08e7a",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "tertiary-fixed": "#d8e3fb",
+                        "on-secondary-container": "#432100",
+                        "surface-container": "#1c1f29",
+                        "secondary": "#ffb77d",
+                        "primary-container": "#f59e0b",
+                        "on-secondary-fixed": "#2f1500",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "surface-container-high": "#262a34",
+                        "secondary-fixed": "#ffdcc3",
+                        "on-tertiary-container": "#394457",
+                        "outline-variant": "#534434",
+                        "secondary-container": "#d97707",
+                        "on-tertiary-fixed": "#111c2d",
+                        "on-secondary": "#4d2600"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-padding-desktop": "40px",
+                        "stack-lg": "48px",
+                        "stack-md": "24px",
+                        "stack-sm": "12px",
+                        "gutter": "24px",
+                        "container-padding-mobile": "20px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "metric-xl": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700" }],
+                        "metric-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #090D16;
+            background-image: radial-gradient(circle at 50% 0%, #1E293B 0%, transparent 70%);
+            background-attachment: fixed;
+        }
+        .glass-card {
+            background-color: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.5rem;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 15px 0 rgba(255, 193, 116, 0.2);
+            border-color: rgba(255, 193, 116, 0.5);
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body-md overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 right-0 w-[calc(100%-18rem)] h-20 bg-surface/40 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-container-padding-desktop z-40 hidden md:flex">
+<div class="flex items-center gap-gutter">
+<!-- Search Bar placeholder -->
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-[#020617]/80 text-on-surface border border-white/10 rounded focus:border-primary focus:ring-1 focus:ring-primary/50 pl-10 pr-4 py-2 font-label-sm text-label-sm transition-all focus-within:ring-1 focus-within:ring-primary/50" placeholder="Search..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">emergency_home</span>
+</button>
+<button class="bg-gradient-to-r from-primary to-primary-fixed text-on-primary-fixed px-4 py-2 rounded font-label-sm text-label-sm font-bold hover:shadow-[0_0_4px_#ffc174] transition-shadow">
+                Compliance Check
+            </button>
+<img alt="Administrator Profile" class="w-10 h-10 rounded-full border border-white/20 object-cover" data-alt="A sleek, high-contrast digital avatar for an institutional administrator in a luxury fintech platform. The avatar features a stylized, minimalist silhouette against a deep obsidian background, illuminated by subtle gold edge lighting. The aesthetic is ultra-modern, professional, and sophisticated, perfectly suited for a high-net-worth financial dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClMqQU02Yatpc9JpioUn8DgRR4y_NOGNXzMxgBKxr_bj6thuryDkvDJKeQpQ80FvB3QWdoJhdaOnbCxwgF9hVjT7tt5VZmdT34BOJdpUGUuo6xSkT3yDIOf87ciKfalzwuyzYuJAdndqzKKBsSlq8IeTJvq2slw91NdEjaRKkocYyDFYyPuDFpJgcQoRXTpf8Uq6BujiB_1Pc24WfWseTzOyp_prPANBjgCntrb6c2N9UWy50BTZ-8_w"/>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="bg-surface dark:bg-surface-container-low/65 backdrop-blur-xl border-r border-white/10 shadow-2xl h-screen w-72 flex-col fixed left-0 top-0 hidden md:flex flex flex-col h-full py-8 px-6 z-50">
+<div class="mb-12">
+<h1 class="font-display-lg text-display-lg font-bold text-primary-fixed-dim tracking-tighter">Basechanfunder</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-2 uppercase tracking-widest">Institutional Grade</p>
+</div>
+<button class="w-full bg-gradient-to-r from-primary to-primary-fixed text-on-primary-fixed py-3 rounded mb-8 font-label-sm text-label-sm font-bold hover:shadow-[0_0_4px_#ffc174] transition-shadow flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span> New Audit
+        </button>
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded text-primary font-bold border-r-2 border-primary bg-primary/5 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">security</span>
+                Audit Console
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">gavel</span>
+                Governance
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+                Telemetry
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">description</span>
+                Documents
+            </a>
+</nav>
+<div class="mt-auto border-t border-white/5 pt-6 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-2 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined text-sm">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 rounded text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-all font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+                Support
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="md:ml-72 pt-24 px-container-padding-mobile md:px-container-padding-desktop pb-24 min-h-screen">
+<header class="mb-stack-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface">Operational Overview</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2">Real-time telemetry and institutional metrics.</p>
+</header>
+<!-- Metric Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-stack-lg">
+<!-- Card 1 -->
+<div class="glass-card p-6 flex flex-col glow-hover transition-all">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">account_balance</span>
+                    Funds Under Verification
+                </span>
+<div class="font-metric-xl text-metric-xl text-on-surface mb-2 tracking-tight">
+                    $1.24B
+                </div>
+<div class="h-16 w-full mt-auto relative overflow-hidden rounded">
+<!-- Faux sparkline -->
+<div class="absolute bottom-0 left-0 w-full h-full bg-gradient-to-t from-primary/20 to-transparent"></div>
+<svg class="absolute bottom-0 left-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<path d="M0 100 L0 50 Q 25 20, 50 60 T 100 30 L 100 100 Z" fill="none" stroke="#ffc174" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="glass-card p-6 flex flex-col glow-hover transition-all relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-teal-500/10 rounded-full blur-xl"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-4 flex items-center gap-2 relative z-10">
+<span class="material-symbols-outlined text-teal-400 text-sm">group</span>
+                    Active Applicants
+                </span>
+<div class="font-metric-xl text-metric-xl text-on-surface tracking-tight relative z-10">
+                    4,892
+                </div>
+<span class="mt-auto font-label-sm text-label-sm text-teal-400 bg-teal-500/10 px-2 py-1 rounded w-fit relative z-10">
+                    +12% vs last month
+                </span>
+</div>
+<!-- Card 3 -->
+<div class="glass-card p-6 flex flex-col glow-hover transition-all border-error/30 relative overflow-hidden group">
+<div class="absolute inset-0 bg-error/5 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+<span class="font-label-sm text-label-sm text-error uppercase mb-4 flex items-center gap-2 relative z-10">
+<span class="material-symbols-outlined text-error text-sm">warning</span>
+                    Critical Anomalies
+                </span>
+<div class="font-metric-xl text-metric-xl text-error tracking-tight relative z-10">
+                    03
+                </div>
+<span class="mt-auto font-label-sm text-label-sm text-error bg-error/10 px-2 py-1 rounded w-fit relative z-10 flex items-center gap-1">
+                    Requires attention
+                </span>
+</div>
+<!-- Card 4 -->
+<div class="glass-card p-6 flex flex-col glow-hover transition-all">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">timer</span>
+                    Avg Verification Time
+                </span>
+<div class="font-metric-xl text-metric-xl text-on-surface tracking-tight">
+                    2.4
+                </div>
+<span class="text-on-surface-variant font-body-md text-body-md">Days</span>
+<div class="w-full bg-[#020617] h-1.5 rounded-full mt-auto overflow-hidden">
+<div class="bg-primary h-full w-3/4 rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-stack-lg">
+<!-- Central Chart Area -->
+<div class="lg:col-span-2 glass-card p-6 flex flex-col h-[500px] relative">
+<!-- Ambient background glow for main chart -->
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent pointer-events-none rounded-lg"></div>
+<div class="flex justify-between items-center mb-8 relative z-10">
+<h3 class="font-headline-md text-headline-md text-on-surface">Verification Velocity</h3>
+<div class="flex gap-2">
+<span class="font-label-sm text-label-sm text-primary flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-primary"></div> Current Month</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-on-surface-variant"></div> Previous Month</span>
+</div>
+</div>
+<div class="flex-1 relative z-10 w-full h-full flex items-end pb-8">
+<!-- Conceptual Line Chart -->
+<div class="w-full h-full relative border-l border-b border-white/10">
+<!-- Grid lines -->
+<div class="absolute w-full h-full flex flex-col justify-between">
+<div class="w-full border-t border-white/5"></div>
+<div class="w-full border-t border-white/5"></div>
+<div class="w-full border-t border-white/5"></div>
+<div class="w-full border-t border-white/5"></div>
+<div class="w-full"></div>
+</div>
+<!-- Faux data lines (SVG) -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Previous Month -->
+<path d="M0 80 L 20 75 L 40 85 L 60 60 L 80 65 L 100 50" fill="none" opacity="0.5" stroke="#d8c3ad" stroke-dasharray="4 4" stroke-width="2"></path>
+<!-- Current Month -->
+<path d="M0 90 L 20 60 L 40 40 L 60 45 L 80 20 L 100 10" fill="none" stroke="#ffc174" stroke-width="3"></path>
+<!-- Data points -->
+<circle class="animate-pulse" cx="20" cy="60" fill="#ffc174" r="3"></circle>
+<circle class="animate-pulse" cx="40" cy="40" fill="#ffc174" r="3"></circle>
+<circle class="animate-pulse" cx="60" cy="45" fill="#ffc174" r="3"></circle>
+<circle class="animate-pulse" cx="80" cy="20" fill="#ffc174" r="3"></circle>
+</svg>
+</div>
+</div>
+</div>
+<!-- Activity Feed -->
+<div class="glass-card p-6 flex flex-col h-[500px]">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6">Recent Activity Feed</h3>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4">
+<!-- Feed Item 1 -->
+<div class="flex gap-4 items-start border-l-2 border-primary/30 pl-4 py-1">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm">link</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface"><span class="font-bold text-primary-fixed-dim">Applicant Chidi E.</span> connected GTBank</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 mins ago</span>
+</div>
+</div>
+<!-- Feed Item 2 -->
+<div class="flex gap-4 items-start border-l-2 border-teal-500/30 pl-4 py-1">
+<div class="w-8 h-8 rounded-full bg-teal-500/10 flex items-center justify-center shrink-0 border border-teal-500/20">
+<span class="material-symbols-outlined text-teal-400 text-sm">check_circle</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface">Audit #492 <span class="text-teal-400 font-bold">Endorsed</span></p>
+<span class="font-label-sm text-label-sm text-on-surface-variant">15 mins ago • System Admin</span>
+</div>
+</div>
+<!-- Feed Item 3 -->
+<div class="flex gap-4 items-start border-l-2 border-error/30 pl-4 py-1">
+<div class="w-8 h-8 rounded-full bg-error/10 flex items-center justify-center shrink-0 border border-error/20">
+<span class="material-symbols-outlined text-error text-sm">warning</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface">Anomaly detected in submission #991</p>
+<span class="font-label-sm text-label-sm text-error">Requires manual review</span>
+</div>
+</div>
+<!-- Feed Item 4 -->
+<div class="flex gap-4 items-start border-l-2 border-white/10 pl-4 py-1">
+<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">upload_file</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface">New batch upload received</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant">1 hour ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

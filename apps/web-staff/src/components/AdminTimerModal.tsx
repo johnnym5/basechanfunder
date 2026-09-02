@@ -11,6 +11,7 @@ import {
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from 'sonner';
 
 interface AdminTimerModalProps {
   isOpen: boolean;
@@ -50,10 +51,11 @@ export const AdminTimerModal: React.FC<AdminTimerModalProps> = ({ isOpen, onClos
         isTimerActive: formData.isTimerActive,
         updatedAt: serverTimestamp()
       });
+      toast.success('Evaluation timer updated successfully.');
       onClose();
     } catch (e) {
       console.error('Timer update error:', e);
-      alert('Failed to update timer.');
+      toast.error('Failed to update timer.');
     } finally {
       setIsSubmitting(false);
     }

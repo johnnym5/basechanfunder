@@ -3,6 +3,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCRRpdnvjEuWvGfWXRRlUP88IY2KhJdHOg',
@@ -20,5 +21,17 @@ export const auth = getAuth(app);
 export const db = getFirestore(app, 'basechanfunder');
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// Asynchronous helper to get messaging instance safely
+export const getMessagingInstance = async () => {
+  try {
+    if (typeof window !== 'undefined' && await isSupported()) {
+      return getMessaging(app);
+    }
+  } catch (err) {
+    console.warn('Firebase Messaging skipped: Unsupported browser or SSR environment.');
+  }
+  return null;
+};
 
 export default app;

@@ -17,20 +17,20 @@ Basechanfunder is a sophisticated multi-service ecosystem built to handle the co
 ### 1. The Compliance & Mathematical Engine
 At the heart of the platform is a high-concurrency **Go-based PoF Matrix Engine**. This engine performs:
 *   **Rolling 28-Day Validation**: Iteratively scans daily closing balances to find the absolute lowest point in the required window.
-*   **Dynamic FX Buffering**: Automatically calculates a **10% safety margin** over the official OANDA exchange rates to insulate applicants against sudden devaluations of local currencies (e.g., NGN to GBP).
-*   **Anomaly Detection**: Uses statistical baseline analysis to flag "parked money"—unusually large deposits that lack verified sources, which are a common trigger for UKVI suspicion.
+*   **Dynamic FX Buffering**: Automatically calculates a **customizable safety margin** (default 10%) over official exchange rates to insulate applicants against sudden devaluations of local currencies.
+*   **Multi-Currency Support**: Native support for **15+ major global currencies** (USD, EUR, GHS, CAD, etc.), with per-student overrides for specialized visa routes.
 
 ### 2. Multi-Channel Data Ingestion Pipeline
-To provide a real-time view of financial health, Basechanfunder ingests data from diverse sources via a **NestJS Microservice**:
-*   **Open Banking**: Direct API integration with Mono and Okra for automated, read-only transaction fetching.
-*   **SMS Agent**: A native Android background service that parses bank alert messages, enabling instant balance updates even when APIs are unavailable.
-*   **MBS Verification**: Integration with the **MyBankStatement (MBS)** portal to authenticate official bank eStatements and perform forensic PDF inspection (detecting font mismatches or metadata tampering).
+To provide a real-time view of financial health, Basechanfunder ingests data from diverse sources:
+*   **Open Banking**: Direct API integration with Mono for automated, read-only transaction fetching.
+*   **Native SMS Sync Engine**: A high-priority Android service that intercepts banking alerts (e.g., UBA) and extracts balances in real-time, even when APIs are offline.
+*   **USSD Fallback**: Integrated USSD check prompts for banks with restricted digital access.
 
-### 3. Governance & Audit Ecosystem
-The platform provides tailored interfaces for every stakeholder in the visa process:
-*   **Applicant Mobile App (Flutter)**: A user-centric dashboard showing the "Maturity Timeline" (e.g., Day 19 of 28), target gauges, and document upload prompts.
-*   **Staff Audit Console (React)**: A glassmorphic internal portal for compliance officers to review flagged anomalies and verify "Deed of Gift" documents.
-*   **Admin Governance Portal (React)**: A high-level system for managing global rules, FX rate providers, and vault security status.
+### 3. Virtual Sub-Ledger & Capital Governance
+The platform introduces an innovative **Virtual Sub-Ledger** system to manage complex funding structures:
+*   **Equity vs. Org Capital**: Distinguishes between a student's personal funds and organization top-up capital within a single account.
+*   **Debit Waterfall Alerting**: Automatically flags compliance breaches if organization-contributed capital is encroached upon by withdrawals.
+*   **Real-Time Push Alerts**: Interactive FCM (Firebase Cloud Messaging) notifications with deep-linking to transaction statements.
 
 ---
 
@@ -39,17 +39,15 @@ The platform provides tailored interfaces for every stakeholder in the visa proc
 ```text
 Basechanfunder/
 ├── apps/
-│   ├── mobile/             # Flutter Cross-Platform Mobile App (Status, Banks, Documents)
-│   ├── web-staff/          # React + TS Staff Audit Console (Glassmorphic UI)
+│   ├── mobile-android/     # Hybrid Kotlin App + WebView (Native SMS/Push Bridge)
+│   ├── web-staff/          # React + TS Staff Audit Console & Student Dashboard
 │   └── web-admin/          # React + TS Admin Governance Portal
 ├── services/
 │   ├── pof-engine/         # Go Microservice (28-Day Matrix, FX Buffer, Anomaly Ratio)
-│   └── ingestion/          # NestJS Microservice (Open Banking, MBS PDF OCR, SMS)
+│   └── ingestion/          # NestJS Microservice (Open Banking, SMS Webhooks)
 ├── deploy/
 │   ├── migrations/         # PostgreSQL DDL Scripts
-│   ├── kong/               # Kong API Gateway Manifest
-│   └── vault/              # HashiCorp Vault Setup Scripts
-├── docker-compose.yml      # Local Stack (PostgreSQL 16, Redis 7, Vault, Redpanda)
+│   └── kong/               # Kong API Gateway Manifest
 ├── ARCHITECTURE.md         # Master Architectural Blueprint
 └── README.md               # Master Documentation
 ```
@@ -58,10 +56,10 @@ Basechanfunder/
 
 | Domain | Technology |
 | :---- | :---- |
-| **Mobile App** | Flutter (Dart) & Native Kotlin (Android Background Service) |
+| **Mobile App** | Native Kotlin (API 34) & React Hybrid WebView |
 | **Web Portals** | React.js, TypeScript, Tailwind CSS |
 | **Backend Runtime** | Go (Matrix Math) & Node.js (NestJS microservices) |
-| **API Gateway** | Kong Gateway / Envoy Proxy |
+| **Cloud Messaging** | Firebase FCM (Android Push + Web Push) |
 | **Event Streaming** | Apache Kafka / Redpanda |
 | **Database & Cache** | PostgreSQL 16+ & Redis Cluster |
 | **Security** | HashiCorp Vault (AES-256-GCM) & TLS 1.3 |
@@ -76,28 +74,20 @@ Ensure **Docker Desktop** is running, then execute:
 docker compose up -d
 ```
 
-### 2. Run Go PoF Matrix Engine
-```bash
-cd services/pof-engine
-go run main.go
-```
-
-### 3. Run NestJS Ingestion Microservice
-```bash
-cd services/ingestion
-npm install && npm run start:dev
-```
-
-### 4. Run Staff Audit Console (Web)
+### 2. Build & Deploy Web Dashboard
 ```bash
 cd apps/web-staff
-npm install && npm run dev
+npm install && npm run build
 ```
 
-### 5. Run Flutter Mobile App
+### 3. Build Android Mobile APK
+Synchronize web assets and compile the native bridge:
 ```bash
-cd apps/mobile
-flutter run
+# Copy web assets to Android project
+cp -r apps/web-staff/dist/* apps/mobile-android/app/src/main/assets/
+# Build APK
+cd apps/mobile-android
+./gradlew assembleDebug
 ```
 
 ---

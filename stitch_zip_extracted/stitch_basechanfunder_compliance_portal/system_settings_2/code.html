@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Basechanfunder Admin - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#dfe2ef",
+                    "error": "#ffb4ab",
+                    "on-error": "#690005",
+                    "on-primary-container": "#613b00",
+                    "error-container": "#93000a",
+                    "secondary-fixed": "#ffdcc3",
+                    "on-error-container": "#ffdad6",
+                    "background": "#0f131c",
+                    "on-secondary-fixed-variant": "#6e3900",
+                    "secondary": "#ffb77d",
+                    "on-tertiary-container": "#394457",
+                    "surface-container": "#1c1f29",
+                    "on-primary": "#472a00",
+                    "surface-container-low": "#181b25",
+                    "surface-bright": "#353943",
+                    "outline-variant": "#534434",
+                    "outline": "#a08e7a",
+                    "surface-container-highest": "#31353f",
+                    "inverse-primary": "#855300",
+                    "inverse-surface": "#dfe2ef",
+                    "surface-variant": "#31353f",
+                    "on-secondary-fixed": "#2f1500",
+                    "surface-container-high": "#262a34",
+                    "surface-dim": "#0f131c",
+                    "secondary-container": "#d97707",
+                    "on-tertiary-fixed-variant": "#3c475a",
+                    "primary-fixed": "#ffddb8",
+                    "inverse-on-surface": "#2c303a",
+                    "tertiary": "#c1cce4",
+                    "on-tertiary-fixed": "#111c2d",
+                    "on-surface": "#dfe2ef",
+                    "tertiary-fixed-dim": "#bcc7de",
+                    "on-tertiary": "#263143",
+                    "surface": "#0f131c",
+                    "surface-tint": "#ffb95f",
+                    "primary-fixed-dim": "#ffb95f",
+                    "primary-container": "#f59e0b",
+                    "surface-container-lowest": "#0a0e17",
+                    "primary": "#ffc174",
+                    "on-primary-fixed": "#2a1700",
+                    "secondary-fixed-dim": "#ffb77d",
+                    "tertiary-fixed": "#d8e3fb",
+                    "on-primary-fixed-variant": "#653e00",
+                    "on-secondary-container": "#432100",
+                    "on-secondary": "#4d2600",
+                    "tertiary-container": "#a6b1c8",
+                    "on-surface-variant": "#d8c3ad"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "container-padding-desktop": "40px",
+                    "stack-sm": "12px",
+                    "stack-lg": "48px",
+                    "gutter": "24px",
+                    "container-padding-mobile": "20px",
+                    "stack-md": "24px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Inter"],
+                    "metric-xl": ["Inter"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "display-lg-mobile": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700"}],
+                    "metric-xl": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}],
+                    "display-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            background-image: radial-gradient(circle at 50% 0%, rgba(30, 41, 59, 0.4) 0%, transparent 60%);
+        }
+        .glowing-edge {
+            border: 1px solid transparent;
+            background: linear-gradient(to bottom right, rgba(255,255,255,0.15), rgba(255,255,255,0.05)) border-box;
+            -webkit-mask:
+                linear-gradient(#fff 0 0) padding-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+        }
+    </style>
+</head>
+<body class="text-on-background font-body-md min-h-screen relative overflow-x-hidden selection:bg-primary/20 selection:text-primary">
+<!-- Ambient Background Glows -->
+<div class="fixed top-1/4 left-1/3 w-96 h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-1/4 right-1/4 w-64 h-64 bg-secondary/5 rounded-full blur-[100px] pointer-events-none"></div>
+<!-- SideNavBar Component -->
+<nav class="bg-surface/65 dark:bg-surface/65 backdrop-blur-xl font-body-md text-body-md h-screen w-72 fixed left-0 top-0 border-r border-white/15 shadow-none flex flex-col h-full py-stack-lg px-gutter z-40">
+<!-- Header -->
+<div class="flex items-center gap-4 mb-stack-md">
+<div class="relative group cursor-pointer">
+<img alt="Admin User Profile" class="w-12 h-12 rounded-full object-cover border border-white/10" data-alt="A macro photography shot of an ultra-sleek, metallic smart ring with glowing gold circuitry accents against a deep obsidian background, high-contrast luxury fintech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4qYQZhyUgNNYaQPL4j6WAAJykAtUvQ5LeLsikw7BOEAcUfLwZ8LLc5im45eWgRRl0g84_X--3dpU0Ix1T-iIRfg72renqB3MWq7omdU2ZXRngfXGgZ7vRuy6WHvaqHA2zudLyINswGRO0Ez46HdLYROm8SxUXos8tIj8R3r84V1VfGOn-PlAPpqVfFBELTSdA0_H-c0LFSXstTQqG-USQ_1xWGBQJdtn6kwg0gf_f_vNTEcnIznZ05w"/>
+<div class="absolute inset-0 rounded-full border border-primary/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_10px_rgba(245,158,11,0.3)]"></div>
+</div>
+<div>
+<h1 class="font-display-lg text-display-lg-mobile font-bold tracking-tighter text-primary truncate">Basechanfunder</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Administrative Suite</p>
+</div>
+</div>
+<!-- Main Navigation -->
+<ul class="flex flex-col gap-2 mt-8 flex-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-primary/5 transition-all duration-300 scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+                    Profile &amp; Identity
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:text-primary hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]">verified_user</span>
+                    Security &amp; Compliance
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:text-primary hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]">api</span>
+                    API &amp; Integration
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:text-primary hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]">settings_suggest</span>
+                    Interface Preferences
+                </a>
+</li>
+</ul>
+<!-- Footer Navigation -->
+<div class="mt-auto flex flex-col gap-4">
+<button class="w-full py-3 px-4 bg-gradient-to-r from-primary-container/20 to-primary/10 border border-primary/20 text-primary font-bold rounded-lg hover:bg-primary/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.15)] transition-all duration-300 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Integration
+            </button>
+<ul class="flex flex-col gap-2 pt-4 border-t border-white/5">
+<li>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant font-medium hover:text-primary hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-[18px]">history_edu</span>
+                        Audit Logs
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant font-medium hover:text-primary hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-[18px]">contact_support</span>
+                        Support
+                    </a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- TopNavBar Component -->
+<header class="bg-background/80 dark:bg-background/80 backdrop-blur-md font-label-sm text-label-sm fixed top-0 right-0 w-[calc(100%-18rem)] z-50 border-b border-white/10 shadow-none flex justify-between items-center h-16 px-container-padding-desktop transition-opacity">
+<div class="flex items-center gap-6">
+<span class="font-headline-md text-headline-md font-bold text-primary">Basechanfunder Admin</span>
+<nav class="hidden lg:flex gap-6">
+<a class="text-on-surface-variant hover:text-on-surface transition-colors pb-1" href="#">Dashboard</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors pb-1" href="#">Telemetry</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors pb-1" href="#">Audit Console</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<!-- Search placeholder -->
+<div class="hidden md:flex items-center bg-surface-container-low border border-white/10 rounded-full px-4 py-1.5 focus-within:border-primary/50 focus-within:shadow-[0_0_10px_rgba(245,158,11,0.1)] transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px] mr-2">search</span>
+<input class="bg-transparent border-none outline-none text-label-sm text-on-surface placeholder:text-on-surface-variant w-48 focus:ring-0 p-0" placeholder="Search resources..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 p-2 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:bg-white/5 p-2 rounded-full">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<img alt="Admin Avatar" class="w-8 h-8 rounded-full border border-white/20 object-cover cursor-pointer hover:border-primary transition-colors" data-alt="A miniature glowing crystal cube resting on a polished black glass surface, dramatic top lighting, signifying secure digital identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwBN1G4ptsM5TmSy4iMOJqPw7wTxpV9guFy8FxiuuDJCIdVk1ZmGyaDhO0-ulOHxY9Rkd_OAyMTSM5iBnF4x4VhdRLopf0K2WujXGD9OazdLW9pO4UvyVpqZVi0LSV0Cvd3JgQhV9xlKr2s0W3ugH1lJsAnJPXlxFOkDw-P057Q_lxdfYhrOCjC9lbHbChHLnK5N91j7NRwfMe3GCgKpHJsUsLhdbLQE51Uz9e2Gs2bEpHIZQP2KKpow"/>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-72 mt-16 p-container-padding-desktop min-h-[calc(100vh-4rem)] flex flex-col gap-stack-lg relative z-10">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="font-headline-md text-display-lg-mobile font-bold text-on-surface tracking-tight mb-2">Administrative Settings</h2>
+<p class="font-body-md text-on-surface-variant max-w-2xl">Manage security protocols, integrations, and operational preferences for Basechanfunder.</p>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-white/10 text-on-surface font-label-sm hover:bg-white/5 transition-colors">
+                    Discard Changes
+                </button>
+<button class="px-6 py-2.5 rounded-lg bg-gradient-to-r from-primary-container to-primary text-on-primary font-label-sm font-bold shadow-[0_4px_14px_0_rgba(245,158,11,0.15)] hover:shadow-[0_6px_20px_rgba(245,158,11,0.3)] hover:-translate-y-0.5 transition-all">
+                    Save Configuration
+                </button>
+</div>
+</div>
+<!-- Form Canvas -->
+<div class="flex-1 w-full max-w-5xl">
+<!-- Glassmorphic Card -->
+<div class="relative bg-surface/65 backdrop-blur-xl rounded-xl p-8 border border-white/5 shadow-2xl">
+<div class="glowing-edge"></div>
+<h3 class="font-headline-md text-headline-md text-primary mb-8 border-b border-white/5 pb-4">Profile &amp; Identity</h3>
+<!-- User Profile Section -->
+<div class="flex items-center gap-6 mb-10">
+<div class="relative">
+<img class="w-24 h-24 rounded-full object-cover border-2 border-surface-container-high shadow-lg" data-alt="Abstract rendering of a human silhouette constructed from glowing golden data streams in a dark void, symbolizing a digital avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYHkMSn_ycVnQpqKi9XW2__kMYbGoGz2TLOfURii6t_1Y6U0hoxp2BfUO37hObvX2TjYbdV_ugFxK1zWihGLQzE9bq2HqVRsSSCx_6IwBk3F9Ueg2SmkHNnda8cJ1XdwJmnm0KTEzl-OX7RehYZiTMJvp1YwThL1lHCWSwVQV0RQUlt1h3ttSXnq0KkRHdpHMOU-dYModH8orITFqP6aRUJpybm99L4WcmkC6t5XPmlKf3zyLLFBwR9A"/>
+<div class="absolute -bottom-2 -right-2 bg-surface-container-high rounded-full p-1 border border-white/10 shadow-md">
+<span class="material-symbols-outlined text-primary text-[16px] m-1">edit</span>
+</div>
+</div>
+<div>
+<button class="px-4 py-2 border border-white/10 rounded-lg text-on-surface font-label-sm hover:border-primary/50 hover:text-primary transition-colors bg-surface-container-lowest/50">
+                            Upload New Avatar
+                        </button>
+<p class="font-label-sm text-on-surface-variant mt-2 text-xs opacity-75">JPEG, PNG or WEBP. Max 2MB.</p>
+</div>
+</div>
+<!-- Form Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs">Full Name</label>
+<input class="bg-surface-container-lowest/80 border border-white/10 rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary/20 focus:bg-primary/5 transition-all outline-none" type="text" value="Julian Obsidian"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs">Institutional Role</label>
+<input class="bg-surface-container-lowest/80 border border-white/10 rounded-lg px-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary/20 focus:bg-primary/5 transition-all outline-none" type="text" value="Principal Auditor"/>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+<label class="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs">Email Address</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest/80 border border-white/10 rounded-lg pl-11 pr-4 py-3 text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary/20 focus:bg-primary/5 transition-all outline-none" type="email" value="julian.obsidian@basechanfunder.gov"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-70">mail</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2 mt-4 pt-6 border-t border-white/5">
+<label class="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs mb-1">System Clearance Level</label>
+<div class="flex items-center">
+<div class="bg-error/10 border border-error/30 text-error px-4 py-2 rounded-full font-label-sm tracking-[0.2em] font-bold shadow-[0_0_15px_rgba(255,180,171,0.15)] flex items-center gap-2 cursor-default select-none">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                                OMEGA PROTOCOL ACTIVE
+                            </div>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mt-2 max-w-xl">
+                            This clearance level grants unrestricted access to core telemetry and audit logs. Modification requires cryptographic verification.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

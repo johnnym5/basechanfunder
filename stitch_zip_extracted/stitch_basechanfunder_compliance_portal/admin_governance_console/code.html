@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Basechanfunder - Admin Governance Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#111c2d",
+                        "surface-variant": "#31353f",
+                        "tertiary-fixed": "#d8e3fb",
+                        "on-primary-fixed-variant": "#653e00",
+                        "surface": "#0f131c",
+                        "surface-container-highest": "#31353f",
+                        "background": "#0f131c",
+                        "on-primary-container": "#613b00",
+                        "surface-bright": "#353943",
+                        "on-error-container": "#ffdad6",
+                        "surface-container": "#1c1f29",
+                        "on-tertiary": "#263143",
+                        "secondary": "#ffb77d",
+                        "on-error": "#690005",
+                        "surface-dim": "#0f131c",
+                        "primary": "#ffc174",
+                        "surface-tint": "#ffb95f",
+                        "on-primary": "#472a00",
+                        "error": "#ffb4ab",
+                        "inverse-surface": "#dfe2ef",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "tertiary-container": "#a6b1c8",
+                        "outline": "#a08e7a",
+                        "primary-container": "#f59e0b",
+                        "outline-variant": "#534434",
+                        "surface-container-high": "#262a34",
+                        "primary-fixed-dim": "#ffb95f",
+                        "secondary-container": "#d97707",
+                        "on-surface": "#dfe2ef",
+                        "inverse-on-surface": "#2c303a",
+                        "tertiary": "#c1cce4",
+                        "inverse-primary": "#855300",
+                        "on-background": "#dfe2ef",
+                        "on-tertiary-container": "#394457",
+                        "on-tertiary-fixed-variant": "#3c475a",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0a0e17",
+                        "on-secondary": "#4d2600",
+                        "on-secondary-fixed": "#2f1500",
+                        "surface-container-low": "#181b25",
+                        "primary-fixed": "#ffddb8",
+                        "on-surface-variant": "#d8c3ad",
+                        "on-secondary-container": "#432100",
+                        "tertiary-fixed-dim": "#bcc7de",
+                        "secondary-fixed": "#ffdcc3",
+                        "secondary-fixed-dim": "#ffb77d",
+                        "on-primary-fixed": "#2a1700"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-sm": "12px",
+                        "stack-lg": "48px",
+                        "stack-md": "24px",
+                        "base": "8px",
+                        "container-padding-mobile": "20px",
+                        "container-padding-desktop": "40px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "display-lg-mobile": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "metric-xl": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "metric-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #090D16;
+            background-image: radial-gradient(circle at 50% 0%, rgba(30, 41, 59, 0.4) 0%, transparent 70%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glowing-edge {
+            position: relative;
+        }
+        .glowing-edge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+        }
+        .hover-glow:hover {
+            box-shadow: 0 0 15px 0 rgba(255, 193, 116, 0.2);
+            border-color: rgba(255, 193, 116, 0.5);
+        }
+        .metric-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffc174;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(255, 193, 116, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1); 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1); 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,193,116,0.3); 
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body-md antialiased min-h-screen flex flex-col md:flex-row">
+<!-- NavigationDrawer (Web) -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-full z-40 w-72 rounded-r-xl border-r border-white/10 shadow-2xl bg-surface-container-lowest/80 backdrop-blur-2xl">
+<div class="p-container-padding-desktop">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-primary text-3xl" data-weight="fill" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="text-headline-md font-headline-md text-primary font-bold tracking-tight">Basechanfunder</span>
+</div>
+<div class="flex items-center gap-3 mb-12 p-3 rounded-lg bg-white/5 border border-white/10">
+<div class="w-10 h-10 rounded-full bg-surface flex items-center justify-center border border-white/20 overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A futuristic, minimalist avatar depicting a stylized administrator icon in metallic tones against a deep obsidian background, glowing softly with gold accents, conveying authority and high-tech governance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhqr56MaaowwcupW4hqA71FhxEEjnkv2SZfLYRgtWbnFcBxpRijHDiZztgMp9uTa5Kd7xsHiMCyCaYn0DBt5qaMF4T_eu2F4Z52BhAkDQzC7kabfRF3JKk4mwmRus60XKwY5b8eyJrOqFwN3LLrl4Z-L00yPiz_50EWnU8IDepc42EWHR48yTCzr4K-5sEedFCeuhR5vlPIBXD6nOWx4wf8nkprtllrMJI48_y2wJjfHXnaa2OiHgYoA"/>
+</div>
+<div>
+<div class="text-body-md font-body-md text-on-surface font-semibold">Basechan Admin</div>
+<div class="text-label-sm font-label-sm text-on-surface-variant">Governance Level 4</div>
+</div>
+</div>
+<ul class="space-y-2">
+<li>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 rounded-lg hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-body-md font-body-md">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 rounded-lg hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="text-body-md font-body-md">Audit Console</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-primary bg-primary/10 border-l-4 border-primary px-4 py-3 rounded-r-lg opacity-80 translate-x-1 transition-all" href="#">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">gavel</span>
+<span class="text-body-md font-body-md font-bold">Governance</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 rounded-lg hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-body-md font-body-md">Telemetry</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 rounded-lg hover:bg-white/5 hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-body-md font-body-md">Documents</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-padding-mobile h-16 bg-surface/65 backdrop-blur-xl border-b border-white/15">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">security</span>
+<span class="text-headline-md font-headline-md font-bold tracking-tight text-primary">Basechanfunder</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-white/20 overflow-hidden">
+<img alt="Compliance Officer Profile" class="w-full h-full object-cover" data-alt="A stylized minimalist avatar icon for a compliance officer, featuring sleek, high-contrast dark metallic tones with subtle gold highlights, conveying professional authority in a futuristic fintech setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvnCu6chSM3RmshbQlbPgieR9AqvlzAhSfcjRTMvw-p33NzTLTY0a6v0U9cye6VAnNecvCzTLGpfnhWZsgmvvb33ATnSgSYNWapSL1lz7gB3ccUdFh33LgSxC9dhvnGBhxnjYHHkbYtYI4Z1HVQl4qfnGTRFxTi9tax_KR0JpL9m7-gDe9fok6EzCACeuX73JvrKCV0-VxJJcEikdK8xZbN95ztshGHrpfEiq1kKrynBFFDwohN_a5rA"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-72 pt-24 pb-24 md:pt-12 px-container-padding-mobile md:px-container-padding-desktop custom-scrollbar overflow-y-auto">
+<header class="mb-stack-lg relative z-10">
+<h1 class="text-display-lg-mobile md:text-display-lg font-display-lg-mobile md:font-display-lg text-on-surface mb-2">Governance Console</h1>
+<p class="text-body-lg font-body-lg text-on-surface-variant max-w-2xl">Statutory matrix configuration and live telemetry oversight for global compliance operations.</p>
+</header>
+<!-- Section 1: Statutory Regulatory Matrix -->
+<section class="mb-stack-lg relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="flex items-center gap-3 mb-stack-md">
+<span class="material-symbols-outlined text-primary">rule_folder</span>
+<h2 class="text-headline-md font-headline-md text-on-surface">Statutory Regulatory Matrix</h2>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-gutter">
+<!-- UKVI Card -->
+<div class="glass-panel rounded-xl p-6 hover-glow transition-all duration-300">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">UKVI Thresholds</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Tier 4 / Student Route</span>
+</div>
+<span class="px-2 py-1 rounded bg-teal-500/10 text-teal-400 text-label-sm font-label-sm border border-teal-500/20">Active</span>
+</div>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">Required Holding Days</label>
+<span class="text-body-md font-body-md font-mono text-primary">28 Days</span>
+</div>
+<input class="w-full" max="90" min="1" type="range" value="28"/>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">FX Volatility Buffer</label>
+<span class="text-body-md font-body-md font-mono text-primary">3.5%</span>
+</div>
+<input class="w-full" max="10" min="0" step="0.1" type="range" value="3.5"/>
+</div>
+<div class="pt-4 border-t border-white/5">
+<div class="flex justify-between items-center text-label-sm font-label-sm">
+<span class="text-on-surface-variant">Last updated:</span>
+<span class="text-on-surface">10:45 AM GMT</span>
+</div>
+</div>
+</div>
+</div>
+<!-- IRCC Card -->
+<div class="glass-panel rounded-xl p-6 hover-glow transition-all duration-300">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">IRCC Thresholds</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">SDS / Regular Study</span>
+</div>
+<span class="px-2 py-1 rounded bg-teal-500/10 text-teal-400 text-label-sm font-label-sm border border-teal-500/20">Active</span>
+</div>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">Required Holding Days</label>
+<span class="text-body-md font-body-md font-mono text-primary">0 Days (GIC)</span>
+</div>
+<input class="w-full" disabled="" max="90" min="0" type="range" value="0"/>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">FX Volatility Buffer</label>
+<span class="text-body-md font-body-md font-mono text-primary">2.0%</span>
+</div>
+<input class="w-full" max="10" min="0" step="0.1" type="range" value="2.0"/>
+</div>
+<div class="pt-4 border-t border-white/5">
+<div class="flex justify-between items-center text-label-sm font-label-sm">
+<span class="text-on-surface-variant">Last updated:</span>
+<span class="text-on-surface">09:15 AM EST</span>
+</div>
+</div>
+</div>
+</div>
+<!-- USCIS Card -->
+<div class="glass-panel rounded-xl p-6 hover-glow transition-all duration-300 relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+<div class="flex justify-between items-start mb-6 relative z-10">
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">USCIS Thresholds</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">F-1 Visa / I-20</span>
+</div>
+<span class="px-2 py-1 rounded bg-amber-500/10 text-amber-400 text-label-sm font-label-sm border border-amber-500/20">Review Pending</span>
+</div>
+<div class="space-y-6 relative z-10">
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">Required Holding Days</label>
+<span class="text-body-md font-body-md font-mono text-primary">1 Day</span>
+</div>
+<input class="w-full" max="90" min="1" type="range" value="1"/>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<label class="text-label-sm font-label-sm text-on-surface-variant">FX Volatility Buffer</label>
+<span class="text-body-md font-body-md font-mono text-primary">5.0%</span>
+</div>
+<input class="w-full" max="10" min="0" step="0.1" type="range" value="5.0"/>
+</div>
+<div class="pt-4 border-t border-white/5">
+<button class="w-full py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary font-body-md font-semibold rounded hover:shadow-[0_0_15px_rgba(255,193,116,0.3)] transition-all">
+                                Approve Changes
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: API Telemetry & Health Grid -->
+<section>
+<div class="flex items-center gap-3 mb-stack-md">
+<span class="material-symbols-outlined text-primary">memory</span>
+<h2 class="text-headline-md font-headline-md text-on-surface">API Telemetry &amp; Health</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-stack-md">
+<!-- Widget 1: Mono API -->
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-between h-32 hover-glow transition-all group">
+<div class="flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Mono API (NGA)</span>
+<div class="w-2 h-2 rounded-full bg-teal-400 metric-pulse"></div>
+</div>
+<div>
+<div class="text-metric-xl font-metric-xl text-on-surface font-mono">42<span class="text-body-md text-on-surface-variant ml-1">ms</span></div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-teal-400 mt-1">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+<span>2ms from avg</span>
+</div>
+</div>
+</div>
+<!-- Widget 2: Okra API -->
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-between h-32 hover-glow transition-all group">
+<div class="flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Okra API (NGA)</span>
+<div class="w-2 h-2 rounded-full bg-teal-400 metric-pulse"></div>
+</div>
+<div>
+<div class="text-metric-xl font-metric-xl text-on-surface font-mono">58<span class="text-body-md text-on-surface-variant ml-1">ms</span></div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-teal-400 mt-1">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+<span>5ms from avg</span>
+</div>
+</div>
+</div>
+<!-- Widget 3: MBS Gateway -->
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-between h-32 hover-glow transition-all group border-amber-500/30">
+<div class="flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">MBS Gateway</span>
+<div class="w-2 h-2 rounded-full bg-amber-400 metric-pulse"></div>
+</div>
+<div>
+<div class="text-metric-xl font-metric-xl text-amber-400 font-mono">145<span class="text-body-md text-amber-400/70 ml-1">ms</span></div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-amber-400 mt-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>Elevated latency</span>
+</div>
+</div>
+</div>
+<!-- Widget 4: OANDA FX -->
+<div class="glass-panel rounded-xl p-4 flex flex-col justify-between h-32 hover-glow transition-all group">
+<div class="flex justify-between items-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">OANDA FX Stream</span>
+<div class="w-2 h-2 rounded-full bg-teal-400 metric-pulse"></div>
+</div>
+<div>
+<div class="text-metric-xl font-metric-xl text-on-surface font-mono">12<span class="text-body-md text-on-surface-variant ml-1">ms</span></div>
+<div class="flex items-center gap-1 text-label-sm font-label-sm text-teal-400 mt-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>Optimal</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Latency Chart Area Placeholder -->
+<div class="glass-panel rounded-xl p-6 h-64 relative overflow-hidden flex flex-col">
+<div class="flex justify-between items-center mb-4 relative z-10">
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">Global Latency Real-time Stream</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-white/5 border border-white/10 rounded text-label-sm font-label-sm hover:bg-white/10">1H</button>
+<button class="px-3 py-1 bg-primary/20 border border-primary/30 text-primary rounded text-label-sm font-label-sm">LIVE</button>
+</div>
+</div>
+<div class="flex-1 w-full bg-surface-container/30 border border-white/5 rounded-lg flex items-center justify-center relative z-10 overflow-hidden">
+<!-- Abstract representation of a chart -->
+<div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<path d="M0,80 Q10,70 20,85 T40,60 T60,75 T80,40 T100,50 L100,100 L0,100 Z" fill="rgba(255,193,116,0.05)" stroke="none"></path>
+<path d="M0,80 Q10,70 20,85 T40,60 T60,75 T80,40 T100,50" fill="none" stroke="#ffc174" stroke-linecap="round" stroke-width="0.5"></path>
+<path d="M0,60 Q15,50 25,65 T45,40 T65,55 T85,20 T100,30" fill="none" opacity="0.5" stroke="#4ade80" stroke-linecap="round" stroke-width="0.5"></path>
+</svg>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+<span class="px-2 py-1 bg-surface/80 backdrop-blur border border-white/10 rounded text-[10px] font-mono text-primary">NGA: 42ms</span>
+<span class="px-2 py-1 bg-surface/80 backdrop-blur border border-white/10 rounded text-[10px] font-mono text-teal-400">FX: 12ms</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface-container/65 backdrop-blur-xl rounded-t-full shadow-[0_-4px_20px_rgba(255,193,116,0.1)] border-t border-white/15">
+<a class="flex flex-col items-center justify-center text-on-tertiary-container p-2 hover:text-primary-fixed-dim" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-label-sm mt-1">Dash</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary bg-primary/5 rounded-full p-2 scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">gavel</span>
+<span class="text-[10px] font-label-sm mt-1 font-bold">Gov</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-tertiary-container p-2 hover:text-primary-fixed-dim" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px] font-label-sm mt-1">Tele</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-tertiary-container p-2 hover:text-primary-fixed-dim" href="#">
+<span class="material-symbols-outlined">folder_shared</span>
+<span class="text-[10px] font-label-sm mt-1">Docs</span>
+</a>
+</nav>
+<script>
+        // Simple slider visual update script
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const val = e.target.value;
+                const displaySpan = e.target.parentElement.querySelector('span.text-primary');
+                if(displaySpan) {
+                    if(displaySpan.innerText.includes('%')) {
+                        displaySpan.innerText = val + '%';
+                    } else if (displaySpan.innerText.includes('Day')) {
+                        displaySpan.innerText = val + (val == 1 ? ' Day' : ' Days');
+                    }
+                }
+            });
+        });
+    </script>
+</body></html>

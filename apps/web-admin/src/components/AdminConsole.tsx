@@ -12,6 +12,7 @@ import {
   Save,
   Info
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // --- Types ---
 
@@ -38,7 +39,7 @@ export const AdminConsole: React.FC = () => {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      alert('Global System Parameters Synced to Redis/PostgreSQL Cluster');
+      toast.success('Global System Parameters Synced to Redis/PostgreSQL Cluster');
     }, 1500);
   };
 

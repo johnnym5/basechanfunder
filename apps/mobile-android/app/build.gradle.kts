@@ -74,6 +74,10 @@ dependencies {
   implementation(composeBom)
   androidTestImplementation(composeBom)
 
+  val firebaseBom = platform(libs.firebase.bom)
+  implementation(firebaseBom)
+  implementation(libs.firebase.messaging)
+
   // Core Android dependencies
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)

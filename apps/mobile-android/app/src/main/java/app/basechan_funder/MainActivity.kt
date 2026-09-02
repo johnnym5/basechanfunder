@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
+import android.content.Intent
 import java.util.regex.Pattern
 
 class MainActivity : ComponentActivity() {
@@ -77,7 +78,24 @@ class MainActivity : ComponentActivity() {
 
         setContentView(webView)
         
-        webView.loadUrl("https://appassets.androidplatform.net/index.html")
+        // Handle deep link from intent extras if present
+        val deepLink = intent.getStringExtra("deepLinkRoute")
+        val finalUrl = if (deepLink != null) {
+            "https://appassets.androidplatform.net/index.html#$deepLink"
+        } else {
+            "https://appassets.androidplatform.net/index.html"
+        }
+        
+        webView.loadUrl(finalUrl)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("deepLinkRoute")?.let { route ->
+            webView.post {
+                webView.evaluateJavascript("window.location.hash = '$route'", null)
+            }
+        }
     }
 
     inner class AndroidInterface {
@@ -95,9 +113,11 @@ class MainActivity : ComponentActivity() {
                     return
                 }
 
-                val result = scanInboxForUbaBalance(mask)
+                val result = scanInboxForBankBalance(mask)
                 if (result != null) {
-                    updateSmsBalance(result.first, result.second, result.third)
+                    updateSmsBalance(result.balance, result.mask, result.timestamp)
+                    // Requirement: Post to backend
+                    postSmsSyncToBackend(result)
                 } else {
                     webView.post {
                         webView.evaluateJavascript("window.onSmsSyncFailed?.('$mask', 'NOT_FOUND')", null)
@@ -112,7 +132,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun scanInboxForUbaBalance(mask: String): Triple<Double, String, Long>? {
+    data class SmsScanResult(
+        val balance: Double,
+        val mask: String,
+        val timestamp: Long,
+        val bankName: String
+    )
+
+    private fun scanInboxForBankBalance(targetMask: String): SmsScanResult? {
         val uri = Uri.parse("content://sms/inbox")
         val cursor: Cursor? = contentResolver.query(uri, null, null, null, "date DESC")
         
@@ -126,26 +153,73 @@ class MainActivity : ComponentActivity() {
                 val body = it.getString(bodyIdx) ?: ""
                 val date = it.getLong(dateIdx)
                 
-                // Filter for UBA
-                if (address.contains("UBA", ignoreCase = true) || address.contains("UBAGroup", ignoreCase = true)) {
-                    val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal)\\s*:\\s*NGN\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
-                    // UBA often uses Ac: followed by masked account
-                    val acctPattern = Pattern.compile("Ac\\s*:\\s*[\\w\\.\\*]*($mask)", Pattern.CASE_INSENSITIVE)
+                val bankName = identifyBank(address) ?: continue
+
+                // Broad pattern to capture balance NGN 1,234.56
+                val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance|Amt)\\s*[:\\s]*NGN\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
+                // Broad pattern to capture account mask (last 4 digits)
+                val acctPattern = Pattern.compile("(?:Acct|Ac|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
+                
+                val balMatcher = balancePattern.matcher(body)
+                val acctMatcher = acctPattern.matcher(body)
+                
+                if (balMatcher.find()) {
+                    val balanceStr = balMatcher.group(1) ?: ""
+                    val balance = balanceStr.replace(",", "").toDoubleOrNull()
                     
-                    val balMatcher = balancePattern.matcher(body)
-                    val acctMatcher = acctPattern.matcher(body)
-                    
-                    if (balMatcher.find() && acctMatcher.find()) {
-                        val balanceStr = balMatcher.group(1) ?: ""
-                        val balance = balanceStr.replace(",", "").toDoubleOrNull()
-                        if (balance != null) {
-                            return Triple(balance, mask, date)
-                        }
+                    val mask = if (acctMatcher.find()) acctMatcher.group(1) ?: "XXXX" else "XXXX"
+
+                    if (balance != null) {
+                        Log.i("MainActivity", "Extracted $bankName Balance: $balance for account $mask")
+                        return SmsScanResult(balance, mask, date, bankName)
                     }
                 }
             }
         }
         return null
+    }
+
+    private fun identifyBank(sender: String): String? {
+        return when {
+            sender.contains("UBA", true) || sender.contains("UBAGroup", true) -> "United Bank for Africa (UBA)"
+            sender.contains("GTBank", true) || sender.contains("GTB", true) -> "Guaranty Trust Bank (GTB)"
+            sender.contains("Access", true) -> "Access Bank"
+            sender.contains("Zenith", true) -> "Zenith Bank"
+            sender.contains("FirstBank", true) || sender.contains("FBN", true) -> "First Bank of Nigeria"
+            sender.contains("Kuda", true) -> "Kuda MFB"
+            else -> null
+        }
+    }
+
+    private fun postSmsSyncToBackend(result: SmsScanResult) {
+        // Implementation for posting to /api/v1/accounts/sms-sync
+        // Using a simple thread for demo purposes
+        Thread {
+            try {
+                val url = Uri.parse("http://10.0.2.2:3000/api/v1/accounts/sms-sync") // Emulator localhost
+                val connection = java.net.URL(url.toString()).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+
+                val jsonPayload = """
+                    {
+                        "accountMask": "${result.mask}",
+                        "balanceNgn": ${result.balance},
+                        "bankName": "${result.bankName}",
+                        "source": "SMS_INGESTION",
+                        "timestamp": "${java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date(result.timestamp))}"
+                    }
+                """.trimIndent()
+
+                connection.outputStream.write(jsonPayload.toByteArray())
+                val responseCode = connection.responseCode
+                Log.d("MainActivity", "Backend Post Status: $responseCode")
+                connection.disconnect()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to post SMS sync to backend", e)
+            }
+        }.start()
     }
 
     fun updateSmsBalance(balance: Double, mask: String, timestamp: Long) {
