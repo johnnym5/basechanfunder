@@ -317,19 +317,13 @@ export const AuthPage: React.FC = () => {
         {/* Logo + Brand */}
         <div className="text-center mb-8 space-y-3">
           <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F5B651]/10 border border-[#F5B651]/30 flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.15)] overflow-hidden">
-              <img
-                src="/logo.png"
-                alt="Logo"
-                style={{ mixBlendMode: 'screen' }}
-                className="w-10 h-10 object-contain"
-              />
-            </div>
+            <img
+              src={isDark ? "/logo_white.png" : "/logo.png"}
+              alt="Basechan Funder Logo"
+              className="h-16 sm:h-20 object-contain drop-shadow-md"
+            />
           </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-[#FFC174]">BASECHANFUNDER</h1>
-            <p className="text-xs text-slate-400 font-mono mt-1">UKVI 28-Day Proof of Funds Compliance Platform</p>
-          </div>
+          <p className="text-xs text-slate-400 font-mono">Proof of Funds Compliance & Verification Platform</p>
         </div>
 
         {/* Card */}

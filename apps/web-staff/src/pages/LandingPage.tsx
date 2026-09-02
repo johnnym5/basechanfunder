@@ -45,12 +45,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, isI
         isDark ? 'bg-slate-950/40 border-white/5' : 'bg-white/80 border-slate-200'
       }`}>
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-            <ShieldCheck className="w-6 h-6 text-slate-950" />
-          </div>
+          <img src={isDark ? "/logo_icon_white.png" : "/logo_icon.png"} alt="Basechan Funder Logo" className="w-10 h-10 object-contain" />
           <div>
-            <span className={`text-lg font-black tracking-widest uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>Basechanfunder</span>
-            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-tighter">Compliance Ledger Platform</p>
+            <span className={`text-lg font-black tracking-widest uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>Basechan Funder</span>
+            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">Compliance Ledger Platform</p>
           </div>
         </div>
 
