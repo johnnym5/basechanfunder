@@ -269,14 +269,14 @@ export const StudentMobileFirstDashboard: React.FC<{
     return { ngn, gbp };
   }, [accounts, selectedAccountIds]);
 
-  const targetGBP = evaluation?.targetGBP || 13340;
-  const isTargetMet = totals.gbp >= targetGBP;
-  const progressPercent = Math.min(Math.round((totals.gbp / targetGBP) * 100), 100);
+  const targetGBP = evaluation?.targetGBP || 0;
+  const isTargetMet = targetGBP > 0 && totals.gbp >= targetGBP;
+  const progressPercent = targetGBP > 0 ? Math.min(Math.round((totals.gbp / targetGBP) * 100), 100) : 0;
 
   // Expiration logic
   const expiryInfo = useMemo(() => {
     if (!evaluation?.isTimerActive || !evaluation?.expirationDate) {
-      return { isExpired: false, isNearExpiry: false, daysLeft: 28 };
+      return { isExpired: false, isNearExpiry: false, daysLeft: 0 };
     }
     const now = new Date();
     const expiry = new Date(evaluation.expirationDate);
@@ -359,10 +359,10 @@ export const StudentMobileFirstDashboard: React.FC<{
         isDark ? 'bg-[#030712]/95 border-white/5' : 'bg-white/95 border-slate-200 shadow-xs'
       }`}>
         <div className="flex-1 min-w-0 pr-3">
-          <h1 className={`text-lg sm:text-xl font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <h1 className={`text-xs sm:text-base font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
             Hello, {name || 'Student'}
           </h1>
-          <p className={`text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             Welcome to your <span className="text-blue-600 font-bold">Basechan Funder</span> dashboard
           </p>
         </div>
@@ -409,7 +409,7 @@ export const StudentMobileFirstDashboard: React.FC<{
               if (!isProfileOpen) setHasUnreadNotification(false);
             }}
             aria-label="Student Profile Menu"
-            className={`relative w-11 h-11 rounded-full border-2 transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer z-50 flex items-center justify-center ${
+            className={`relative w-7 h-7 rounded-full border-2 transition-all hover:scale-105 active:scale-95 overflow-visible cursor-pointer z-50 flex items-center justify-center ${
               isDark
                 ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222]'
                 : 'border-blue-600 shadow-md shadow-blue-500/20 bg-white'
@@ -422,7 +422,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                 className="w-full h-full object-cover rounded-full bg-slate-800"
               />
             ) : (
-              <span className="text-xs font-black text-blue-600 uppercase">
+              <span className="text-[9px] font-black text-blue-600 uppercase">
                 {name?.[0]?.toUpperCase() || 'S'}
               </span>
             )}
@@ -539,23 +539,12 @@ export const StudentMobileFirstDashboard: React.FC<{
       {/* MAIN MOBILE CONTENT CONTAINER */}
       <main className="w-full px-3.5 sm:px-6 py-4 space-y-4 max-w-4xl mx-auto pb-12">
 
-        {/* PRIMARY ACTION BUTTON: New Top-Up Request */}
-        <div>
-          <button
-            onClick={() => isStaff && onStaffAction ? onStaffAction() : setIsTopUpModalOpen(true)}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isStaff ? 'New Top-Up Update' : 'New Top-Up Request'}</span>
-          </button>
-        </div>
-
         {/* METRIC CARDS HORIZONTAL CAROUSEL */}
         <section>
-          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1 pt-1">
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 pt-1 px-1">
 
             {/* CARD 1: Total Liquid Converted Balance */}
-            <div className="w-full sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
+            <div className="w-[88%] sm:w-[400px] shrink-0 snap-center rounded-3xl p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div>
@@ -576,22 +565,32 @@ export const StudentMobileFirstDashboard: React.FC<{
                 </div>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-white/5 space-y-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                <div className="flex items-center space-x-2">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Sources Linked: <span className="text-white">{selectedAccountIds.length} / {accounts.length} Selected</span></span>
+                <div className="space-y-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider flex-1">
+                  <div className="flex items-center space-x-2">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span>Sources Linked: <span className="text-white">{selectedAccountIds.length} / {accounts.length} Selected</span></span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span className="truncate max-w-[150px]">Bank: <span className="text-emerald-400">
+                        {selectedAccountIds.length === 0
+                          ? 'No Sources Selected'
+                          : selectedAccountIds.length === 1
+                            ? accounts.find(a => a.id === selectedAccountIds[0])?.bankName
+                            : `${accounts.find(a => a.id === selectedAccountIds[0])?.bankName} (+${selectedAccountIds.length - 1})`}
+                      </span></span>
+                    </div>
+
+                    <button
+                      onClick={() => setIsTopUpModalOpen(true)}
+                      className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors border-l border-white/10 pl-3 ml-2"
+                    >
+                      <span>{isStaff ? 'UPDATE' : 'TOP-UP'}</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate">Bank: <span className="text-emerald-400">
-                    {selectedAccountIds.length === 0
-                      ? 'No Sources Selected'
-                      : selectedAccountIds.length === 1
-                        ? accounts.find(a => a.id === selectedAccountIds[0])?.bankName
-                        : `${accounts.find(a => a.id === selectedAccountIds[0])?.bankName} (+${selectedAccountIds.length - 1})`}
-                  </span></span>
-                </div>
-              </div>
             </div>
 
             {/* CARD 2: Statutory Holding & Expiration Timer */}
@@ -604,19 +603,29 @@ export const StudentMobileFirstDashboard: React.FC<{
                     Holding & Expiration
                   </p>
                   <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${
-                    isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    targetGBP > 0
+                      ? isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
                   }`}>
-                    {isTargetMet ? 'Compliant' : `${progressPercent}% Of Target`}
+                    {targetGBP > 0 ? (isTargetMet ? 'Compliant' : `${progressPercent}% Of Target`) : 'No Target Set'}
                   </span>
                 </div>
 
                 <div className="flex items-baseline space-x-2 mt-1">
-                  <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                    {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
-                  </h3>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-                    Remaining
-                  </span>
+                  {evaluation?.startDate && expiryInfo.daysLeft > 0 ? (
+                    <>
+                      <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+                        {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
+                      </h3>
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                        Remaining
+                      </span>
+                    </>
+                  ) : (
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-400 uppercase">
+                      No Window Set
+                    </h3>
+                  )}
                 </div>
 
                 {/* Progress bar */}
@@ -624,20 +633,24 @@ export const StudentMobileFirstDashboard: React.FC<{
                   <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        isTargetMet ? 'bg-emerald-400' : 'bg-gradient-to-r from-amber-400 to-blue-500'
+                        targetGBP > 0
+                          ? isTargetMet ? 'bg-emerald-400' : 'bg-gradient-to-r from-amber-400 to-blue-500'
+                          : 'bg-slate-700'
                       }`}
-                      style={{ width: `${progressPercent}%` }}
+                      style={{ width: targetGBP > 0 ? `${progressPercent}%` : '0%' }}
                     />
                   </div>
                   <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-1">
                     <span>Current: £{Math.round(totals.gbp).toLocaleString()}</span>
-                    <span>Target: £{targetGBP.toLocaleString()}</span>
+                    <span>Target: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (Not Set)'}</span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between">
-                <span className="text-[9px] font-mono text-slate-400">UKVI 28-Day Window</span>
+                <span className="text-[9px] font-mono text-slate-400">
+                  {evaluation?.startDate ? `${evaluation.consecutiveDays || 28}-Day Window` : 'No Window Set'}
+                </span>
                 <button
                   onClick={() => setIsTopUpModalOpen(true)}
                   className="text-[9px] font-black uppercase text-blue-400 hover:text-blue-300 tracking-wider flex items-center gap-1 cursor-pointer"
@@ -662,13 +675,15 @@ export const StudentMobileFirstDashboard: React.FC<{
                 Open Banking & Verified Sources
               </p>
             </div>
-            <button
-              onClick={() => setIsConnectModalOpen(true)}
-              className="flex items-center space-x-1.5 text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Connect Bank</span>
-            </button>
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => setIsConnectModalOpen(true)}
+                className="flex items-center space-x-1.5 text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Connect Bank</span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3">
