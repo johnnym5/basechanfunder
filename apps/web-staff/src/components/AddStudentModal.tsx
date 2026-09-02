@@ -36,35 +36,64 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   // Manual Tab State
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     country: 'GBR',
-    targetGbp: 13340
+    targetGbp: 0
   });
 
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchError('');
+      return;
+    }
+    const delayDebounceFn = setTimeout(() => {
+      handleSearch();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
     setIsSearching(true);
+    setSearchError('');
     try {
-      // Searching for students in users collection
-      const q = query(
-        collection(db, 'users'),
-        where('role', '==', 'STUDENT'),
-        limit(5)
-      );
+      const lowerQuery = searchQuery.toLowerCase().trim();
+      let results: any[] = [];
+
+      // Fetch all users (limit 500 for safety) and filter locally for best reliability
+      const q = query(collection(db, 'users'), limit(500));
       const snap = await getDocs(q);
-      const results = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter((u: any) =>
-          u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+
+      results = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => {
+        const n = (u.displayName || '').toLowerCase();
+        const e = (u.email || '').toLowerCase();
+        const w = (u.username || '').toLowerCase();
+        const uid = (u.uid || '').toLowerCase();
+
+        // Match any part of the query in name, email, or username
+        return n.includes(lowerQuery) || e.includes(lowerQuery) || w.includes(lowerQuery) || uid === lowerQuery;
+      });
+
+      if (snap.empty) {
+        setSearchError('The user database is empty. Try creating a user first.');
+      } else if (results.length === 0) {
+        setSearchError(`Found ${snap.docs.length} users, but none match "${searchQuery}".`);
+      }
+
       setSearchResults(results);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Search error:', e);
+      setSearchError(e.message || 'Check your connection or permissions');
     } finally {
       setIsSearching(false);
     }
@@ -78,11 +107,15 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
         userEmail: user.email,
         userName: user.displayName || user.email,
         status: 'PENDING',
-        targetGBP: 13340,
+        isApproved: false,
+        targetGBP: 0,
         visaRoute: 'UK Student Visa (Tier 4)',
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: '', // Leave empty until Admin explicitly starts it
         anomalyRatio: 0.00,
-        fxBufferPercent: 5.0,
+        fxBufferPercent: 0.0,
+        expirationDate: null,
+        timerCustomMessage: null,
+        isTimerActive: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -105,11 +138,15 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
         userEmail: formData.email,
         userName: formData.name,
         status: 'PENDING',
+        isApproved: false,
         targetGBP: formData.targetGbp,
         visaRoute: `${formData.country} Student Visa`,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: '', // Leave empty until Admin explicitly starts it
         anomalyRatio: 0.00,
-        fxBufferPercent: 5.0,
+        fxBufferPercent: 0.0,
+        expirationDate: null,
+        timerCustomMessage: null,
+        isTimerActive: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -132,7 +169,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
         <div className="p-8 border-b border-white/5 flex justify-between items-center">
           <div>
             <h3 className="text-2xl font-black text-white">Add Student</h3>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Initiate Compliance Evaluation</p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Start checking a student</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
             <X className="w-6 h-6 text-slate-500" />
@@ -172,17 +209,23 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
                 />
                 <button
                   onClick={handleSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-amber-500/10 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2 bg-amber-500 text-slate-950 rounded-xl font-black text-[10px] uppercase hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20"
                 >
-                  <Search className="w-4 h-4" />
+                  Search
                 </button>
               </div>
+
+              {searchError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono">
+                  {searchError}
+                </div>
+              )}
 
               <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
                 {isSearching ? (
                   <div className="py-10 text-center">
                     <Loader2 className="w-6 h-6 text-amber-500 animate-spin mx-auto mb-2" />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Searching Auth Records...</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">Searching for student...</p>
                   </div>
                 ) : searchResults.length > 0 ? (
                   searchResults.map((user) => (
@@ -193,11 +236,11 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
                       className="w-full flex items-center justify-between p-4 bg-slate-950 border border-white/5 rounded-2xl hover:border-amber-500/40 transition-all group group-disabled:opacity-50"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center font-black text-xs text-amber-500">
+                        <div className="w-10 h-10 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center font-black text-xs text-amber-500">
                           {user.displayName?.[0] || 'U'}
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-bold text-white leading-tight">{user.displayName || 'Unknown'}</p>
+                          <p className="text-sm font-bold text-white leading-tight">{user.displayName || user.username || 'User'}</p>
                           <p className="text-[10px] font-mono text-slate-500">{user.email}</p>
                         </div>
                       </div>

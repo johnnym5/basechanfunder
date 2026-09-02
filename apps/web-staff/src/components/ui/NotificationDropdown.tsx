@@ -10,33 +10,62 @@ import {
   ChevronRight,
   CheckCheck,
   Trash2,
-  Clock
+  Clock,
+  History
 } from 'lucide-react';
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot
+} from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface SystemNotification {
   id: string;
-  type: 'NEW_USER' | 'TOP_UP' | 'OVERRIDE' | 'ANOMALY';
+  type: string;
   message: string;
   time: string;
   isRead: boolean;
 }
 
-const MOCK_NOTIFICATIONS: SystemNotification[] = [
-  { id: '1', type: 'NEW_USER', message: 'Adebayo Ogunlesi registered for GBR route.', time: '2m ago', isRead: false },
-  { id: '2', type: 'TOP_UP', message: 'Chidi Anagonye requested a ₦500,000 top-up.', time: '15m ago', isRead: false },
-  { id: '3', type: 'ANOMALY', message: 'High deposit flag detected for Student STU-2283.', time: '1h ago', isRead: false },
-  { id: '4', type: 'OVERRIDE', message: 'Manual balance adjustment committed by Sarah Connor.', time: '2h ago', isRead: true },
-  { id: '5', type: 'NEW_USER', message: 'Tunde Eniola successfully linked GTBank API.', time: '5h ago', isRead: true },
-  { id: '6', type: 'TOP_UP', message: 'Urgent: Top-up grace period expiring in 2h.', time: '10h ago', isRead: true },
-  { id: '7', type: 'ANOMALY', message: 'Daily balance drop detected for Kwame Nkrumah.', time: '1d ago', isRead: true },
-  { id: '8', type: 'NEW_USER', message: 'Zainab Bello completed onboarding.', time: '2d ago', isRead: true },
-];
-
 export const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<SystemNotification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [page, setPage] = useState(1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch real activity from audit_logs
+  useEffect(() => {
+    const q = query(
+      collection(db, 'audit_logs'),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const logs = snap.docs.map(doc => {
+        const data = doc.data();
+        const timestamp = data.createdAt?.seconds
+          ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now';
+
+        return {
+          id: doc.id,
+          type: data.action || 'INFO',
+          message: `${data.actor || 'System'}: ${data.detail || data.action}`,
+          time: timestamp,
+          isRead: false // Real audit logs don't have isRead, we can treat them as unread or just simple logs
+        };
+      });
+      setNotifications(logs);
+    }, (err) => {
+      console.warn('Notification stream error:', err);
+    });
+
+    return unsub;
+  }, []);
 
   const pageSize = 5;
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
@@ -75,13 +104,12 @@ export const NotificationDropdown: React.FC = () => {
   };
 
   const getIcon = (type: string) => {
-    switch (type) {
-      case 'NEW_USER': return <UserPlus className="w-4 h-4 text-emerald-400" />;
-      case 'TOP_UP': return <Zap className="w-4 h-4 text-amber-400" />;
-      case 'ANOMALY': return <ShieldAlert className="w-4 h-4 text-rose-400" />;
-      case 'OVERRIDE': return <Settings2 className="w-4 h-4 text-cyan-400" />;
-      default: return <Bell className="w-4 h-4 text-slate-400" />;
-    }
+    const t = type.toUpperCase();
+    if (t.includes('USER') || t.includes('STUDENT')) return <UserPlus className="w-4 h-4 text-emerald-400" />;
+    if (t.includes('TOP_UP') || t.includes('ADJUST')) return <Zap className="w-4 h-4 text-amber-400" />;
+    if (t.includes('ANOMALY') || t.includes('FLAG') || t.includes('RISK')) return <ShieldAlert className="w-4 h-4 text-rose-400" />;
+    if (t.includes('OVERRIDE') || t.includes('CONFIG') || t.includes('UPDATE')) return <Settings2 className="w-4 h-4 text-cyan-400" />;
+    return <History className="w-4 h-4 text-slate-400" />;
   };
 
   return (

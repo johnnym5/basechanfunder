@@ -15,6 +15,7 @@ export interface AppUser {
   displayName: string;
   photoURL: string;
   role: UserRole;
+  isApproved: boolean;
   createdAt?: unknown;
 }
 
@@ -33,10 +34,11 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 // Determine role from email domain
-function deriveRole(email: string): UserRole {
+export function deriveRole(email: string): UserRole {
   const lower = email.toLowerCase();
   if (lower.endsWith('@basechaninternational.com')) return 'ADMIN_GOVERNANCE';
-  if (lower.endsWith('.basechaninternational@gmail.com')) return 'COUNSELOR';
+  if (lower.includes('auditor')) return 'STAFF_AUDITOR';
+  if (lower.endsWith('.basechaninternational@gmail.com') || lower.includes('counselor')) return 'COUNSELOR';
   return 'STUDENT';
 }
 
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUser(firebaseUser);
           
           const role = deriveRole(firebaseUser.email ?? '');
+          const isApproved = role !== 'STUDENT'; // Admins/Counselors auto-approved, Students need manual approval
           const derivedUsername = (firebaseUser.email?.split('@')[0] || firebaseUser.uid)
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '');
@@ -64,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: firebaseUser.displayName || derivedUsername || 'User',
             photoURL: firebaseUser.photoURL ?? '',
             role,
+            isApproved,
           };
 
           // Attempt Firestore sync if database is available

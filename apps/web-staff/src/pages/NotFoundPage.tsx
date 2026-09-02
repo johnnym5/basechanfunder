@@ -16,14 +16,14 @@ export const NotFoundPage: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-4xl font-black tracking-tighter text-white uppercase">Node 404</h1>
+          <h1 className="text-4xl font-black tracking-tighter text-white uppercase">Page not found</h1>
           <p className="text-sm font-mono text-slate-500 font-bold uppercase tracking-widest">
-            Resource not found in PoF bridge
+            We couldn't find the page you were looking for.
           </p>
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-          The governance endpoint you are attempting to reach does not exist or has been relocated to the secure vault.
+          This page doesn't exist or has been moved.
         </p>
 
         <button
@@ -31,7 +31,7 @@ export const NotFoundPage: React.FC = () => {
           className="inline-flex items-center space-x-3 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest transition-all group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-amber-500" />
-          <span>Back to Grid Console</span>
+          <span>Go back to dashboard</span>
         </button>
       </div>
     </div>

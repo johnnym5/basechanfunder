@@ -65,7 +65,12 @@ export const StitchCompliancePortal: React.FC = () => {
         isDark ? 'bg-[#0F131C]/90 border-[#31353F] shadow-2xl' : 'bg-white/90 border-slate-200 shadow-sm'
       }`}>
         <div className="flex items-center space-x-4">
-          <img src="/logo.svg" alt="Logo" className="w-9 h-9 object-contain filter drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
+          <img
+            src="/logo.png"
+            alt="Logo"
+            style={{ mixBlendMode: 'screen' }}
+            className="w-9 h-9 object-contain filter drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+          />
           <div>
             <div className="flex items-center space-x-2.5">
               <span className="text-base font-black tracking-tight text-[#FFC174]">
@@ -271,7 +276,7 @@ export const StitchCompliancePortal: React.FC = () => {
                       <span className="text-slate-400">[14:32:18.442]</span> <strong>[ERR]</strong> MBS Protocol timeout on block sync. Retrying (1/3).
                     </div>
                     <div className="text-slate-400"><span className="text-slate-500">[14:32:20.100]</span> <span className="text-blue-400">[INFO]</span> System GC cycle completed. Freed 1.2GB memory.</div>
-                    <div className="text-slate-400"><span class="text-slate-500">[14:32:22.505]</span> <span className="text-[#00E676]">[OK]</span> MBS Protocol sync re-established.</div>
+                    <div className="text-slate-400"><span className="text-slate-500">[14:32:22.505]</span> <span className="text-[#00E676]">[OK]</span> MBS Protocol sync re-established.</div>
                   </div>
                 </div>
 

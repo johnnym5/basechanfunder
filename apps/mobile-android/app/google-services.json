@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1053228569213",
+    "project_id": "basechanfunder",
+    "storage_bucket": "basechanfunder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1053228569213:android:88fbd2ca406bec3d9e5714",
+        "android_client_info": {
+          "package_name": "app.basechan_funder"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1053228569213-gmqs7gromujm3esbd190klhd9rbm1grb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9qSW8On8uHZCrWAp35r4PRa9zNdEkCLk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1053228569213-gmqs7gromujm3esbd190klhd9rbm1grb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

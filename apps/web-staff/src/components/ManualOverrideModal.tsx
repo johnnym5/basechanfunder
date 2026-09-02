@@ -66,9 +66,12 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const rate = 1945.50;
+
       // 1. Log Adjustment Audit Record
       await addDoc(collection(db, 'manual_adjustments'), {
         studentId: student.id,
+        studentEmail: student.email,
         performedBy,
         type: activeMode === 'balance' ? `BALANCE_${balanceSubMode.toUpperCase()}` : `DAYS_${daysSubMode.toUpperCase()}`,
         amountNgn: activeMode === 'balance' ? amount : 0,
@@ -77,14 +80,30 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
         createdAt: serverTimestamp()
       });
 
-      // 2. Update Student Master Record
+      // 2. If Balance Override, create a virtual transaction to reflect in UI
+      if (activeMode === 'balance' && amount > 0) {
+        await addDoc(collection(db, 'financial_accounts'), {
+          userId: student.id,
+          userEmail: student.email,
+          bankName: 'Manual Adjustment (Offline)',
+          accountMask: '••••MANL',
+          currency: 'NGN',
+          rawBalance: balanceSubMode === 'deposit' ? amount : -amount,
+          balanceNGN: balanceSubMode === 'deposit' ? amount : -amount,
+          balanceGBP: balanceSubMode === 'deposit' ? amount / rate : -(amount / rate),
+          provider: 'MANUAL_OVERRIDE',
+          status: 'ACTIVE',
+          createdAt: serverTimestamp()
+        });
+      }
+
+      // 3. Update Student Master Record (for days or timestamps)
       const studentRef = doc(db, 'pof_evaluations', student.id);
       const updates: any = {
         updatedAt: serverTimestamp()
       };
 
       if (activeMode === 'days') {
-        // Adjust start date to match new day count
         const newStart = new Date();
         newStart.setDate(newStart.getDate() - projectedDays + 1);
         updates.startDate = newStart.toISOString().split('T')[0];

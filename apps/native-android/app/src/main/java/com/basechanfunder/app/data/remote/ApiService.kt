@@ -5,25 +5,26 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
-import retrofit2.http.Query
+import retrofit2.http.Path
 
 interface ApiService {
 
-    @GET("user/profile")
-    suspend fun getUserProfile(): Response<UserDto>
+    @GET("balances/live/{userId}")
+    suspend fun getLiveBalance(
+        @Path("userId") userId: String
+    ): Response<DailyBalanceDto>
 
-    @GET("balances/daily")
-    suspend fun getDailyBalances(
-        @Query("startDate") startDate: String?,
-        @Query("endDate") endDate: String?
-    ): Response<List<DailyBalanceDto>>
-
-    @POST("adjustments")
+    @POST("adjustments/request")
     suspend fun requestAdjustment(
         @Body request: AdjustmentRequestDto
     ): Response<Unit>
 
-    @POST("notifications/sms-sync")
+    @GET("adjustments/status/{requestId}")
+    suspend fun getAdjustmentStatus(
+        @Path("requestId") requestId: String
+    ): Response<AdjustmentRequestDto>
+
+    @POST("ingestion/sms-sync")
     suspend fun syncSms(
         @Body payload: SmsPayloadDto
     ): Response<Unit>

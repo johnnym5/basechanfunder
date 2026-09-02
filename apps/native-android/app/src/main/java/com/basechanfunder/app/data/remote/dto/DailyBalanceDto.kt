@@ -1,10 +1,9 @@
 package com.basechanfunder.app.data.remote.dto
 
-import com.google.gson.annotations.SerializedName
-
 data class DailyBalanceDto(
-    @SerializedName("date") val date: String,
-    @SerializedName("amount") val amount: Double,
-    @SerializedName("currency") val currency: String,
-    @SerializedName("status") val status: String
+    val snapshotDate: String,
+    val aggregatedNgnBalance: Double,
+    val convertedForeignBalance: Double,
+    val isAboveThreshold: Boolean,
+    val consecutiveCompliantDays: Int
 )

@@ -63,8 +63,6 @@ export const AdminConsole: React.FC = () => {
               <h1 className="text-2xl font-black tracking-tight uppercase">Governance Console</h1>
               <div className="flex items-center space-x-2">
                  <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Global Risk Control</span>
-                 <div className="w-1 h-1 rounded-full bg-slate-700" />
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">System v2.4.0</span>
               </div>
             </div>
           </div>

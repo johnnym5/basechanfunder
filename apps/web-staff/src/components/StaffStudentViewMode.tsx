@@ -45,6 +45,8 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   // Form States
   const [balanceAdjust, setBalanceAdjust] = useState('');
   const [holdingDays, setHoldingDays] = useState('');
+  const [targetGbpInput, setTargetGbpInput] = useState('');
+  const [timerStartInput, setTimerStartInput] = useState('');
   const [bankForm, setBankForm] = useState({ name: '', number: '', balance: '' });
 
   useEffect(() => {
@@ -53,7 +55,11 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
     // Listen to the specific student evaluation
     const unsub = onSnapshot(doc(db, 'pof_evaluations', studentId), (snap) => {
       if (snap.exists()) {
-        setStudent({ id: snap.id, ...snap.data() });
+        const data = snap.data();
+        setStudent({ id: snap.id, ...data });
+        // Pre-fill setup fields if they exist
+        if (data.targetGBP) setTargetGbpInput(data.targetGBP.toString());
+        if (data.startDate) setTimerStartInput(data.startDate);
       }
       setLoading(false);
     });
@@ -85,21 +91,35 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
 
   const handleUpdateDays = async () => {
     if (!student) return;
-    const days = parseInt(holdingDays) || 0;
 
-    // Calculate new startDate to reflect these days
-    const newStart = new Date();
-    newStart.setDate(newStart.getDate() - days + 1);
-
-    await updateDoc(doc(db, 'pof_evaluations', studentId), {
-      startDate: newStart.toISOString().split('T')[0],
+    const updates: any = {
       updatedAt: serverTimestamp()
-    });
+    };
+
+    let detailParts = [];
+
+    if (holdingDays) {
+      const days = parseInt(holdingDays) || 0;
+      const newStart = new Date();
+      newStart.setDate(newStart.getDate() - days + 1);
+      updates.startDate = newStart.toISOString().split('T')[0];
+      detailParts.push(`counter: ${days} days`);
+    } else if (timerStartInput) {
+      updates.startDate = timerStartInput;
+      detailParts.push(`start date: ${timerStartInput}`);
+    }
+
+    if (targetGbpInput) {
+      updates.targetGBP = parseFloat(targetGbpInput) || 0;
+      detailParts.push(`target: £${targetGbpInput}`);
+    }
+
+    await updateDoc(doc(db, 'pof_evaluations', studentId), updates);
 
     await addDoc(collection(db, 'audit_logs'), {
       actor: 'Staff Inspector',
-      action: 'DAYS_OVERRIDE',
-      detail: `Set holding counter to ${days} days for ${student.userName}`,
+      action: 'EVALUATION_SETUP',
+      detail: `Configured ${student.userName}: ${detailParts.join(', ')}`,
       studentId: studentId,
       createdAt: serverTimestamp()
     });
@@ -140,69 +160,17 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   }
 
   return (
-    <div className="min-h-screen bg-[#030712] relative">
-      {/* 1. Inspector Sticky Top Bar */}
-      <div className="sticky top-0 z-[200] w-full bg-amber-500 text-slate-950 px-6 py-2 flex justify-between items-center shadow-2xl">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 fill-slate-950/20" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Staff Inspector View Active</span>
-          </div>
-          <div className="h-4 w-px bg-slate-950/20" />
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-black uppercase opacity-60 italic">Session Target:</span>
-            <span className="text-[10px] font-black uppercase">{student?.userName} ({student?.id})</span>
-          </div>
-        </div>
-
-        <button
-          onClick={onExit}
-          className="flex items-center gap-2 bg-slate-950 text-white px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all"
-        >
-          <ArrowLeft className="w-3 h-3" />
-          Exit Inspector
-        </button>
-      </div>
-
-      {/* 2. Modified Student Dashboard */}
-      {/* Note: We reuse StudentLightDashboard but pass in the student name and wrap it with our tools */}
-      <div className="relative">
-        <StudentLightDashboard name={student?.userName || 'Student'} />
-
-        {/* Float Controls Layer (Absolutely positioned OVER the dashboard elements) */}
-        {/* Balance Edit Trigger */}
-        <div className="absolute top-[280px] right-[10%] z-50">
-           <button
-             onClick={() => { setModalTab('balance'); setIsOverrideModalOpen(true); }}
-             className="bg-amber-500 text-slate-950 p-2 rounded-full shadow-xl hover:scale-110 transition-all group"
-           >
-             <Edit3 className="w-4 h-4" />
-             <span className="absolute right-full mr-3 bg-slate-950 text-white text-[9px] font-black uppercase px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Edit Balance</span>
-           </button>
-        </div>
-
-        {/* Days Edit Trigger */}
-        <div className="absolute top-[380px] right-[10%] z-50">
-           <button
-             onClick={() => { setModalTab('days'); setIsOverrideModalOpen(true); }}
-             className="bg-amber-500 text-slate-950 p-2 rounded-full shadow-xl hover:scale-110 transition-all group"
-           >
-             <Calendar className="w-4 h-4" />
-             <span className="absolute right-full mr-3 bg-slate-950 text-white text-[9px] font-black uppercase px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Set Holding Days</span>
-           </button>
-        </div>
-
-        {/* Bank Add Trigger */}
-        <div className="absolute top-[600px] left-[50%] -translate-x-1/2 z-50">
-           <button
-             onClick={() => { setModalTab('add_bank'); setIsOverrideModalOpen(true); }}
-             className="flex items-center gap-2 bg-amber-500 text-slate-950 px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl hover:scale-105 transition-all"
-           >
-             <Plus className="w-4 h-4" />
-             Add Bank Account to Profile
-           </button>
-        </div>
-      </div>
+    <div className="relative">
+      <StudentLightDashboard
+        evaluationId={studentId}
+        userId={student?.userId}
+        name={student?.userName || 'Student'}
+        isStaff={true}
+        onStaffAction={(tab) => {
+          setModalTab((tab as any) || 'balance');
+          setIsOverrideModalOpen(true);
+        }}
+      />
 
       {/* 3. Global Override Modal */}
       {isOverrideModalOpen && (
@@ -220,13 +188,17 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
 
               <div className="px-8 pt-6">
                  <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5">
-                    {['balance', 'days', 'add_bank'].map((tab) => (
+                    {[
+                      { id: 'balance', label: 'Balance' },
+                      { id: 'days', label: 'Setup Window' },
+                      { id: 'add_bank', label: 'Add Bank' }
+                    ].map((t) => (
                       <button
-                        key={tab}
-                        onClick={() => setModalTab(tab as any)}
-                        className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all ${overrideTab === tab ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
+                        key={t.id}
+                        onClick={() => setModalTab(t.id as any)}
+                        className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all ${overrideTab === t.id ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
                       >
-                        {tab.replace('_', ' ')}
+                        {t.label}
                       </button>
                     ))}
                  </div>
@@ -256,21 +228,45 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
 
                  {overrideTab === 'days' && (
                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Current Holding Days</label>
-                        <input
-                          type="number"
-                          placeholder="0-28"
-                          value={holdingDays}
-                          onChange={e => setHoldingDays(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2 col-span-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Target Amount (£)</label>
+                          <input
+                            type="number"
+                            placeholder="e.g. 13340"
+                            value={targetGbpInput}
+                            onChange={e => setTargetGbpInput(e.target.value)}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Timer Start Date</label>
+                          <input
+                            type="date"
+                            value={timerStartInput}
+                            onChange={e => setTimerStartInput(e.target.value)}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">OR: Manual Days Count</label>
+                          <input
+                            type="number"
+                            placeholder="0-28"
+                            value={holdingDays}
+                            onChange={e => setHoldingDays(e.target.value)}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
                       </div>
+
                       <button
                         onClick={handleUpdateDays}
                         className="w-full py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
                       >
-                         Override Holding Counter
+                         Apply Setup Configuration
                       </button>
                    </div>
                  )}

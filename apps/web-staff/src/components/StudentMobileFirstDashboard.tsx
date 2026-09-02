@@ -94,7 +94,7 @@ const NIGERIAN_BANKS = [
 export const StudentMobileFirstDashboard: React.FC<{
   name: string;
   isStaff?: boolean;
-  onStaffAction?: () => void;
+  onStaffAction?: (tab?: string) => void;
 }> = ({ name, isStaff, onStaffAction }) => {
   const { currentUser, appUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -113,6 +113,7 @@ export const StudentMobileFirstDashboard: React.FC<{
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [activeMetricCard, setActiveMetricCard] = useState(0); // 0 = Balance, 1 = Timer
 
   // 5-Second Slide-Out Notification Toast State
   const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
@@ -264,10 +265,12 @@ export const StudentMobileFirstDashboard: React.FC<{
   // 3. Computed Totals
   const totals = useMemo(() => {
     const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
-    const ngn = selectedAccounts.reduce((sum, acc) => sum + acc.balanceNgn, 0);
+    const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + acc.balanceNgn, 0);
+    const evaluationNgn = evaluation?.currentBalanceNgn || 0;
+    const ngn = accountsNgn + evaluationNgn;
     const gbp = ngn / LIVE_FX_RATE;
-    return { ngn, gbp };
-  }, [accounts, selectedAccountIds]);
+    return { ngn, gbp, accountsNgn, evaluationNgn };
+  }, [accounts, selectedAccountIds, evaluation]);
 
   const targetGBP = evaluation?.targetGBP || 0;
   const isTargetMet = targetGBP > 0 && totals.gbp >= targetGBP;
@@ -539,128 +542,157 @@ export const StudentMobileFirstDashboard: React.FC<{
       {/* MAIN MOBILE CONTENT CONTAINER */}
       <main className="w-full px-3.5 sm:px-6 py-4 space-y-4 max-w-4xl mx-auto pb-12">
 
-        {/* METRIC CARDS HORIZONTAL CAROUSEL */}
-        <section>
-          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 pt-1 px-1">
-
+        {/* METRIC CARDS PAGED CONTAINER */}
+        <section className="relative group">
+          <div className="relative overflow-hidden rounded-3xl min-h-[220px] flex items-stretch">
             {/* CARD 1: Total Liquid Converted Balance */}
-            <div className="w-[88%] sm:w-[400px] shrink-0 snap-center rounded-3xl p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className={`w-full flex-shrink-0 transition-all duration-500 transform ${activeMetricCard === 0 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
+              <div className="h-full rounded-3xl p-6 text-white relative overflow-hidden shadow-xl bg-[#0B172A] border border-white/10 flex flex-col justify-between">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              <div>
-                <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-90 mb-1">
-                  {name || 'Student Balance'}
-                </p>
-                <h2 className="text-4xl sm:text-5xl font-black tracking-tight">
-                  £{totals.gbp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </h2>
-
-                <div className="mt-2.5 flex items-center gap-2">
-                  <p className="text-slate-300 text-base sm:text-lg font-bold">
-                    ₦{totals.ngn.toLocaleString()}
+                <div>
+                  <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-90 mb-1">
+                    {name || 'Student Balance'}
                   </p>
-                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-[8px] font-black uppercase tracking-widest text-slate-400 border border-white/5">
-                    Local Currency
-                  </span>
+                  <h2 className="text-4xl sm:text-5xl font-black tracking-tight">
+                    £{totals.gbp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h2>
+
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <p className="text-slate-300 text-base sm:text-lg font-bold">
+                      ₦{totals.ngn.toLocaleString()}
+                    </p>
+                    <span className="px-1.5 py-0.5 rounded bg-white/10 text-[8px] font-black uppercase tracking-widest text-slate-400 border border-white/5">
+                      Local Currency
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-white/5 flex items-end justify-between">
+                  <div className="space-y-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider flex-1">
+                    <div className="flex items-center space-x-2">
+                      <CreditCard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span>Sources Linked: <span className="text-white">{selectedAccountIds.length} / {accounts.length} Selected</span></span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="truncate max-w-[150px]">Bank: <span className="text-emerald-400">
+                          {selectedAccountIds.length === 0
+                            ? 'No Sources Selected'
+                            : selectedAccountIds.length === 1
+                              ? accounts.find(a => a.id === selectedAccountIds[0])?.bankName
+                              : `${accounts.find(a => a.id === selectedAccountIds[0])?.bankName} (+${selectedAccountIds.length - 1})`}
+                        </span></span>
+                      </div>
+
+                      <button
+                        onClick={() => isStaff && onStaffAction ? onStaffAction() : setIsTopUpModalOpen(true)}
+                        className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors border-l border-white/10 pl-3 ml-2"
+                      >
+                        <span>{isStaff ? 'UPDATE' : 'TOP-UP'}</span>
+                        <ArrowRight className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-                <div className="space-y-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider flex-1">
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span>Sources Linked: <span className="text-white">{selectedAccountIds.length} / {accounts.length} Selected</span></span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span className="truncate max-w-[150px]">Bank: <span className="text-emerald-400">
-                        {selectedAccountIds.length === 0
-                          ? 'No Sources Selected'
-                          : selectedAccountIds.length === 1
-                            ? accounts.find(a => a.id === selectedAccountIds[0])?.bankName
-                            : `${accounts.find(a => a.id === selectedAccountIds[0])?.bankName} (+${selectedAccountIds.length - 1})`}
-                      </span></span>
-                    </div>
-
-                    <button
-                      onClick={() => setIsTopUpModalOpen(true)}
-                      className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors border-l border-white/10 pl-3 ml-2"
-                    >
-                      <span>{isStaff ? 'UPDATE' : 'TOP-UP'}</span>
-                      <ArrowRight className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                </div>
             </div>
 
             {/* CARD 2: Statutory Holding & Expiration Timer */}
-            <div className="w-full sm:w-[85%] md:w-[48%] shrink-0 snap-center rounded-3xl p-5 sm:p-6 text-white relative overflow-hidden shadow-xl bg-[#0F172A] border border-white/10 flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className={`w-full flex-shrink-0 transition-all duration-500 transform ${activeMetricCard === 1 ? 'translate-x-0 opacity-100 relative' : 'translate-x-full opacity-0 absolute'}`}>
+              <div className="h-full rounded-3xl p-6 text-white relative overflow-hidden shadow-xl bg-[#0F172A] border border-white/10 flex flex-col justify-between">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                    Holding & Expiration
-                  </p>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${
-                    targetGBP > 0
-                      ? isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}>
-                    {targetGBP > 0 ? (isTargetMet ? 'Compliant' : `${progressPercent}% Of Target`) : 'No Target Set'}
-                  </span>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                      Holding & Expiration
+                    </p>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${
+                      targetGBP > 0
+                        ? isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {targetGBP > 0 ? (isTargetMet ? 'Compliant' : `${progressPercent}% Of Target`) : 'No Target Set'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    {evaluation?.startDate && expiryInfo.daysLeft > 0 ? (
+                      <>
+                        <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+                          {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
+                        </h3>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                          Remaining
+                        </span>
+                      </>
+                    ) : (
+                      <div className="flex items-baseline space-x-2 opacity-60">
+                        <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-500 uppercase">No window set</h3>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mt-3">
+                    <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          targetGBP > 0
+                            ? isTargetMet ? 'bg-emerald-400' : 'bg-gradient-to-r from-amber-400 to-blue-500'
+                            : 'bg-slate-700'
+                        }`}
+                        style={{ width: targetGBP > 0 ? `${progressPercent}%` : '0%' }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-1">
+                      <span>Current: £{Math.round(totals.gbp).toLocaleString()}</span>
+                      <span>Target: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (Not Set)'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-baseline space-x-2 mt-1">
-                  {evaluation?.startDate && expiryInfo.daysLeft > 0 ? (
-                    <>
-                      <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                        {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
-                      </h3>
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-                        Remaining
-                      </span>
-                    </>
-                  ) : (
-                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-400 uppercase">
-                      No Window Set
-                    </h3>
+                  <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-slate-400 uppercase tracking-tighter">
+                    {evaluation?.startDate ? 'UKVI 28-Day Window' : 'no window set, till admin put a window time'}
+                  </span>
+                  {isStaff && (
+                    <button
+                      onClick={() => onStaffAction?.('days')}
+                      className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
+                    >
+                      <span>SETUP EVALUATION</span>
+                      <Settings2 className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
-
-                {/* Progress bar */}
-                <div className="mt-3">
-                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        targetGBP > 0
-                          ? isTargetMet ? 'bg-emerald-400' : 'bg-gradient-to-r from-amber-400 to-blue-500'
-                          : 'bg-slate-700'
-                      }`}
-                      style={{ width: targetGBP > 0 ? `${progressPercent}%` : '0%' }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-1">
-                    <span>Current: £{Math.round(totals.gbp).toLocaleString()}</span>
-                    <span>Target: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (Not Set)'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between">
-                <span className="text-[9px] font-mono text-slate-400">
-                  {evaluation?.startDate ? `${evaluation.consecutiveDays || 28}-Day Window` : 'No Window Set'}
-                </span>
-                <button
-                  onClick={() => setIsTopUpModalOpen(true)}
-                  className="text-[9px] font-black uppercase text-blue-400 hover:text-blue-300 tracking-wider flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Request Top-Up</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
               </div>
             </div>
+          </div>
 
+          {/* Navigation Controls */}
+          <div className="flex justify-center items-center mt-3 gap-6">
+            <button
+              onClick={() => setActiveMetricCard(0)}
+              className={`p-1.5 rounded-full border transition-all ${activeMetricCard === 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-slate-500 hover:text-white'}`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex gap-2">
+              {[0, 1].map(i => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeMetricCard === i ? 'bg-blue-500 w-4' : 'bg-slate-700'}`} />
+              ))}
+            </div>
+
+            <button
+              onClick={() => setActiveMetricCard(1)}
+              className={`p-1.5 rounded-full border transition-all ${activeMetricCard === 1 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-slate-500 hover:text-white'}`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </section>
 

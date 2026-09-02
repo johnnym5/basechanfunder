@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import 'banks_screen.dart';
 import 'documents_screen.dart';
 import 'support_screen.dart';
 import 'adjustment_request_screen.dart';
+import 'waiting_for_approval_screen.dart';
 
 class StitchMobileDashboard extends StatefulWidget {
   const StitchMobileDashboard({super.key});
@@ -23,6 +26,13 @@ class _StitchMobileDashboardState extends State<StitchMobileDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+
+    // Approval Logic Ported from Web App
+    if (authService.appUser != null && !authService.appUser!.isApproved) {
+      return const WaitingForApprovalScreen();
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A0D14),
       body: SafeArea(

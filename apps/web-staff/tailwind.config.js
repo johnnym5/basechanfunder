@@ -1,11 +1,15 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'SF Pro Display', 'system-ui', 'sans-serif'],
+      },
       colors: {
         brand: {
           50: '#f0f7ff',

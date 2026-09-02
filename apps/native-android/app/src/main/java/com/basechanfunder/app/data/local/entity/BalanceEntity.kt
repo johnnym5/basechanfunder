@@ -5,9 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "daily_balances")
 data class BalanceEntity(
-    @PrimaryKey val date: String,
-    val amount: Double,
-    val currency: String,
-    val status: String,
+    @PrimaryKey val snapshotDate: String,
+    val aggregatedNgnBalance: Double,
+    val convertedForeignBalance: Double,
+    val isAboveThreshold: Boolean,
+    val consecutiveCompliantDays: Int,
     val lastSynced: Long = System.currentTimeMillis()
 )

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   createUserWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
@@ -14,11 +16,13 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
+import { deriveRole } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
-  ShieldCheck,
   Mail,
   Lock,
   Eye,
@@ -62,6 +66,8 @@ const Field: React.FC<{
 
 // ─── Main Auth Page ────────────────────────────────────────────
 export const AuthPage: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [mode, setMode] = useState<AuthMode>('login');
   
   // Form State
@@ -79,6 +85,50 @@ export const AuthPage: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // ── Detect environment
+  const isWebView = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.chrome;
+
+  // ── Handle Redirect Result
+  React.useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          await handlePostAuth(result.user);
+        }
+      } catch (err) {
+        setError(friendly(err as AuthError));
+      }
+    };
+    checkRedirect();
+  }, []);
+
+  const handlePostAuth = async (user: any) => {
+    // Ensure profile exists in Firestore immediately
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+
+    if (!snap.exists()) {
+      const lowerEmail = (user.email || '').toLowerCase();
+      const role = lowerEmail.endsWith('@basechaninternational.com')
+        ? 'ADMIN_GOVERNANCE'
+        : lowerEmail.endsWith('.basechaninternational@gmail.com')
+        ? 'COUNSELOR'
+        : 'STUDENT';
+
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || '',
+        username: user.email?.split('@')[0] || user.uid,
+        role,
+        isApproved: role !== 'STUDENT',
+        createdAt: serverTimestamp(),
+      });
+    }
+  };
+
   const friendly = (err: AuthError) => {
     switch (err.code) {
       case 'auth/user-not-found':
@@ -95,6 +145,8 @@ export const AuthPage: React.FC = () => {
         return 'Google sign-in was cancelled. Please try again.';
       case 'auth/network-request-failed':
         return 'Network error. Check your connection and try again.';
+      case 'auth/unauthorized-domain':
+        return 'Domain Unauthorized: Please add "localhost" to your Authorized Domains in the Firebase Console (Auth -> Settings).';
       default:
         return err.message;
     }
@@ -106,7 +158,7 @@ export const AuthPage: React.FC = () => {
     setError('');
     setSuccess('');
 
-    const rawIdentifier = identifier.trim();
+    const rawIdentifier = identifier.trim().toLowerCase();
     if (!rawIdentifier || !password) {
       setError('Please enter your username/email and password.');
       return;
@@ -119,7 +171,7 @@ export const AuthPage: React.FC = () => {
 
       // If user did NOT enter an email (no '@'), resolve username to email from Firestore
       if (!rawIdentifier.includes('@')) {
-        const cleanUsername = rawIdentifier.toLowerCase().replace(/^@/, '');
+        const cleanUsername = rawIdentifier.replace(/^@/, '');
         
         // 1. Query Firestore for exact username match
         const usernameQuery = query(
@@ -131,20 +183,9 @@ export const AuthPage: React.FC = () => {
         if (!usernameSnap.empty) {
           resolvedEmail = usernameSnap.docs[0].data().email;
         } else {
-          // 2. Fallback check for displayName match
-          const nameQuery = query(
-            collection(db, 'users'),
-            where('displayName', '==', rawIdentifier)
-          );
-          const nameSnap = await getDocs(nameQuery);
-
-          if (!nameSnap.empty) {
-            resolvedEmail = nameSnap.docs[0].data().email;
-          } else {
-            setError(`No account found with username "@${cleanUsername}". Please verify your username or sign in with your email.`);
-            setLoading(false);
-            return;
-          }
+          setError(`No account found with username "@${cleanUsername}". Please verify your username or sign in with your email.`);
+          setLoading(false);
+          return;
         }
       }
 
@@ -164,7 +205,7 @@ export const AuthPage: React.FC = () => {
     setSuccess('');
 
     const cleanName = name.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = (username.trim() || email.split('@')[0] || '')
       .toLowerCase()
       .replace(/^@/, '')
@@ -175,26 +216,22 @@ export const AuthPage: React.FC = () => {
       return;
     }
     if (!cleanUsername) {
-      setError('Please enter a valid username (letters, numbers, and underscores).');
+      setError('Please enter a valid username.');
       return;
     }
     if (!cleanEmail || !password) {
-      setError('Please fill in all required fields.');
+      setError('Please fill in all fields.');
       return;
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
 
     setLoading(true);
 
     try {
-      // Check if username is already registered in Firestore
+      // Check if username is taken
       const existingUserQuery = query(
         collection(db, 'users'),
         where('username', '==', cleanUsername)
@@ -202,36 +239,31 @@ export const AuthPage: React.FC = () => {
       const existingUserSnap = await getDocs(existingUserQuery);
 
       if (!existingUserSnap.empty) {
-        setError(`The username "@${cleanUsername}" is already taken. Please choose another username.`);
+        setError(`The username "@${cleanUsername}" is taken.`);
         setLoading(false);
         return;
       }
 
-      // Create Firebase Auth user
+      // Create user
       const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       await updateProfile(cred.user, { displayName: cleanName });
-      await sendEmailVerification(cred.user);
 
-      // Derive initial role
-      const lowerEmail = cleanEmail.toLowerCase();
-      const role = lowerEmail.endsWith('@basechaninternational.com')
-        ? 'ADMIN_GOVERNANCE'
-        : lowerEmail.endsWith('.basechaninternational@gmail.com')
-        ? 'COUNSELOR'
-        : 'STUDENT';
+      const derivedRole = deriveRole(cleanEmail);
 
-      // Persist profile with custom username to Firestore
+      // Save profile
       await setDoc(doc(db, 'users', cred.user.uid), {
         uid: cred.user.uid,
         email: cleanEmail,
         username: cleanUsername,
         displayName: cleanName,
         photoURL: '',
-        role,
+        role: derivedRole,
+        isApproved: derivedRole !== 'STUDENT',
         createdAt: serverTimestamp(),
       });
 
-      setSuccess(`Account created! You can now log in using "@${cleanUsername}" or your email.`);
+      setSuccess(`Account created! You can now log in.`);
+      setMode('login');
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -245,7 +277,12 @@ export const AuthPage: React.FC = () => {
     setSuccess('');
     setGoogleLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (isWebView) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        const cred = await signInWithPopup(auth, googleProvider);
+        await handlePostAuth(cred.user);
+      }
     } catch (err) {
       setError(friendly(err as AuthError));
     } finally {
@@ -257,10 +294,13 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-[#090D16] font-sans p-4 relative overflow-hidden"
+      className={`min-h-screen flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-500 ${
+        isDark ? 'bg-[#090D16]' : 'bg-slate-50'
+      }`}
       style={{
-        background:
-          'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.06) 0%, #090D16 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.04) 0%, transparent 55%)',
+        background: isDark
+          ? 'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.06) 0%, #090D16 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.04) 0%, transparent 55%)'
+          : 'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.03) 0%, #f8fafc 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.02) 0%, transparent 55%)',
       }}
     >
       {/* Ambient orbs */}
@@ -277,8 +317,13 @@ export const AuthPage: React.FC = () => {
         {/* Logo + Brand */}
         <div className="text-center mb-8 space-y-3">
           <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F5B651]/10 border border-[#F5B651]/30 flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.15)]">
-              <ShieldCheck className="w-8 h-8 text-[#F5B651]" />
+            <div className="w-16 h-16 rounded-2xl bg-[#F5B651]/10 border border-[#F5B651]/30 flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.15)] overflow-hidden">
+              <img
+                src="/logo.png"
+                alt="Logo"
+                style={{ mixBlendMode: 'screen' }}
+                className="w-10 h-10 object-contain"
+              />
             </div>
           </div>
           <div>
@@ -289,11 +334,13 @@ export const AuthPage: React.FC = () => {
 
         {/* Card */}
         <div
-          className="rounded-2xl border border-white/8 p-8 space-y-6"
-          style={{ background: 'rgba(15,19,28,0.85)', backdropFilter: 'blur(24px)' }}
+          className={`rounded-2xl border p-8 space-y-6 shadow-2xl transition-all ${
+            isDark ? 'border-white/8 bg-slate-900/85' : 'border-slate-200 bg-white'
+          }`}
+          style={{ backdropFilter: 'blur(24px)' }}
         >
           {/* Mode toggle */}
-          <div className="flex rounded-xl bg-[#0A0D14] border border-white/8 p-1">
+          <div className={`flex rounded-xl border p-1 ${isDark ? 'bg-[#0A0D14] border-white/8' : 'bg-slate-100 border-slate-200'}`}>
             {(['login', 'signup'] as AuthMode[]).map((m) => (
               <button
                 key={m}

@@ -92,27 +92,67 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
           </div>
 
           {/* Numeric Ranges */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Min Balance (₦)</label>
-              <input
-                type="number"
-                value={filters.minBalance}
-                onChange={(e) => setFilters({...filters, minBalance: e.target.value})}
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
-                placeholder="0"
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Min Balance (₦)</label>
+                <input
+                  type="number"
+                  value={filters.minBalance}
+                  onChange={(e) => setFilters({...filters, minBalance: e.target.value})}
+                  className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Max Balance (₦)</label>
+                <input
+                  type="number"
+                  value={filters.maxBalance}
+                  onChange={(e) => setFilters({...filters, maxBalance: e.target.value})}
+                  className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                  placeholder="Any"
+                />
+              </div>
             </div>
-            <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Min Holding (Days)</label>
-              <input
-                type="number"
-                value={filters.minDays}
-                onChange={(e) => setFilters({...filters, minDays: e.target.value})}
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
-                placeholder="0"
-              />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Min Holding (Days)</label>
+                <input
+                  type="number"
+                  value={filters.minDays}
+                  onChange={(e) => setFilters({...filters, minDays: e.target.value})}
+                  className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Max Holding (Days)</label>
+                <input
+                  type="number"
+                  value={filters.maxDays}
+                  onChange={(e) => setFilters({...filters, maxDays: e.target.value})}
+                  className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                  placeholder="28+"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Assigned Counselor */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Assigned Counselor</label>
+            <select
+              value={filters.counselor}
+              onChange={(e) => setFilters({...filters, counselor: e.target.value})}
+              className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500 appearance-none"
+            >
+              <option value="">Any Counselor</option>
+              <option value="Julian Morgan">Julian Morgan</option>
+              <option value="Sarah Connor">Sarah Connor</option>
+              <option value="Unassigned">Unassigned</option>
+            </select>
           </div>
 
           {/* New User Toggle */}
