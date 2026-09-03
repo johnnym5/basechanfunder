@@ -755,15 +755,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
       {/* 2. List Header & Multi-Criteria Search Engine */}
       <div className="space-y-4 md:space-y-6">
-        <div className="flex items-center space-x-3">
-           <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-           <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-             Student Management Roster
-           </h3>
+        <div className="flex justify-end">
            <button
              onClick={() => setIsAddUserOpen(true)}
-             className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ml-4 ${
-               theme === 'dark' ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/20' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'
+             className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+               theme === 'dark' ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'
              }`}
            >
              <UserPlus className="w-3.5 h-3.5" />

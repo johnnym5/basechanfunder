@@ -135,7 +135,7 @@ export const MasterAppPortal: React.FC = () => {
   ];
 
   return (
-    <div className={`h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 relative ${
+    <div className={`min-h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-y-auto custom-scrollbar transition-colors duration-500 relative ${
       theme === 'dark' ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
       {/* ── Dynamic Animated Background Layer (100% to 175% slow zoom & pan + 75% Frosted Glass) ── */}
@@ -176,14 +176,15 @@ export const MasterAppPortal: React.FC = () => {
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10">
         {/* Main Viewport */}
         <main className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.03),transparent)]">
 
-          {/* Top Header - Consolidated with Profile FAB */}
-          <header className={`h-16 flex-shrink-0 px-6 md:px-8 border-b flex items-center justify-between transition-colors duration-500 ${
-            theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-white border-slate-200 shadow-sm'
+          {/* Top Header - Restructured Admin/Student Header */}
+          <header className={`h-16 flex-shrink-0 px-6 md:px-8 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md ${
+            theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-white/70 border-slate-200 shadow-sm'
           }`}>
+            {/* Left Header: Greeting only */}
             <div className="flex items-center space-x-4">
               {inspectingStudentId ? (
                 <button
@@ -195,40 +196,75 @@ export const MasterAppPortal: React.FC = () => {
                 </button>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                     <ShieldCheck className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="hidden sm:block">
-                    <h1 className={`text-xs font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
-                      {role === 'STUDENT' ? 'Student Portal' : 'Governance Control'}
-                    </h1>
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Basechan Funder v1.2</p>
-                  </div>
+                  <h1 className={`text-base md:text-lg font-black tracking-wider uppercase truncate ${
+                    isDark
+                      ? 'text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400'
+                      : 'text-slate-900'
+                  }`}>
+                    HELLO {appUser?.displayName?.toUpperCase() || (role === 'STUDENT' ? 'STUDENT' : 'ADMIN')}
+                  </h1>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center space-x-6 shrink-0 relative" ref={profileMenuRef}>
-               {/* User Context Labels */}
-               <div className="hidden md:flex flex-col items-end">
-                  <p className={`text-[10px] font-black uppercase leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{appUser.displayName}</p>
-                  <p className="text-[8px] font-bold text-amber-500 uppercase tracking-widest mt-1">{role?.replace(/_/g, ' ')}</p>
-               </div>
+            {/* Right Header Utility Cluster: Notification Bell, Light/Dark Switch, Profile Avatar */}
+            <div className="flex items-center space-x-3 md:space-x-4 shrink-0 relative" ref={profileMenuRef}>
+               {/* 1. Standalone Textless Notification Bell Icon */}
+               <button
+                 onClick={() => setIsNotificationsOpen(true)}
+                 className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:scale-105 active:scale-95 shadow-sm backdrop-blur-md ${
+                   isDark
+                     ? 'bg-slate-900/80 border-white/10 text-slate-300 hover:text-white hover:bg-slate-800'
+                     : 'bg-white/80 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                 }`}
+                 title="Notifications"
+                 aria-label="Notifications"
+               >
+                 <Bell className="w-5 h-5 text-slate-300" />
+               </button>
 
-               {/* Consolidated Profile FAB Button */}
+               {/* 2. Interactive Light / Dark Mode Toggle Switch */}
+               <button
+                 onClick={toggleTheme}
+                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all hover:scale-105 active:scale-95 shadow-sm backdrop-blur-md ${
+                   isDark
+                     ? 'bg-slate-900/80 border-white/10 text-amber-300 hover:bg-slate-800'
+                     : 'bg-white/80 border-slate-200 text-blue-600 hover:bg-slate-100'
+                 }`}
+                 title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                 aria-label="Toggle Theme"
+               >
+                 {isDark ? (
+                   <>
+                     <Sun className="w-4 h-4 text-amber-400" />
+                     <span className="hidden sm:inline text-[11px] font-bold uppercase tracking-wider">Light</span>
+                   </>
+                 ) : (
+                   <>
+                     <Moon className="w-4 h-4 text-blue-600" />
+                     <span className="hidden sm:inline text-[11px] font-bold uppercase tracking-wider">Dark</span>
+                   </>
+                 )}
+               </button>
+
+               {/* 3. Circular Profile Avatar / Initial Badge [ B ] */}
                <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className={`w-11 h-11 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                  className={`w-10 h-10 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-lg ${
                     isDark
                       ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
                       : 'border-blue-600 shadow-blue-600/10 bg-white'
                   }`}
+                  title="User Profile Menu"
+                  aria-label="Profile Menu"
                >
                   <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
                     {appUser.photoURL ? (
                       <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-sm font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'U'}</span>
+                      <span className="text-xs font-black text-blue-400 uppercase">
+                        {appUser.displayName ? appUser.displayName[0] : 'B'}
+                      </span>
                     )}
                   </div>
                </button>
