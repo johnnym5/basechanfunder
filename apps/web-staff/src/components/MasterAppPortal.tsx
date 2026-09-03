@@ -41,6 +41,7 @@ import { StudentSupportChat } from './StudentSupportChat';
 import { AdminSupportDesk } from './AdminSupportDesk';
 import { StaffStudentViewMode } from './StaffStudentViewMode';
 import { LandingPage } from '../pages/LandingPage';
+import { StudentOnboardingWizard } from './StudentOnboardingWizard';
 
 export const MasterAppPortal: React.FC = () => {
   const { appUser, role, currentUser, loading: authLoading } = useAuth();
@@ -71,11 +72,42 @@ export const MasterAppPortal: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (authLoading || !appUser || !currentUser) {
+  // Onboarding state — show wizard for new students who haven't completed it
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+
+  useEffect(() => {
+    if (!appUser || !currentUser || onboardingChecked) return;
+    // Only show onboarding for STUDENT role
+    if (role !== 'STUDENT') { setOnboardingChecked(true); return; }
+
+    // Check Firestore for onboardingComplete flag
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      import('../firebase').then(({ db }) => {
+        getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
+          const data = snap.data();
+          const completed = data?.onboardingComplete === true;
+          setShowOnboarding(!completed);
+          setOnboardingChecked(true);
+        }).catch(() => { setOnboardingChecked(true); });
+      });
+    });
+  }, [appUser, currentUser, role, onboardingChecked]);
+
+  if (authLoading || !appUser || !currentUser || (role === 'STUDENT' && !onboardingChecked)) {
     return (
       <div className="min-h-screen bg-[#090D16] flex items-center justify-center">
         <ProfessionalSpinner message="Verifying session..." />
       </div>
+    );
+  }
+
+  // Show onboarding wizard for new students
+  if (showOnboarding && role === 'STUDENT') {
+    return (
+      <StudentOnboardingWizard
+        onComplete={() => setShowOnboarding(false)}
+      />
     );
   }
 
