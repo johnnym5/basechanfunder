@@ -64,11 +64,11 @@ const DESTINATION_CURRENCY_MAP: Record<string, { currency: string; symbol: strin
 };
 
 const DESTINATION_OPTIONS = [
-  { country: 'United Kingdom', flag: '🇬🇧', currency: 'GBP (£)' },
-  { country: 'Canada', flag: '🇨🇦', currency: 'CAD (C$)' },
-  { country: 'USA', flag: '🇺🇸', currency: 'USD ($)' },
-  { country: 'Australia', flag: '🇦🇺', currency: 'AUD (A$)' },
-  { country: 'Other', flag: '🌍', currency: 'GBP (£)' },
+  { country: 'United Kingdom', code: 'UK', currency: 'GBP (£)' },
+  { country: 'Canada', code: 'CA', currency: 'CAD (C$)' },
+  { country: 'USA', code: 'US', currency: 'USD ($)' },
+  { country: 'Australia', code: 'AU', currency: 'AUD (A$)' },
+  { country: 'Other', code: 'INTL', currency: 'GBP (£)' },
 ];
 
 const NIGERIAN_BANKS = [
@@ -686,7 +686,15 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        <span className="text-3xl">{item.flag}</span>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm border ${
+                          isSelected
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : isDark
+                            ? 'bg-white/5 border-white/10 text-blue-400'
+                            : 'bg-blue-50 border-blue-200 text-blue-600'
+                        }`}>
+                          {item.code}
+                        </div>
                         <div>
                           <p className="text-lg font-black">{item.country}</p>
                           <p className="text-xs font-bold opacity-75">Currency: {item.currency}</p>
@@ -852,7 +860,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <p className="text-3xl">🏦</p>
+                  <Building2 className="w-10 h-10 mx-auto text-blue-600 dark:text-blue-400" />
                   <p className="text-xl font-black">Yes, I do</p>
                   <p className="text-xs opacity-75">I hold a Parallex Bank student account.</p>
                 </button>
@@ -867,7 +875,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <p className="text-3xl">🏛️</p>
+                  <Building2 className="w-10 h-10 mx-auto opacity-50" />
                   <p className="text-xl font-black">No, Other Bank</p>
                   <p className="text-xs opacity-75">I use another commercial Nigerian bank.</p>
                 </button>
