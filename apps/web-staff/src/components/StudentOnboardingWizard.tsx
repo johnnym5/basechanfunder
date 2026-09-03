@@ -1,10 +1,12 @@
 /**
  * StudentOnboardingWizard.tsx
  * Full-screen animated multi-step student onboarding wizard.
- * - Supports Light and Dark theme (defaulting to Light Mode).
- * - Theme toggle button prominently accessible in header.
- * - Each question is isolated on its own focused screen with big typography.
- * - Framer Motion slide/fade transitions on forward & back.
+ * - Dynamic 75% translucent theme backdrop (subtly shows custom imagery behind).
+ * - Location screen displays faded planet background.
+ * - Destination & Banking screens display themed background graphics.
+ * - Progress indicator strictly uses percentages (starts at 20% on Question 1).
+ * - Removed all "Question 1" and "Step X of Y" labels.
+ * - Light and Dark theme supported with one-click toggle.
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -13,7 +15,6 @@ import {
   ArrowRight,
   ArrowLeft,
   ChevronDown,
-  MapPin,
   Globe,
   Shield,
   Phone,
@@ -92,7 +93,7 @@ const NIGERIAN_BANKS = [
 
 const screenVariants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? 80 : -80,
+    x: dir > 0 ? 70 : -70,
     opacity: 0,
   }),
   center: {
@@ -100,12 +101,12 @@ const screenVariants = {
     opacity: 1,
     transition: {
       type: 'spring' as const,
-      stiffness: 300,
-      damping: 28,
+      stiffness: 320,
+      damping: 30,
     },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? -80 : 80,
+    x: dir > 0 ? -70 : 70,
     opacity: 0,
     transition: {
       duration: 0.2,
@@ -127,7 +128,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   }, [setTheme]);
 
   const isDark = theme === 'dark';
-  const firstName = appUser?.displayName?.split(' ')[0] || 'there';
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -152,16 +152,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   const [balance, setBalance] = useState<string | null>(null);
   const [scanLabel, setScanLabel] = useState('Pass 1: Checking bank SMS sender tags & account tail...');
 
-  // Compute total steps dynamically
-  // 0: Welcome
-  // 1: Home Location (State & Country)
-  // 2: Destination Country
-  // 3: Sponsorship Status
-  // 4: Sponsor Relationship (if isSelf === false)
-  // 5: Parallex Account Question (Yes/No)
-  // 6: Account Number (Parallex or Other Bank selection)
-  // 7: SMS Permission Pre-Pitch
-  // 8: Multi-Pass Engine / Verification Result
   const isSponsored = !profile.isSelf;
 
   const getStepList = () => {
@@ -182,6 +172,35 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   const currentStepKey = getStepList()[step] || 'welcome';
   const totalSteps = getStepList().length;
 
+  // Percentage calculation: Starts at 20% on first question (step 1), progresses to 100%
+  const calculatePercentage = () => {
+    if (step === 0) return 10;
+    const remainingSteps = totalSteps - 1;
+    const progressWithinQuestions = (step - 1) / (remainingSteps - 1);
+    const pct = Math.round(20 + progressWithinQuestions * 80);
+    return Math.min(100, Math.max(20, pct));
+  };
+
+  const progressPercentage = calculatePercentage();
+
+  // Determine active background graphic for each screen
+  const getBackgroundImage = () => {
+    switch (currentStepKey) {
+      case 'welcome':
+      case 'location':
+        return '/bg_planet.jpg';
+      case 'destination':
+        return '/bg_travel.jpg';
+      case 'parallex_check':
+      case 'account_details':
+      case 'sms_pitch':
+      case 'verification':
+        return '/bg_banking.jpg';
+      default:
+        return '/bg_planet.jpg';
+    }
+  };
+
   const updateProfile = (field: keyof OnboardingProfile, value: string | boolean) => {
     setProfile(prev => {
       const next = { ...prev, [field]: value };
@@ -195,7 +214,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   };
 
   const goNext = async () => {
-    // Save profile updates to Firestore at critical checkpoints
     if (currentUser) {
       try {
         await updateDoc(doc(db, 'users', currentUser.uid), {
@@ -256,7 +274,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
     }
   };
 
-  // Multi-pass Verification Engine Trigger when reaching last step
+  // Multi-pass Verification Engine Trigger
   useEffect(() => {
     if (currentStepKey !== 'verification') return;
 
@@ -277,7 +295,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         // Fallback
       }
 
-      // Pass 1: Strict matching with account number tail
       const tail = (profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber).slice(-4);
       let foundVal: string | null = null;
 
@@ -299,7 +316,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         return;
       }
 
-      // Pass 2: Fuzzy matching across any financial string with Bal: or Balance:
       setScanLabel('Pass 2: Fuzzy scanning all financial SMS strings...');
       await new Promise(r => setTimeout(r, 1600));
       if (cancelled) return;
@@ -319,7 +335,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
           setParseState('found');
         }
       } else {
-        // Outcome B: Failed after trials -> Dispatch Admin Support Alert
         try {
           await fetch('/api/v1/support/ingestion-failure', {
             method: 'POST',
@@ -371,21 +386,35 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   };
 
   return (
-    <div
-      className={`fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden transition-colors duration-300 ${
-        isDark ? 'bg-[#030712] text-white' : 'bg-slate-50 text-slate-900'
-      }`}
-    >
-      {/* ── Top Bar: Navigation, Step Indicator & Light/Dark Switch ── */}
-      <header className="px-6 py-4 flex items-center justify-between z-20 border-b border-black/5 dark:border-white/5">
-        <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden">
+      {/* ── Background Image Layer (Subtle Faded Graphic) ── */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-all duration-700 pointer-events-none scale-105"
+        style={{
+          backgroundImage: `url(${getBackgroundImage()})`,
+          filter: isDark ? 'brightness(0.85) contrast(1.1)' : 'brightness(1.05) contrast(1.0)',
+        }}
+      />
+
+      {/* ── 75% Opaque Backdrop Overlay (Allows subtle image peek through) ── */}
+      <div
+        className={`absolute inset-0 backdrop-blur-[2px] transition-colors duration-500 pointer-events-none ${
+          isDark
+            ? 'bg-[#030712]/75' // 75% opaque dark
+            : 'bg-white/75'     // 75% opaque white
+        }`}
+      />
+
+      {/* ── Top Bar: Percentage Progress & Light/Dark Switch ── */}
+      <header className="relative px-6 py-4 flex items-center justify-between z-20 border-b border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-4">
           {step > 0 && currentStepKey !== 'verification' ? (
             <button
               onClick={goBack}
-              className={`p-2 rounded-xl transition-all ${
+              className={`p-2 rounded-xl transition-all shadow-sm ${
                 isDark
-                  ? 'bg-white/5 hover:bg-white/10 text-white/70'
-                  : 'bg-black/5 hover:bg-black/10 text-slate-600'
+                  ? 'bg-slate-900/90 border border-white/10 hover:bg-slate-800 text-white'
+                  : 'bg-white/90 border border-slate-200 hover:bg-slate-100 text-slate-700'
               }`}
               title="Back"
             >
@@ -398,9 +427,15 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="h-8 object-contain"
             />
           )}
-          <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-            Step {step + 1} of {totalSteps}
-          </span>
+
+          {/* Percentage Indicator (Starts at 20% on Question 1) */}
+          {step > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                {progressPercentage}% Complete
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Theme Mode Toggle Button */}
@@ -409,8 +444,8 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
             onClick={toggleTheme}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm ${
               isDark
-                ? 'bg-slate-900 border-white/10 text-amber-300 hover:bg-slate-800'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                ? 'bg-slate-900/90 border-white/10 text-amber-300 hover:bg-slate-800'
+                : 'bg-white/90 border-slate-200 text-slate-700 hover:bg-slate-100'
             }`}
           >
             {isDark ? (
@@ -428,18 +463,22 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         </div>
       </header>
 
-      {/* ── Progress Bar ── */}
-      <div className="w-full bg-black/5 dark:bg-white/5 h-1">
+      {/* ── Progress Bar using Percentage ── */}
+      <div className="relative w-full bg-black/5 dark:bg-white/5 h-1.5 z-20">
         <motion.div
-          className="h-1 bg-gradient-to-r from-blue-600 to-indigo-500"
+          className="h-1.5 bg-gradient-to-r from-blue-600 to-indigo-500 shadow-[0_0_12px_rgba(37,99,235,0.5)]"
           initial={false}
-          animate={{ width: `${((step + 1) / totalSteps) * 100}%` }}
-          transition={{ duration: 0.3 }}
+          animate={{ width: `${progressPercentage}%` }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
         />
       </div>
 
       {/* ── Main Question Viewport ── */}
-      <main className="flex-1 relative overflow-hidden flex items-center justify-center p-6 md:p-12">
+      <main
+        className={`flex-1 relative z-10 overflow-hidden flex items-center justify-center p-6 md:p-12 ${
+          isDark ? 'text-white' : 'text-slate-900'
+        }`}
+      >
         <AnimatePresence custom={direction} mode="wait">
           {/* SCREEN 0: Welcome & Value Proposition */}
           {currentStepKey === 'welcome' && (
@@ -455,7 +494,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="w-24 h-24 rounded-3xl bg-blue-600/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shadow-xl shadow-blue-500/10"
+                className="w-24 h-24 rounded-3xl bg-blue-600/15 dark:bg-blue-500/25 border border-blue-500/40 flex items-center justify-center shadow-xl shadow-blue-500/10 backdrop-blur-md"
               >
                 <img
                   src={isDark ? '/logo_icon_white.png' : '/logo_icon.png'}
@@ -468,7 +507,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                 <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight uppercase">
                   welcome to <span className="text-blue-600 dark:text-blue-400">basechan funder</span>
                 </h1>
-                <p className="text-lg md:text-2xl font-semibold opacity-75 max-w-lg mx-auto">
+                <p className="text-lg md:text-2xl font-semibold opacity-85 max-w-lg mx-auto">
                   we make sure your <span className="text-blue-600 dark:text-blue-400 font-extrabold uppercase">PROOF OF FUNDS</span> is cleared and on track
                 </p>
               </div>
@@ -485,7 +524,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
             </motion.div>
           )}
 
-          {/* SCREEN 1: Home Location */}
+          {/* SCREEN 1: Home Location (with Faded Planet Background) */}
           {currentStepKey === 'location' && (
             <motion.div
               key="location"
@@ -497,20 +536,17 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <MapPin className="w-4 h-4" /> Question 1
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   Where are you currently located?
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   Tell us your state and home country.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                     State / Region
                   </label>
                   <input
@@ -518,16 +554,16 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeState}
                     onChange={e => updateProfile('homeState', e.target.value)}
                     placeholder="e.g. Lagos, Abuja, Rivers"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
                       isDark
-                        ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
-                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                        ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                        : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                     Home Country
                   </label>
                   <input
@@ -535,10 +571,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeCountry}
                     onChange={e => updateProfile('homeCountry', e.target.value)}
                     placeholder="e.g. Nigeria"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
                       isDark
-                        ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
-                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                        ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                        : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
                     }`}
                   />
                 </div>
@@ -567,13 +603,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Globe className="w-4 h-4" /> Question 2
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   What is your study destination?
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   Target currency automatically adapts to your destination country.
                 </p>
               </div>
@@ -585,19 +618,19 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <button
                       key={item.country}
                       onClick={() => updateProfile('destinationCountry', item.country)}
-                      className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border text-left transition-all ${
+                      className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border text-left transition-all shadow-sm ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                          ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                           : isDark
-                          ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                          : 'bg-white/95 border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <span className="text-3xl">{item.flag}</span>
                         <div>
                           <p className="text-lg font-black">{item.country}</p>
-                          <p className="text-xs font-semibold opacity-60">Currency: {item.currency}</p>
+                          <p className="text-xs font-bold opacity-75">Currency: {item.currency}</p>
                         </div>
                       </div>
                       {isSelected && (
@@ -631,13 +664,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Shield className="w-4 h-4" /> Question 3
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   Are you self-funded or sponsored?
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   Select your financial proof structure.
                 </p>
               </div>
@@ -648,32 +678,32 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     updateProfile('isSelf', true);
                     updateProfile('sponsorRelationship', '');
                   }}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
                     profile.isSelf
-                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto" />
                   <p className="text-xl font-black">Self-Funded</p>
-                  <p className="text-xs opacity-60">I am funding my own education and living expenses.</p>
+                  <p className="text-xs opacity-75">I am funding my own education and living expenses.</p>
                 </button>
 
                 <button
                   onClick={() => updateProfile('isSelf', false)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
                     !profile.isSelf
-                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <Building2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto" />
                   <p className="text-xl font-black">Sponsored</p>
-                  <p className="text-xs opacity-60">Funded by family member, corporate, or scholarship.</p>
+                  <p className="text-xs opacity-75">Funded by family member, corporate, or scholarship.</p>
                 </button>
               </div>
 
@@ -699,13 +729,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Shield className="w-4 h-4" /> Sponsorship Details
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   What is your relationship to your sponsor?
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   e.g. Parent (Father/Mother), Uncle, Employer, or Scholarship body.
                 </p>
               </div>
@@ -716,10 +743,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   value={profile.sponsorRelationship}
                   onChange={e => updateProfile('sponsorRelationship', e.target.value)}
                   placeholder="e.g. Father, Mother, Sibling, Government"
-                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
                     isDark
-                      ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
-                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                      ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                      : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
                   }`}
                 />
               </div>
@@ -747,13 +774,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Building2 className="w-4 h-4" /> Banking Setup
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   Do you have a Parallex Bank account?
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   Parallex Bank accounts enjoy automated, zero-latency daily ledger verification.
                 </p>
               </div>
@@ -761,32 +785,32 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   onClick={() => updateProfile('hasParallexAccount', true)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
                     profile.hasParallexAccount
-                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <p className="text-3xl">🏦</p>
                   <p className="text-xl font-black">Yes, I do</p>
-                  <p className="text-xs opacity-60">I hold a Parallex Bank student account.</p>
+                  <p className="text-xs opacity-75">I hold a Parallex Bank student account.</p>
                 </button>
 
                 <button
                   onClick={() => updateProfile('hasParallexAccount', false)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
                     !profile.hasParallexAccount
-                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <p className="text-3xl">🏛️</p>
                   <p className="text-xl font-black">No, Other Bank</p>
-                  <p className="text-xs opacity-60">I use another commercial Nigerian bank.</p>
+                  <p className="text-xs opacity-75">I use another commercial Nigerian bank.</p>
                 </button>
               </div>
 
@@ -812,15 +836,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               className="w-full max-w-lg space-y-8"
             >
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Building2 className="w-4 h-4" /> Account Identification
-                </span>
                 <h2 className="text-3xl md:text-5xl font-black tracking-tight">
                   {profile.hasParallexAccount
                     ? 'Enter your Parallex account number'
                     : 'Select your bank and enter account number'}
                 </h2>
-                <p className="text-base opacity-70">
+                <p className="text-base font-semibold opacity-75">
                   This connects your daily proof of funds evaluation window.
                 </p>
               </div>
@@ -828,7 +849,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               <div className="space-y-4">
                 {profile.hasParallexAccount ? (
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                    <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                       Parallex 10-Digit Account Number
                     </label>
                     <input
@@ -837,24 +858,24 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       value={profile.parallexAccountNumber}
                       onChange={e => updateProfile('parallexAccountNumber', e.target.value.replace(/\D/g, ''))}
                       placeholder="0123456789"
-                      className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider ${
+                      className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${
                         isDark
-                          ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
-                          : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                          ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                          : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
                       }`}
                     />
                   </div>
                 ) : (
                   <>
                     <div>
-                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                         Bank Name
                       </label>
                       <div className="relative">
                         <select
                           value={profile.bankName}
                           onChange={e => updateProfile('bankName', e.target.value)}
-                          className={`w-full text-base font-bold px-5 py-4 rounded-2xl border appearance-none transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                          className={`w-full text-base font-bold px-5 py-4 rounded-2xl border appearance-none transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
                             isDark
                               ? 'bg-slate-900 border-white/10 text-white'
                               : 'bg-white border-slate-300 text-slate-900'
@@ -871,7 +892,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                         10-Digit Account Number
                       </label>
                       <input
@@ -880,10 +901,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                         value={profile.accountNumber}
                         onChange={e => updateProfile('accountNumber', e.target.value.replace(/\D/g, ''))}
                         placeholder="0123456789"
-                        className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider ${
+                        className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${
                           isDark
-                            ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
-                            : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                            ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                            : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
                         }`}
                       />
                     </div>
@@ -919,7 +940,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
             >
               {smsPermState === 'denied' ? (
                 <>
-                  <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                  <div className="w-20 h-20 rounded-3xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-500 backdrop-blur-md">
                     <AlertCircle className="w-10 h-10" />
                   </div>
 
@@ -927,7 +948,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <h2 className="text-2xl md:text-3xl font-black">
                       Permission Needed
                     </h2>
-                    <p className="text-base opacity-80 leading-relaxed">
+                    <p className="text-base font-semibold opacity-85 leading-relaxed">
                       oh it seems you might have rejected the permission we cant proceed without you giving us your permission, try again.
                     </p>
                   </div>
@@ -942,7 +963,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     </button>
                     <button
                       onClick={goNext}
-                      className="text-xs font-bold uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+                      className="text-xs font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
                     >
                       Skip & Verify Later
                     </button>
@@ -950,18 +971,15 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                 </>
               ) : (
                 <>
-                  <div className="w-24 h-24 rounded-3xl bg-blue-600/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xl shadow-blue-500/10">
+                  <div className="w-24 h-24 rounded-3xl bg-blue-600/15 dark:bg-blue-500/25 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xl shadow-blue-500/10 backdrop-blur-md">
                     <Phone className="w-12 h-12" />
                   </div>
 
                   <div className="space-y-4 max-w-md">
-                    <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                      Almost Done
-                    </span>
                     <h2 className="text-2xl md:text-4xl font-black leading-tight">
                       Verify Your Account Balance
                     </h2>
-                    <p className="text-base md:text-lg opacity-80 leading-relaxed">
+                    <p className="text-base md:text-lg font-semibold opacity-85 leading-relaxed">
                       sweet youre almost done, what we need now is access to your sms to be able to read and accurately get your account balance, dont worry we can not change your account details, and your details are safe with us
                     </p>
                   </div>
@@ -970,10 +988,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     {['Read-Only', 'End-to-End Encrypted', 'Strict Compliance'].map(badge => (
                       <span
                         key={badge}
-                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${
                           isDark
                             ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                            : 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-blue-50/90 border-blue-200 text-blue-700'
                         }`}
                       >
                         {badge}
@@ -1001,7 +1019,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     </button>
                     <button
                       onClick={goNext}
-                      className="text-xs font-bold uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+                      className="text-xs font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
                     >
                       Skip & Verify Later
                     </button>
@@ -1038,7 +1056,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <h2 className="text-2xl md:text-3xl font-black">
                       Analyzing SMS Records
                     </h2>
-                    <p className="text-sm font-semibold opacity-70">
+                    <p className="text-sm font-semibold opacity-75">
                       {scanLabel}
                     </p>
                   </div>
@@ -1050,7 +1068,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="w-24 h-24 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/20"
+                    className="w-24 h-24 rounded-3xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/20 backdrop-blur-md"
                   >
                     <CheckCircle2 className="w-14 h-14" />
                   </motion.div>
@@ -1062,7 +1080,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <p className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
                       ₦{Number(balance).toLocaleString()}
                     </p>
-                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-75">
                       Verified from your mobile SMS records
                     </p>
                   </div>
@@ -1079,7 +1097,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
               {parseState === 'failed' && (
                 <>
-                  <div className="w-24 h-24 rounded-3xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <div className="w-24 h-24 rounded-3xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400 backdrop-blur-md">
                     <Shield className="w-12 h-12" />
                   </div>
 
@@ -1087,7 +1105,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <h2 className="text-2xl md:text-3xl font-black">
                       We couldn't automatically verify your balance yet, but don't worry!
                     </h2>
-                    <p className="text-sm opacity-70 leading-relaxed">
+                    <p className="text-sm font-semibold opacity-75 leading-relaxed">
                       Your details have been dispatched to our compliance desk. A counselor will verify and update your proof of funds ledger directly.
                     </p>
                   </div>
