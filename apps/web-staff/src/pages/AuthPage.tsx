@@ -22,6 +22,7 @@ import {
 import { auth, db, googleProvider } from '../firebase';
 import { deriveRole } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { motion } from 'framer-motion';
 import {
   Mail,
   Lock,
@@ -31,6 +32,8 @@ import {
   AtSign,
   AlertCircle,
   Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 type AuthMode = 'login' | 'signup';
@@ -66,7 +69,7 @@ const Field: React.FC<{
 
 // ─── Main Auth Page ────────────────────────────────────────────
 export const AuthPage: React.FC = () => {
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const [mode, setMode] = useState<AuthMode>('login');
   
@@ -291,14 +294,65 @@ export const AuthPage: React.FC = () => {
   return (
     <div
       className={`min-h-screen flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-500 ${
-        isDark ? 'bg-[#090D16]' : 'bg-slate-50'
+        isDark ? 'bg-[#090D16] text-white' : 'bg-slate-50 text-slate-900'
       }`}
-      style={{
-        background: isDark
-          ? 'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.06) 0%, #090D16 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.04) 0%, transparent 55%)'
-          : 'radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.03) 0%, #f8fafc 55%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.02) 0%, transparent 55%)',
-      }}
     >
+      {/* ── Animated Flying Plane Background (Positioned bottom-left, slow fade-in, slow zoom, slow drift from left to right) ── */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0, scale: 1.0, x: '-8%', y: '4%' }}
+          animate={{
+            opacity: 1,
+            scale: [1.0, 1.15, 1.08],
+            x: ['-8%', '6%', '-2%'],
+            y: ['4%', '-3%', '2%'],
+          }}
+          transition={{
+            opacity: { duration: 2.0, ease: 'easeOut' },
+            scale: { duration: 32, ease: 'linear', repeat: Infinity, repeatType: 'reverse' },
+            x: { duration: 45, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
+            y: { duration: 35, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
+          }}
+          className="absolute inset-[-15%] bg-cover bg-center"
+          style={{
+            backgroundImage: "url('/bg_plane.jpg')",
+            backgroundPosition: 'left bottom',
+            filter: isDark ? 'brightness(0.75) contrast(1.15)' : 'brightness(1.02) contrast(1.02)',
+          }}
+        />
+      </div>
+
+      {/* ── 75% Opaque Frosted Glass Backdrop Overlay ── */}
+      <div
+        className={`absolute inset-0 backdrop-blur-lg transition-colors duration-500 pointer-events-none ${
+          isDark ? 'bg-[#090D16]/75' : 'bg-white/75'
+        }`}
+      />
+
+      {/* ── Top-Right Theme Toggle ── */}
+      <div className="absolute top-5 right-5 z-30">
+        <button
+          onClick={toggleTheme}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-full border text-xs font-bold transition-all shadow-md backdrop-blur-md ${
+            isDark
+              ? 'bg-slate-900/90 border-white/10 text-amber-300 hover:bg-slate-800'
+              : 'bg-white/90 border-slate-200 text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          {isDark ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span>Light Mode</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-blue-600" />
+              <span>Dark Mode</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Ambient orbs */}
       <div
         className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full pointer-events-none"
@@ -314,10 +368,9 @@ export const AuthPage: React.FC = () => {
         <div className="text-center mb-8 space-y-3">
           <div className="flex justify-center">
             <img
-              src="/logo.png"
+              src={isDark ? '/logo_white.png' : '/logo.png'}
               alt="Basechan Funder Logo"
-              className="h-16 sm:h-20 object-contain drop-shadow-md"
-              style={{ mixBlendMode: 'multiply' }}
+              className="h-16 sm:h-20 object-contain drop-shadow-xl"
             />
           </div>
           <p className="text-xs text-slate-400 font-mono">Proof of Funds Compliance & Verification Platform</p>
@@ -326,7 +379,7 @@ export const AuthPage: React.FC = () => {
         {/* Card */}
         <div
           className={`rounded-2xl border p-8 space-y-6 shadow-2xl transition-all ${
-            isDark ? 'border-white/8 bg-slate-900/85' : 'border-slate-200 bg-white'
+            isDark ? 'border-white/10 bg-slate-900/80' : 'border-slate-200/80 bg-white/85'
           }`}
           style={{ backdropFilter: 'blur(24px)' }}
         >

@@ -35,14 +35,15 @@ class BankSmsReceiver : BroadcastReceiver() {
             sender.contains("Access", true) -> "Access Bank"
             sender.contains("Zenith", true) -> "Zenith Bank"
             sender.contains("FirstBank", true) || sender.contains("FBN", true) -> "First Bank of Nigeria"
+            sender.contains("Parallex", true) -> "Parallex Bank"
             sender.contains("Kuda", true) -> "Kuda MFB"
             else -> null
         }
     }
 
     private fun parseBankBalance(bankName: String, body: String, timestamp: Long) {
-        // Broad pattern to capture balance NGN 1,234.56
-        val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance|Amt)\\s*[:\\s]*NGN\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
+        // Broad pattern to capture balance NGN 1,234.56 - Removed 'Amt' to prevent capturing charge amount as balance
+        val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance)\\s*[:\\s]*(?:NGN|₦)?\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
         // Broad pattern to capture account mask (last 4 digits)
         val acctPattern = Pattern.compile("(?:Acct|Ac|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
         

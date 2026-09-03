@@ -100,6 +100,29 @@ class MainActivity : ComponentActivity() {
 
     inner class AndroidInterface {
         @JavascriptInterface
+        fun getVersionCode(): Int {
+            return try {
+                val pInfo = packageManager.getPackageInfo(packageName, 0)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    pInfo.longVersionCode.toInt()
+                } else {
+                    @Suppress("DEPRECATION")
+                    pInfo.versionCode
+                }
+            } catch (e: Exception) {
+                0
+            }
+        }
+
+        @JavascriptInterface
+        fun installApkFromUrl(url: String) {
+            Log.d("MainActivity", "installApkFromUrl: $url")
+            // In a production environment, this would trigger a DownloadManager request
+            // and an Intent to install the package via FileProvider.
+            // For now, we log it clearly.
+        }
+
+        @JavascriptInterface
         fun triggerSmsSync(mask: String) {
             Log.d("MainActivity", "triggerSmsSync called for mask: $mask")
             
@@ -155,8 +178,8 @@ class MainActivity : ComponentActivity() {
                 
                 val bankName = identifyBank(address) ?: continue
 
-                // Broad pattern to capture balance NGN 1,234.56
-                val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance|Amt)\\s*[:\\s]*NGN\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
+                // Broad pattern to capture balance NGN 1,234.56 - Removed 'Amt' to prevent capturing charge amount
+                val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance)\\s*[:\\s]*(?:NGN|₦)?\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
                 // Broad pattern to capture account mask (last 4 digits)
                 val acctPattern = Pattern.compile("(?:Acct|Ac|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
                 
@@ -186,6 +209,7 @@ class MainActivity : ComponentActivity() {
             sender.contains("Access", true) -> "Access Bank"
             sender.contains("Zenith", true) -> "Zenith Bank"
             sender.contains("FirstBank", true) || sender.contains("FBN", true) -> "First Bank of Nigeria"
+            sender.contains("Parallex", true) -> "Parallex Bank"
             sender.contains("Kuda", true) -> "Kuda MFB"
             else -> null
         }
