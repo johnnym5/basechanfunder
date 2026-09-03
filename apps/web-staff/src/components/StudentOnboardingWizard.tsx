@@ -1,18 +1,36 @@
 /**
  * StudentOnboardingWizard.tsx
- * Full-screen animated multi-step onboarding wizard for new students.
- * Screens: Welcome → Profile & Visa → SMS Permission Pitch → Balance Parser
+ * Full-screen animated multi-step student onboarding wizard.
+ * - Supports Light and Dark theme (defaulting to Light Mode).
+ * - Theme toggle button prominently accessible in header.
+ * - Each question is isolated on its own focused screen with big typography.
+ * - Framer Motion slide/fade transitions on forward & back.
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowRight, ChevronDown, MapPin, Globe, Shield, Phone,
-  CheckCircle2, AlertCircle, Loader2, RefreshCw, Sparkles
+  ArrowRight,
+  ArrowLeft,
+  ChevronDown,
+  MapPin,
+  Globe,
+  Shield,
+  Phone,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Sun,
+  Moon,
+  Building2,
+  UserCheck
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +40,7 @@ interface OnboardingProfile {
   destinationCountry: string;
   targetCurrency: string;
   targetCurrencySymbol: string;
-  isSelf: boolean;         // sponsorship: false=self, true=sponsored
+  isSelf: boolean;
   sponsorRelationship: string;
   hasParallexAccount: boolean;
   parallexAccountNumber: string;
@@ -34,561 +52,221 @@ interface Props {
   onComplete: () => void;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DESTINATION_CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
-  'United Kingdom':  { currency: 'GBP', symbol: '£' },
-  'Canada':          { currency: 'CAD', symbol: 'C$' },
-  'USA':             { currency: 'USD', symbol: '$' },
-  'Australia':       { currency: 'AUD', symbol: 'A$' },
-  'Other':           { currency: 'GBP', symbol: '£' },
+  'United Kingdom': { currency: 'GBP', symbol: '£' },
+  'Canada': { currency: 'CAD', symbol: 'C$' },
+  'USA': { currency: 'USD', symbol: '$' },
+  'Australia': { currency: 'AUD', symbol: 'A$' },
+  'Other': { currency: 'GBP', symbol: '£' },
 };
 
-const DESTINATION_COUNTRIES = ['United Kingdom', 'Canada', 'USA', 'Australia', 'Other'];
+const DESTINATION_OPTIONS = [
+  { country: 'United Kingdom', flag: '🇬🇧', currency: 'GBP (£)' },
+  { country: 'Canada', flag: '🇨🇦', currency: 'CAD (C$)' },
+  { country: 'USA', flag: '🇺🇸', currency: 'USD ($)' },
+  { country: 'Australia', flag: '🇦🇺', currency: 'AUD (A$)' },
+  { country: 'Other', flag: '🌍', currency: 'GBP (£)' },
+];
 
 const NIGERIAN_BANKS = [
-  'Access Bank', 'GTBank', 'First Bank', 'Zenith Bank', 'UBA',
-  'Stanbic IBTC', 'Fidelity Bank', 'Union Bank', 'Ecobank',
-  'Sterling Bank', 'Wema Bank', 'FCMB', 'Polaris Bank',
-  'Keystone Bank', 'Heritage Bank', 'Parallex Bank', 'Other'
+  'Access Bank',
+  'GTBank',
+  'First Bank',
+  'Zenith Bank',
+  'UBA',
+  'Stanbic IBTC',
+  'Fidelity Bank',
+  'Union Bank',
+  'Ecobank',
+  'Sterling Bank',
+  'Wema Bank',
+  'FCMB',
+  'Polaris Bank',
+  'Keystone Bank',
+  'Heritage Bank',
+  'Parallex Bank',
+  'Other'
 ];
 
 // ─── Animation Variants ───────────────────────────────────────────────────────
 
-const slideVariants = {
+const screenVariants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? '100%' : '-100%',
+    x: dir > 0 ? 80 : -80,
     opacity: 0,
   }),
   center: {
     x: 0,
     opacity: 1,
-    transition: { type: 'spring' as const, stiffness: 320, damping: 32 },
+    transition: {
+      type: 'spring' as const,
+      stiffness: 300,
+      damping: 28,
+    },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? '-60%' : '60%',
+    x: dir > 0 ? -80 : 80,
     opacity: 0,
-    transition: { duration: 0.25, ease: 'easeInOut' as const },
+    transition: {
+      duration: 0.2,
+      ease: 'easeInOut' as const,
+    },
   }),
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
+  const { appUser, currentUser } = useAuth();
+  const { theme, toggleTheme, setTheme } = useTheme();
 
-const StepDots: React.FC<{ total: number; current: number }> = ({ total, current }) => (
-  <div className="flex gap-2 justify-center mt-6">
-    {Array.from({ length: total }).map((_, i) => (
-      <div
-        key={i}
-        className={`h-1.5 rounded-full transition-all duration-300 ${
-          i === current ? 'w-8 bg-blue-500' : 'w-2 bg-white/20'
-        }`}
-      />
-    ))}
-  </div>
-);
+  // Start in Light Theme Mode as requested
+  useEffect(() => {
+    if (!localStorage.getItem('bcf-onboarding-theme-init')) {
+      setTheme('light');
+      localStorage.setItem('bcf-onboarding-theme-init', 'true');
+    }
+  }, [setTheme]);
 
-const FloatingInput: React.FC<{
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-}> = ({ label, value, onChange, placeholder, type = 'text' }) => (
-  <div className="space-y-1.5">
-    <label className="block text-[11px] font-bold uppercase tracking-widest text-blue-400">{label}</label>
-    <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-blue-500/60 focus:bg-blue-500/5 transition-all"
-    />
-  </div>
-);
+  const isDark = theme === 'dark';
+  const firstName = appUser?.displayName?.split(' ')[0] || 'there';
 
-const FloatingSelect: React.FC<{
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  icon?: React.ReactNode;
-}> = ({ label, value, onChange, options, icon }) => (
-  <div className="space-y-1.5">
-    <label className="block text-[11px] font-bold uppercase tracking-widest text-blue-400">{label}</label>
-    <div className="relative">
-      {icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30">{icon}</div>
-      )}
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className={`w-full bg-white/5 border border-white/10 rounded-xl py-3 text-sm text-white focus:outline-none focus:border-blue-500/60 transition-all appearance-none ${icon ? 'pl-10 pr-10' : 'px-4 pr-10'}`}
-      >
-        <option value="" disabled className="bg-slate-900">Select…</option>
-        {options.map(o => (
-          <option key={o} value={o} className="bg-slate-900">{o}</option>
-        ))}
-      </select>
-      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-    </div>
-  </div>
-);
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
 
-// ─── Screen 1: Welcome ────────────────────────────────────────────────────────
+  const [profile, setProfile] = useState<OnboardingProfile>({
+    homeState: '',
+    homeCountry: 'Nigeria',
+    destinationCountry: 'United Kingdom',
+    targetCurrency: 'GBP',
+    targetCurrencySymbol: '£',
+    isSelf: true,
+    sponsorRelationship: '',
+    hasParallexAccount: true,
+    parallexAccountNumber: '',
+    bankName: 'Parallex Bank',
+    accountNumber: '',
+  });
 
-const WelcomeScreen: React.FC<{ onNext: () => void }> = ({ onNext }) => {
-  const [arrowActive, setArrowActive] = useState(false);
+  // SMS scan state
+  const [smsPermState, setSmsPermState] = useState<'pitch' | 'requesting' | 'denied' | 'granted'>('pitch');
+  const [parseState, setParseState] = useState<'scanning' | 'found' | 'failed'>('scanning');
+  const [balance, setBalance] = useState<string | null>(null);
+  const [scanLabel, setScanLabel] = useState('Pass 1: Checking bank SMS sender tags & account tail...');
 
-  return (
-    <div className="flex flex-col items-center justify-between h-full py-12 px-6 text-center">
-      {/* Logo area */}
-      <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-        <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 260 }}
-          className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500/20 to-blue-900/40 border border-blue-500/30 flex items-center justify-center shadow-[0_0_60px_rgba(59,130,246,0.2)] overflow-hidden"
-        >
-          <img src="/logo_white.png" alt="Basechan Funder" className="w-16 h-16 object-contain" />
-        </motion.div>
+  // Compute total steps dynamically
+  // 0: Welcome
+  // 1: Home Location (State & Country)
+  // 2: Destination Country
+  // 3: Sponsorship Status
+  // 4: Sponsor Relationship (if isSelf === false)
+  // 5: Parallex Account Question (Yes/No)
+  // 6: Account Number (Parallex or Other Bank selection)
+  // 7: SMS Permission Pre-Pitch
+  // 8: Multi-Pass Engine / Verification Result
+  const isSponsored = !profile.isSelf;
 
-        <motion.div
-          initial={{ y: 24, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.35, duration: 0.5 }}
-          className="space-y-3 max-w-xs"
-        >
-          <h1 className="text-3xl font-black tracking-tight text-white leading-tight lowercase">
-            welcome to <span className="text-blue-400">basechan funder</span>
-          </h1>
-          <p className="text-sm text-white/50 leading-relaxed font-medium">
-            we make sure your <span className="text-white font-bold">PROOF OF FUNDS</span> is cleared and on track
-          </p>
-        </motion.div>
+  const getStepList = () => {
+    const list = [
+      'welcome',
+      'location',
+      'destination',
+      'sponsorship',
+    ];
+    if (isSponsored) list.push('sponsor_rel');
+    list.push('parallex_check');
+    list.push('account_details');
+    list.push('sms_pitch');
+    list.push('verification');
+    return list;
+  };
 
-        {/* Decorative glow dots */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="flex gap-3 mt-4"
-        >
-          {['£', '₦', '$'].map((sym, i) => (
-            <div
-              key={sym}
-              className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-sm"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            >
-              {sym}
-            </div>
-          ))}
-        </motion.div>
-      </div>
+  const currentStepKey = getStepList()[step] || 'welcome';
+  const totalSteps = getStepList().length;
 
-      {/* Arrow CTA */}
-      <motion.button
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        onMouseEnter={() => setArrowActive(true)}
-        onMouseLeave={() => setArrowActive(false)}
-        onClick={onNext}
-        className="relative group w-16 h-16 rounded-2xl bg-blue-600 hover:bg-blue-500 border border-blue-500/60 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all hover:scale-105 active:scale-95"
-        aria-label="Get started"
-      >
-        <motion.div animate={{ x: arrowActive ? 4 : 0 }} transition={{ type: 'spring', stiffness: 400 }}>
-          <ArrowRight className="w-7 h-7 text-white" />
-        </motion.div>
-      </motion.button>
-    </div>
-  );
-};
+  const updateProfile = (field: keyof OnboardingProfile, value: string | boolean) => {
+    setProfile(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'destinationCountry' && typeof value === 'string') {
+        const mapping = DESTINATION_CURRENCY_MAP[value] || { currency: 'GBP', symbol: '£' };
+        next.targetCurrency = mapping.currency;
+        next.targetCurrencySymbol = mapping.symbol;
+      }
+      return next;
+    });
+  };
 
-// ─── Screen 2: Profile & Visa Info ───────────────────────────────────────────
+  const goNext = async () => {
+    // Save profile updates to Firestore at critical checkpoints
+    if (currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          onboardingProfile: {
+            homeState: profile.homeState,
+            homeCountry: profile.homeCountry,
+            destinationCountry: profile.destinationCountry,
+            targetCurrency: profile.targetCurrency,
+            targetCurrencySymbol: profile.targetCurrencySymbol,
+            isSelf: profile.isSelf,
+            sponsorRelationship: profile.sponsorRelationship,
+            bankName: profile.hasParallexAccount ? 'Parallex Bank' : profile.bankName,
+            accountNumber: profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber,
+            updatedAt: serverTimestamp(),
+          },
+          onboardingComplete: false,
+        });
+      } catch {
+        // Soft fail
+      }
+    }
 
-const ProfileScreen: React.FC<{
-  profile: OnboardingProfile;
-  onChange: (field: keyof OnboardingProfile, value: string | boolean) => void;
-  onNext: () => void;
-  displayName: string;
-}> = ({ profile, onChange, onNext, displayName }) => {
-  const firstName = displayName?.split(' ')[0] || 'there';
+    if (step < totalSteps - 1) {
+      setDirection(1);
+      setStep(s => s + 1);
+    }
+  };
 
-  const isValid =
-    profile.homeCountry.trim() &&
-    profile.destinationCountry &&
-    profile.accountNumber.trim() &&
-    (profile.hasParallexAccount ? profile.parallexAccountNumber.trim() : profile.bankName.trim());
+  const goBack = () => {
+    if (step > 0) {
+      setDirection(-1);
+      setStep(s => s - 1);
+    }
+  };
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-6 pt-8 pb-4 space-y-1">
-        <motion.p
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-[11px] font-bold uppercase tracking-widest text-blue-400"
-        >
-          So, {firstName}...
-        </motion.p>
-        <motion.h2
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="text-xl font-black text-white"
-        >
-          tell us about you
-        </motion.h2>
-      </div>
-
-      {/* Scrollable form */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
-        {/* Location */}
-        <div className="space-y-3">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center gap-1.5">
-            <MapPin className="w-3 h-3" /> Home Location
-          </p>
-          <FloatingInput label="State / Region" value={profile.homeState} onChange={v => onChange('homeState', v)} placeholder="e.g. Lagos" />
-          <FloatingInput label="Country" value={profile.homeCountry} onChange={v => onChange('homeCountry', v)} placeholder="e.g. Nigeria" />
-        </div>
-
-        {/* Destination */}
-        <div className="space-y-3 pt-1">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center gap-1.5">
-            <Globe className="w-3 h-3" /> Visa Destination
-          </p>
-          <FloatingSelect
-            label="Destination Country"
-            value={profile.destinationCountry}
-            onChange={v => onChange('destinationCountry', v)}
-            options={DESTINATION_COUNTRIES}
-            icon={<Globe className="w-4 h-4" />}
-          />
-          {profile.destinationCountry && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2.5"
-            >
-              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-              <p className="text-xs text-blue-300">
-                Target currency auto-set to <span className="font-black">{profile.targetCurrencySymbol} {profile.targetCurrency}</span>
-              </p>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Sponsorship */}
-        <div className="space-y-3 pt-1">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center gap-1.5">
-            <Shield className="w-3 h-3" /> Sponsorship Status
-          </p>
-          <div className="flex gap-3">
-            {(['Self-Funded', 'Sponsored'] as const).map((opt, i) => {
-              const isSelected = profile.isSelf === (i === 0);
-              return (
-                <button
-                  key={opt}
-                  onClick={() => onChange('isSelf', i === 0)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]'
-                      : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20'
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-          {!profile.isSelf && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-              <FloatingInput
-                label="Sponsor Relationship"
-                value={profile.sponsorRelationship}
-                onChange={v => onChange('sponsorRelationship', v)}
-                placeholder="e.g. Parent, Employer, Government"
-              />
-            </motion.div>
-          )}
-        </div>
-
-        {/* Bank / Account */}
-        <div className="space-y-3 pt-1">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center gap-1.5">
-            <Phone className="w-3 h-3" /> Bank Account Details
-          </p>
-          <div className="flex gap-3">
-            {(['Yes, I have Parallex', 'Other Bank'] as const).map((opt, i) => {
-              const isSelected = profile.hasParallexAccount === (i === 0);
-              return (
-                <button
-                  key={opt}
-                  onClick={() => onChange('hasParallexAccount', i === 0)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-500 text-white'
-                      : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20'
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-
-          {profile.hasParallexAccount ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <FloatingInput
-                label="Parallex Account Number"
-                value={profile.parallexAccountNumber}
-                onChange={v => onChange('parallexAccountNumber', v)}
-                placeholder="10-digit account number"
-                type="number"
-              />
-            </motion.div>
-          ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-              <FloatingSelect
-                label="Bank Name"
-                value={profile.bankName}
-                onChange={v => onChange('bankName', v)}
-                options={NIGERIAN_BANKS}
-              />
-              <FloatingInput
-                label="Account Number"
-                value={profile.accountNumber}
-                onChange={v => onChange('accountNumber', v)}
-                placeholder="10-digit account number"
-                type="number"
-              />
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      {/* Next Button */}
-      <div className="px-6 pb-8 pt-3">
-        <button
-          onClick={onNext}
-          disabled={!isValid}
-          className="w-full py-3.5 rounded-2xl text-sm font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(59,130,246,0.3)]"
-        >
-          Continue <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ─── Screen 3: SMS Permission Pitch ──────────────────────────────────────────
-
-type SmsPermState = 'pitch' | 'requesting' | 'denied' | 'granted';
-
-const SmsPermissionScreen: React.FC<{
-  onGranted: () => void;
-  onSkip: () => void;
-}> = ({ onGranted, onSkip }) => {
-  const [state, setState] = useState<SmsPermState>('pitch');
-
-  const requestPermission = useCallback(async () => {
-    setState('requesting');
+  // SMS Permission Request Trigger
+  const triggerSmsPermission = async () => {
+    setSmsPermState('requesting');
     try {
-      // Web: Use the Web SMS API or Notification permission as a stand-in
-      // On mobile WebView the Android app handles native SMS permission
-      if ('permissions' in navigator) {
-        // Try native Notification permission (closest web equivalent)
-        const result = await Notification.requestPermission();
-        if (result === 'granted') {
-          // Post message to Android WebView to request SMS permission
-          if ((window as any).AndroidBridge?.requestSmsPermission) {
-            (window as any).AndroidBridge.requestSmsPermission();
-          }
-          setState('granted');
-          setTimeout(onGranted, 800);
+      if ((window as any).AndroidBridge?.requestSmsPermission) {
+        (window as any).AndroidBridge.requestSmsPermission();
+        setSmsPermState('granted');
+        setTimeout(() => goNext(), 700);
+      } else if ('permissions' in navigator && typeof Notification !== 'undefined') {
+        const res = await Notification.requestPermission();
+        if (res === 'granted') {
+          setSmsPermState('granted');
+          setTimeout(() => goNext(), 700);
         } else {
-          setState('denied');
+          setSmsPermState('denied');
         }
       } else {
-        // Fallback for environments without Permissions API
-        if ((window as any).AndroidBridge?.requestSmsPermission) {
-          (window as any).AndroidBridge.requestSmsPermission();
-          setState('granted');
-          setTimeout(onGranted, 800);
-        } else {
-          // No native bridge — treat as granted on web (SMS scan runs in-browser)
-          setState('granted');
-          setTimeout(onGranted, 800);
-        }
+        setSmsPermState('granted');
+        setTimeout(() => goNext(), 700);
       }
     } catch {
-      setState('denied');
+      setSmsPermState('denied');
     }
-  }, [onGranted]);
+  };
 
-  if (state === 'granted') {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 px-6">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 300 }}
-          className="w-20 h-20 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center"
-        >
-          <CheckCircle2 className="w-10 h-10 text-green-400" />
-        </motion.div>
-        <p className="text-white font-bold text-lg">Permission Granted!</p>
-        <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-      </div>
-    );
-  }
-
-  if (state === 'denied') {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-        <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center"
-        >
-          <AlertCircle className="w-10 h-10 text-amber-400" />
-        </motion.div>
-        <div className="space-y-2 max-w-xs">
-          <h3 className="text-lg font-black text-white">oh, hold on!</h3>
-          <p className="text-sm text-white/50 leading-relaxed">
-            it seems you might have rejected the permission. we can't proceed without you giving us your permission. try again.
-          </p>
-        </div>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button
-            onClick={requestPermission}
-            className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" /> Try Again
-          </button>
-          <button
-            onClick={onSkip}
-            className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider hover:text-white/60 transition-all"
-          >
-            Skip for now
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-      {/* Icon */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="w-24 h-24 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.15)]"
-      >
-        <Phone className="w-12 h-12 text-blue-400" />
-      </motion.div>
-
-      {/* Text */}
-      <motion.div
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="space-y-3 max-w-xs"
-      >
-        <h3 className="text-2xl font-black text-white lowercase leading-tight">
-          sweet, you're <span className="text-blue-400">almost done!</span>
-        </h3>
-        <p className="text-sm text-white/50 leading-relaxed">
-          what we need now is access to your <span className="text-white font-bold">SMS</span> to be able to read and accurately get your account balance.
-        </p>
-        <p className="text-xs text-white/30 leading-relaxed">
-          don't worry — we <span className="text-green-400 font-bold">cannot</span> change your account details, and your data is safe with us.
-        </p>
-      </motion.div>
-
-      {/* Shield badges */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="flex gap-3"
-      >
-        {['Read Only', 'Encrypted', 'No sharing'].map(tag => (
-          <div key={tag} className="px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] text-green-400 font-bold">
-            {tag}
-          </div>
-        ))}
-      </motion.div>
-
-      {/* CTA */}
-      <motion.button
-        initial={{ y: 12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        onClick={requestPermission}
-        disabled={state === 'requesting'}
-        className="w-full max-w-xs py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_40px_rgba(59,130,246,0.4)] disabled:opacity-60"
-      >
-        {state === 'requesting' ? (
-          <><Loader2 className="w-5 h-5 animate-spin" /> Requesting…</>
-        ) : (
-          <>Proceed <ArrowRight className="w-5 h-5" /></>
-        )}
-      </motion.button>
-
-      <button
-        onClick={onSkip}
-        className="text-xs text-white/25 hover:text-white/40 transition-colors font-medium underline underline-offset-2"
-      >
-        Skip for now — I'll verify later
-      </button>
-    </div>
-  );
-};
-
-// ─── Screen 4: Balance Parser ─────────────────────────────────────────────────
-
-type ParseState = 'scanning' | 'found' | 'failed';
-
-// Balance extraction helper – runs multi-pass parse on SMS messages
-function extractBalance(messages: string[]): string | null {
-  // Pass 1: Look for explicit Balance: or Bal: patterns
-  for (const msg of messages) {
-    const match = msg.match(/(?:balance|bal)[:\s]*[₦NGN]*\s*([\d,]+(?:\.\d{2})?)/i);
-    if (match) return match[1].replace(/,/g, '');
-  }
-
-  // Pass 2: Fuzzy — look for ₦ amounts in any financial-looking SMS
-  for (const msg of messages) {
-    const match = msg.match(/₦\s*([\d,]+(?:\.\d{2})?)/);
-    if (match) return match[1].replace(/,/g, '');
-  }
-
-  return null;
-}
-
-const BalanceParserScreen: React.FC<{
-  profile: OnboardingProfile;
-  uid: string;
-  onComplete: () => void;
-}> = ({ profile, uid, onComplete }) => {
-  const [state, setState] = useState<ParseState>('scanning');
-  const [balance, setBalance] = useState<string | null>(null);
-  const [scanLabel, setScanLabel] = useState('Pass 1: Scanning your bank SMS…');
-
+  // Multi-pass Verification Engine Trigger when reaching last step
   useEffect(() => {
+    if (currentStepKey !== 'verification') return;
+
     let cancelled = false;
-
-    const runScan = async () => {
-      // Give UI time to render
-      await new Promise(r => setTimeout(r, 1200));
+    const runVerification = async () => {
+      setParseState('scanning');
+      setScanLabel('Pass 1: Checking official bank sender tags & tail digits...');
+      await new Promise(r => setTimeout(r, 1500));
       if (cancelled) return;
 
-      setScanLabel('Pass 1: Matching sender ID & account tail…');
-      await new Promise(r => setTimeout(r, 1200));
-      if (cancelled) return;
-
-      // Try to get SMS data from Android bridge
       let messages: string[] = [];
       try {
         if ((window as any).AndroidBridge?.getSmsMessages) {
@@ -596,266 +274,837 @@ const BalanceParserScreen: React.FC<{
           messages = JSON.parse(raw) as string[];
         }
       } catch {
-        // No bridge (web environment) — continue with empty
+        // Fallback
       }
 
-      const found = extractBalance(messages);
+      // Pass 1: Strict matching with account number tail
+      const tail = (profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber).slice(-4);
+      let foundVal: string | null = null;
 
-      if (found) {
-        if (!cancelled) { setBalance(found); setState('found'); }
+      for (const msg of messages) {
+        if (tail && msg.includes(tail)) {
+          const match = msg.match(/(?:balance|bal|acct bal|avlbl)[:\s]*[₦NGN]*\s*([\d,]+(?:\.\d{2})?)/i);
+          if (match) {
+            foundVal = match[1].replace(/,/g, '');
+            break;
+          }
+        }
+      }
+
+      if (foundVal) {
+        if (!cancelled) {
+          setBalance(foundVal);
+          setParseState('found');
+        }
+        return;
+      }
+
+      // Pass 2: Fuzzy matching across any financial string with Bal: or Balance:
+      setScanLabel('Pass 2: Fuzzy scanning all financial SMS strings...');
+      await new Promise(r => setTimeout(r, 1600));
+      if (cancelled) return;
+
+      for (const msg of messages) {
+        const match = msg.match(/(?:balance|bal)[:\s]*[₦NGN]*\s*([\d,]+(?:\.\d{2})?)/i) ||
+                      msg.match(/₦\s*([\d,]+(?:\.\d{2})?)/);
+        if (match) {
+          foundVal = match[1].replace(/,/g, '');
+          break;
+        }
+      }
+
+      if (foundVal) {
+        if (!cancelled) {
+          setBalance(foundVal);
+          setParseState('found');
+        }
       } else {
-        if (cancelled) return;
-        setScanLabel('Pass 2: Fuzzy scanning all financial messages…');
-        await new Promise(r => setTimeout(r, 1400));
-        if (cancelled) return;
-
-        // Dispatch admin alert on failure
+        // Outcome B: Failed after trials -> Dispatch Admin Support Alert
         try {
           await fetch('/api/v1/support/ingestion-failure', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId: uid,
+              userId: currentUser?.uid,
               bankName: profile.hasParallexAccount ? 'Parallex Bank' : profile.bankName,
               accountNumber: profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber,
             }),
           });
-        } catch { /* fire and forget */ }
+        } catch {
+          // Ignored
+        }
 
-        // Mark user as pending manual sync
-        try {
-          await updateDoc(doc(db, 'users', uid), {
-            balanceVerificationStatus: 'PENDING_MANUAL_ADMIN_SYNC',
-          });
-        } catch { /* ignore */ }
+        if (currentUser) {
+          try {
+            await updateDoc(doc(db, 'users', currentUser.uid), {
+              balanceVerificationStatus: 'PENDING_MANUAL_ADMIN_SYNC',
+            });
+          } catch {
+            // Ignored
+          }
+        }
 
-        if (!cancelled) setState('failed');
+        if (!cancelled) {
+          setParseState('failed');
+        }
       }
     };
 
-    runScan();
-    return () => { cancelled = true; };
-  }, [profile, uid]);
+    runVerification();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStepKey, profile, currentUser]);
 
-  if (state === 'scanning') {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-        {/* Animated scanner ring */}
-        <div className="relative w-28 h-28">
-          <div className="absolute inset-0 rounded-full border-2 border-blue-500/20" />
-          <motion.div
-            className="absolute inset-0 rounded-full border-2 border-t-blue-500 border-r-blue-500/50 border-b-transparent border-l-transparent"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className="w-10 h-10 text-blue-400" />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <p className="text-lg font-black text-white">Scanning your inbox…</p>
-          <p className="text-sm text-white/40">{scanLabel}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (state === 'found') {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 300 }}
-          className="w-24 h-24 rounded-3xl bg-green-500/20 border border-green-500/40 flex items-center justify-center shadow-[0_0_50px_rgba(34,197,94,0.2)]"
-        >
-          <CheckCircle2 className="w-12 h-12 text-green-400" />
-        </motion.div>
-        <div className="space-y-2 max-w-xs">
-          <p className="text-xl font-black text-white">i think we found it! 🎉</p>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-4xl font-black text-green-400"
-          >
-            ₦{Number(balance).toLocaleString()}
-          </motion.div>
-          <p className="text-xs text-white/30">Account balance detected from your SMS</p>
-        </div>
-        <motion.button
-          initial={{ y: 12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          onClick={onComplete}
-          className="w-full max-w-xs py-4 rounded-2xl bg-green-600 hover:bg-green-500 text-white font-black text-base uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-        >
-          Let's See <ArrowRight className="w-5 h-5" />
-        </motion.button>
-      </div>
-    );
-  }
-
-  // Failed state
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
-      <motion.div
-        initial={{ scale: 0.7, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center"
-      >
-        <AlertCircle className="w-12 h-12 text-amber-400" />
-      </motion.div>
-      <div className="space-y-2 max-w-xs">
-        <p className="text-lg font-black text-white leading-tight">
-          We couldn't automatically verify your balance yet, but don't worry!
-        </p>
-        <p className="text-sm text-white/40 leading-relaxed">
-          Our team has been alerted and will manually sync your balance shortly. You can still access your dashboard now.
-        </p>
-      </div>
-      <motion.button
-        initial={{ y: 12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        onClick={onComplete}
-        className="w-full max-w-xs py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm uppercase tracking-wider transition-all"
-      >
-        Proceed to Dashboard
-      </motion.button>
-    </div>
-  );
-};
-
-// ─── Main Wizard ──────────────────────────────────────────────────────────────
-
-const TOTAL_STEPS = 4;
-
-export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
-  const { appUser, currentUser } = useAuth();
-
-  const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState(1);
-  const [profile, setProfile] = useState<OnboardingProfile>({
-    homeState: '',
-    homeCountry: '',
-    destinationCountry: '',
-    targetCurrency: 'GBP',
-    targetCurrencySymbol: '£',
-    isSelf: true,
-    sponsorRelationship: '',
-    hasParallexAccount: false,
-    parallexAccountNumber: '',
-    bankName: '',
-    accountNumber: '',
-  });
-
-  const updateProfile = useCallback((field: keyof OnboardingProfile, value: string | boolean) => {
-    setProfile(prev => {
-      const next = { ...prev, [field]: value };
-      // Auto-update currency when destination changes
-      if (field === 'destinationCountry' && typeof value === 'string') {
-        const mapping = DESTINATION_CURRENCY_MAP[value];
-        if (mapping) {
-          next.targetCurrency = mapping.currency;
-          next.targetCurrencySymbol = mapping.symbol;
-        }
-      }
-      return next;
-    });
-  }, []);
-
-  const goNext = useCallback(async () => {
-    if (step === 1) {
-      // Save profile to Firestore before moving on
-      if (currentUser) {
-        try {
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            onboardingProfile: {
-              homeState: profile.homeState,
-              homeCountry: profile.homeCountry,
-              destinationCountry: profile.destinationCountry,
-              targetCurrency: profile.targetCurrency,
-              targetCurrencySymbol: profile.targetCurrencySymbol,
-              isSelf: profile.isSelf,
-              sponsorRelationship: profile.sponsorRelationship,
-              bankName: profile.hasParallexAccount ? 'Parallex Bank' : profile.bankName,
-              accountNumber: profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber,
-              savedAt: serverTimestamp(),
-            },
-            onboardingComplete: false,
-          });
-        } catch { /* ignore */ }
-      }
-    }
-    setDirection(1);
-    setStep(s => Math.min(s + 1, TOTAL_STEPS - 1));
-  }, [step, currentUser, profile]);
-
-  const handleOnboardingComplete = useCallback(async () => {
+  const handleFinish = async () => {
     if (currentUser) {
       try {
         await updateDoc(doc(db, 'users', currentUser.uid), {
           onboardingComplete: true,
           onboardingCompletedAt: serverTimestamp(),
         });
-      } catch { /* ignore */ }
+      } catch {
+        // Ignored
+      }
     }
     onComplete();
-  }, [currentUser, onComplete]);
+  };
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#07090e] flex flex-col overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[120px] bg-blue-500/5" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[120px] bg-blue-900/10" />
-      </div>
+    <div
+      className={`fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden transition-colors duration-300 ${
+        isDark ? 'bg-[#030712] text-white' : 'bg-slate-50 text-slate-900'
+      }`}
+    >
+      {/* ── Top Bar: Navigation, Step Indicator & Light/Dark Switch ── */}
+      <header className="px-6 py-4 flex items-center justify-between z-20 border-b border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-3">
+          {step > 0 && currentStepKey !== 'verification' ? (
+            <button
+              onClick={goBack}
+              className={`p-2 rounded-xl transition-all ${
+                isDark
+                  ? 'bg-white/5 hover:bg-white/10 text-white/70'
+                  : 'bg-black/5 hover:bg-black/10 text-slate-600'
+              }`}
+              title="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          ) : (
+            <img
+              src={isDark ? '/logo_white.png' : '/logo.png'}
+              alt="Basechan Funder"
+              className="h-8 object-contain"
+            />
+          )}
+          <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+            Step {step + 1} of {totalSteps}
+          </span>
+        </div>
 
-      {/* Step Dots */}
-      <div className="relative z-10 pt-6">
-        <StepDots total={TOTAL_STEPS} current={step} />
-      </div>
-
-      {/* Animated Step Container */}
-      <div className="relative flex-1 overflow-hidden">
-        <AnimatePresence custom={direction} mode="popLayout">
-          <motion.div
-            key={step}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="absolute inset-0"
+        {/* Theme Mode Toggle Button */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm ${
+              isDark
+                ? 'bg-slate-900 border-white/10 text-amber-300 hover:bg-slate-800'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
           >
-            {step === 0 && (
-              <WelcomeScreen onNext={goNext} />
+            {isDark ? (
+              <>
+                <Sun className="w-4 h-4 text-amber-400" />
+                <span>Light Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-blue-600" />
+                <span>Dark Mode</span>
+              </>
             )}
-            {step === 1 && (
-              <ProfileScreen
-                profile={profile}
-                onChange={updateProfile}
-                onNext={goNext}
-                displayName={appUser?.displayName || ''}
-              />
-            )}
-            {step === 2 && (
-              <SmsPermissionScreen
-                onGranted={goNext}
-                onSkip={goNext}
-              />
-            )}
-            {step === 3 && (
-              <BalanceParserScreen
-                profile={profile}
-                uid={currentUser?.uid || ''}
-                onComplete={handleOnboardingComplete}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+          </button>
+        </div>
+      </header>
+
+      {/* ── Progress Bar ── */}
+      <div className="w-full bg-black/5 dark:bg-white/5 h-1">
+        <motion.div
+          className="h-1 bg-gradient-to-r from-blue-600 to-indigo-500"
+          initial={false}
+          animate={{ width: `${((step + 1) / totalSteps) * 100}%` }}
+          transition={{ duration: 0.3 }}
+        />
       </div>
+
+      {/* ── Main Question Viewport ── */}
+      <main className="flex-1 relative overflow-hidden flex items-center justify-center p-6 md:p-12">
+        <AnimatePresence custom={direction} mode="wait">
+          {/* SCREEN 0: Welcome & Value Proposition */}
+          {currentStepKey === 'welcome' && (
+            <motion.div
+              key="welcome"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-xl text-center space-y-8 flex flex-col items-center justify-center"
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-24 h-24 rounded-3xl bg-blue-600/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shadow-xl shadow-blue-500/10"
+              >
+                <img
+                  src={isDark ? '/logo_icon_white.png' : '/logo_icon.png'}
+                  alt="Basechan Funder"
+                  className="w-14 h-14 object-contain"
+                />
+              </motion.div>
+
+              <div className="space-y-4">
+                <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight uppercase">
+                  welcome to <span className="text-blue-600 dark:text-blue-400">basechan funder</span>
+                </h1>
+                <p className="text-lg md:text-2xl font-semibold opacity-75 max-w-lg mx-auto">
+                  we make sure your <span className="text-blue-600 dark:text-blue-400 font-extrabold uppercase">PROOF OF FUNDS</span> is cleared and on track
+                </p>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={goNext}
+                className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-lg uppercase tracking-wider shadow-xl shadow-blue-600/30 transition-all mt-6"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-6 h-6" />
+              </motion.button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 1: Home Location */}
+          {currentStepKey === 'location' && (
+            <motion.div
+              key="location"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" /> Question 1
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  Where are you currently located?
+                </h2>
+                <p className="text-base opacity-70">
+                  Tell us your state and home country.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                    State / Region
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.homeState}
+                    onChange={e => updateProfile('homeState', e.target.value)}
+                    placeholder="e.g. Lagos, Abuja, Rivers"
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                      isDark
+                        ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                    Home Country
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.homeCountry}
+                    onChange={e => updateProfile('homeCountry', e.target.value)}
+                    placeholder="e.g. Nigeria"
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                      isDark
+                        ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={goNext}
+                disabled={!profile.homeCountry.trim()}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 2: Destination Country */}
+          {currentStepKey === 'destination' && (
+            <motion.div
+              key="destination"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> Question 2
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  What is your study destination?
+                </h2>
+                <p className="text-base opacity-70">
+                  Target currency automatically adapts to your destination country.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {DESTINATION_OPTIONS.map(item => {
+                  const isSelected = profile.destinationCountry === item.country;
+                  return (
+                    <button
+                      key={item.country}
+                      onClick={() => updateProfile('destinationCountry', item.country)}
+                      className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border text-left transition-all ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                          : isDark
+                          ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-3xl">{item.flag}</span>
+                        <div>
+                          <p className="text-lg font-black">{item.country}</p>
+                          <p className="text-xs font-semibold opacity-60">Currency: {item.currency}</p>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={goNext}
+                disabled={!profile.destinationCountry}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 3: Sponsorship Status */}
+          {currentStepKey === 'sponsorship' && (
+            <motion.div
+              key="sponsorship"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Shield className="w-4 h-4" /> Question 3
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  Are you self-funded or sponsored?
+                </h2>
+                <p className="text-base opacity-70">
+                  Select your financial proof structure.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => {
+                    updateProfile('isSelf', true);
+                    updateProfile('sponsorRelationship', '');
+                  }}
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                    profile.isSelf
+                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      : isDark
+                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto" />
+                  <p className="text-xl font-black">Self-Funded</p>
+                  <p className="text-xs opacity-60">I am funding my own education and living expenses.</p>
+                </button>
+
+                <button
+                  onClick={() => updateProfile('isSelf', false)}
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                    !profile.isSelf
+                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      : isDark
+                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <Building2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto" />
+                  <p className="text-xl font-black">Sponsored</p>
+                  <p className="text-xs opacity-60">Funded by family member, corporate, or scholarship.</p>
+                </button>
+              </div>
+
+              <button
+                onClick={goNext}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 4: Sponsor Relationship (Only if sponsored) */}
+          {currentStepKey === 'sponsor_rel' && (
+            <motion.div
+              key="sponsor_rel"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Shield className="w-4 h-4" /> Sponsorship Details
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  What is your relationship to your sponsor?
+                </h2>
+                <p className="text-base opacity-70">
+                  e.g. Parent (Father/Mother), Uncle, Employer, or Scholarship body.
+                </p>
+              </div>
+
+              <div>
+                <input
+                  type="text"
+                  value={profile.sponsorRelationship}
+                  onChange={e => updateProfile('sponsorRelationship', e.target.value)}
+                  placeholder="e.g. Father, Mother, Sibling, Government"
+                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                    isDark
+                      ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                  }`}
+                />
+              </div>
+
+              <button
+                onClick={goNext}
+                disabled={!profile.sponsorRelationship.trim()}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 5: Parallex Account Check */}
+          {currentStepKey === 'parallex_check' && (
+            <motion.div
+              key="parallex_check"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Building2 className="w-4 h-4" /> Banking Setup
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  Do you have a Parallex Bank account?
+                </h2>
+                <p className="text-base opacity-70">
+                  Parallex Bank accounts enjoy automated, zero-latency daily ledger verification.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => updateProfile('hasParallexAccount', true)}
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                    profile.hasParallexAccount
+                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      : isDark
+                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-3xl">🏦</p>
+                  <p className="text-xl font-black">Yes, I do</p>
+                  <p className="text-xs opacity-60">I hold a Parallex Bank student account.</p>
+                </button>
+
+                <button
+                  onClick={() => updateProfile('hasParallexAccount', false)}
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all ${
+                    !profile.hasParallexAccount
+                      ? 'border-blue-600 bg-blue-600/10 dark:bg-blue-500/20 ring-2 ring-blue-600 dark:ring-blue-400'
+                      : isDark
+                      ? 'bg-slate-900/60 border-white/10 hover:border-white/20'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-3xl">🏛️</p>
+                  <p className="text-xl font-black">No, Other Bank</p>
+                  <p className="text-xs opacity-60">I use another commercial Nigerian bank.</p>
+                </button>
+              </div>
+
+              <button
+                onClick={goNext}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 6: Account Number / Details */}
+          {currentStepKey === 'account_details' && (
+            <motion.div
+              key="account_details"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Building2 className="w-4 h-4" /> Account Identification
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  {profile.hasParallexAccount
+                    ? 'Enter your Parallex account number'
+                    : 'Select your bank and enter account number'}
+                </h2>
+                <p className="text-base opacity-70">
+                  This connects your daily proof of funds evaluation window.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {profile.hasParallexAccount ? (
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                      Parallex 10-Digit Account Number
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={profile.parallexAccountNumber}
+                      onChange={e => updateProfile('parallexAccountNumber', e.target.value.replace(/\D/g, ''))}
+                      placeholder="0123456789"
+                      className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider ${
+                        isDark
+                          ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
+                          : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                      }`}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                        Bank Name
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={profile.bankName}
+                          onChange={e => updateProfile('bankName', e.target.value)}
+                          className={`w-full text-base font-bold px-5 py-4 rounded-2xl border appearance-none transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                            isDark
+                              ? 'bg-slate-900 border-white/10 text-white'
+                              : 'bg-white border-slate-300 text-slate-900'
+                          }`}
+                        >
+                          {NIGERIAN_BANKS.map(bank => (
+                            <option key={bank} value={bank} className={isDark ? 'bg-slate-900' : 'bg-white'}>
+                              {bank}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-60">
+                        10-Digit Account Number
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={10}
+                        value={profile.accountNumber}
+                        onChange={e => updateProfile('accountNumber', e.target.value.replace(/\D/g, ''))}
+                        placeholder="0123456789"
+                        className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider ${
+                          isDark
+                            ? 'bg-slate-900/80 border-white/10 text-white placeholder-white/20 focus:border-blue-500'
+                            : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                        }`}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={goNext}
+                disabled={
+                  profile.hasParallexAccount
+                    ? profile.parallexAccountNumber.length < 10
+                    : profile.accountNumber.length < 10
+                }
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 7: SMS Permission Pre-Pitch */}
+          {currentStepKey === 'sms_pitch' && (
+            <motion.div
+              key="sms_pitch"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg text-center space-y-8 flex flex-col items-center justify-center"
+            >
+              {smsPermState === 'denied' ? (
+                <>
+                  <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                    <AlertCircle className="w-10 h-10" />
+                  </div>
+
+                  <div className="space-y-4 max-w-md">
+                    <h2 className="text-2xl md:text-3xl font-black">
+                      Permission Needed
+                    </h2>
+                    <p className="text-base opacity-80 leading-relaxed">
+                      oh it seems you might have rejected the permission we cant proceed without you giving us your permission, try again.
+                    </p>
+                  </div>
+
+                  <div className="w-full space-y-3">
+                    <button
+                      onClick={triggerSmsPermission}
+                      className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      <span>Try Again</span>
+                    </button>
+                    <button
+                      onClick={goNext}
+                      className="text-xs font-bold uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+                    >
+                      Skip & Verify Later
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-24 h-24 rounded-3xl bg-blue-600/10 dark:bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xl shadow-blue-500/10">
+                    <Phone className="w-12 h-12" />
+                  </div>
+
+                  <div className="space-y-4 max-w-md">
+                    <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                      Almost Done
+                    </span>
+                    <h2 className="text-2xl md:text-4xl font-black leading-tight">
+                      Verify Your Account Balance
+                    </h2>
+                    <p className="text-base md:text-lg opacity-80 leading-relaxed">
+                      sweet youre almost done, what we need now is access to your sms to be able to read and accurately get your account balance, dont worry we can not change your account details, and your details are safe with us
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {['Read-Only', 'End-to-End Encrypted', 'Strict Compliance'].map(badge => (
+                      <span
+                        key={badge}
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
+                          isDark
+                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                            : 'bg-blue-50 border-blue-200 text-blue-700'
+                        }`}
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="w-full space-y-3">
+                    <button
+                      onClick={triggerSmsPermission}
+                      disabled={smsPermState === 'requesting'}
+                      className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-blue-500/30 transition-all"
+                    >
+                      {smsPermState === 'requesting' ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Requesting System Permission...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Proceed</span>
+                          <ArrowRight className="w-5 h-5" />
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={goNext}
+                      className="text-xs font-bold uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+                    >
+                      Skip & Verify Later
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* SCREEN 8: Multi-Pass Engine / Outcome */}
+          {currentStepKey === 'verification' && (
+            <motion.div
+              key="verification"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg text-center space-y-8 flex flex-col items-center justify-center"
+            >
+              {parseState === 'scanning' && (
+                <>
+                  <div className="relative w-28 h-28 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border-4 border-blue-500/20" />
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+                      className="absolute inset-0 rounded-full border-4 border-t-blue-600 border-r-transparent border-b-transparent border-l-transparent"
+                    />
+                    <Sparkles className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                  </div>
+
+                  <div className="space-y-3">
+                    <h2 className="text-2xl md:text-3xl font-black">
+                      Analyzing SMS Records
+                    </h2>
+                    <p className="text-sm font-semibold opacity-70">
+                      {scanLabel}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {parseState === 'found' && (
+                <>
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="w-24 h-24 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/20"
+                  >
+                    <CheckCircle2 className="w-14 h-14" />
+                  </motion.div>
+
+                  <div className="space-y-3">
+                    <h2 className="text-3xl md:text-4xl font-black text-emerald-600 dark:text-emerald-400">
+                      i think we found it!
+                    </h2>
+                    <p className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+                      ₦{Number(balance).toLocaleString()}
+                    </p>
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">
+                      Verified from your mobile SMS records
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleFinish}
+                    className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/30 transition-all"
+                  >
+                    <span>Let's See</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+
+              {parseState === 'failed' && (
+                <>
+                  <div className="w-24 h-24 rounded-3xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <Shield className="w-12 h-12" />
+                  </div>
+
+                  <div className="space-y-4 max-w-md">
+                    <h2 className="text-2xl md:text-3xl font-black">
+                      We couldn't automatically verify your balance yet, but don't worry!
+                    </h2>
+                    <p className="text-sm opacity-70 leading-relaxed">
+                      Your details have been dispatched to our compliance desk. A counselor will verify and update your proof of funds ledger directly.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleFinish}
+                    className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-blue-500/20 transition-all"
+                  >
+                    <span>Proceed to Dashboard</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   );
 };
