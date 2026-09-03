@@ -428,23 +428,32 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden">
-      {/* ── Background Image Layer (Subtle Faded Graphic with Slow Continuous Zoom) ── */}
-      <motion.div
-        key={getBackgroundImage()}
-        initial={{ scale: 1.0 }}
-        animate={{ scale: 1.15 }}
-        transition={{
-          duration: 25,
-          ease: 'linear',
-          repeat: Infinity,
-          repeatType: 'reverse',
-        }}
-        className="absolute inset-0 bg-cover bg-center pointer-events-none"
-        style={{
-          backgroundImage: `url(${getBackgroundImage()})`,
-          filter: isDark ? 'brightness(0.85) contrast(1.1)' : 'brightness(1.05) contrast(1.0)',
-        }}
-      />
+      {/* ── Background Image Layer (Smooth Crossfade & Slow Steady Zoom) ── */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <AnimatePresence mode="sync">
+          <motion.div
+            key={getBackgroundImage()}
+            initial={{ opacity: 0, scale: 1.0 }}
+            animate={{
+              opacity: 1,
+              scale: 1.15,
+              transition: {
+                opacity: { duration: 1.2, ease: 'easeInOut' },
+                scale: { duration: 25, ease: 'linear', repeat: Infinity, repeatType: 'reverse' },
+              },
+            }}
+            exit={{
+              opacity: 0,
+              transition: { duration: 1.0, ease: 'easeInOut' },
+            }}
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${getBackgroundImage()})`,
+              filter: isDark ? 'brightness(0.85) contrast(1.1)' : 'brightness(1.05) contrast(1.0)',
+            }}
+          />
+        </AnimatePresence>
+      </div>
 
       {/* ── 50% Opaque Frosted Glass Backdrop Overlay ── */}
       <div
@@ -523,9 +532,9 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         />
       </div>
 
-      {/* ── Main Question Viewport ── */}
+      {/* ── Main Question Viewport (Optimized for Mobile APK & Viewport bounds) ── */}
       <main
-        className={`flex-1 relative z-10 overflow-hidden flex items-center justify-center p-6 md:p-12 ${
+        className={`flex-1 relative z-10 overflow-y-auto overflow-x-hidden flex items-center justify-center px-4 py-6 sm:p-8 md:p-12 ${
           isDark ? 'text-white' : 'text-slate-900'
         }`}
       >
