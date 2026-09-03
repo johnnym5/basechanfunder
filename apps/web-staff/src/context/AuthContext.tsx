@@ -2,14 +2,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import {
-  doc, getDoc, setDoc, serverTimestamp, updateDoc, arrayUnion
+  doc, getDoc, setDoc, serverTimestamp, updateDoc, arrayUnion, onSnapshot
 } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import { auth, db, getMessagingInstance } from '../firebase';
 
 export type UserRole = 'STUDENT' | 'STAFF_AUDITOR' | 'COUNSELOR' | 'ADMIN_GOVERNANCE';
 
+export const PRE_APPROVED_COUNSELORS = [
+  { name: "Peter", email: "peter.basechaninternational@gmail.com" },
+  { name: "Feridu", email: "feridu.basechaninternational@gmail.com" },
+  { name: "Effiong", email: "effiong.basechaninternational@gmail.com" },
+  { name: "Cletus", email: "cletus.basechaninternational@gmail.com" },
+  { name: "Izunyon", email: "izunyon.basechaninternational@gmail.com" },
+  { name: "Jumai", email: "jumaibasechaninternational@gmail.com" },
+  { name: "Nwaiwu Blessing OGE", email: "nwaiwu.basechaninternational@gmail.com" },
+];
+
 export interface AppUser {
+// ... existing interface ...
   uid: string;
   email: string;
   username?: string;
@@ -35,12 +46,21 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 // Determine role from email domain
-export function deriveRole(email: string): UserRole {
-  const lower = email.toLowerCase();
-  if (lower.endsWith('@basechaninternational.com')) return 'ADMIN_GOVERNANCE';
-  if (lower.includes('auditor')) return 'STAFF_AUDITOR';
-  if (lower.endsWith('.basechaninternational@gmail.com') || lower.includes('counselor')) return 'COUNSELOR';
-  return 'STUDENT';
+export function deriveRole(email: string): { role: UserRole; name?: string } {
+  const lower = email.toLowerCase().trim();
+
+  // 1. Check Counselor Whitelist
+  const preApproved = PRE_APPROVED_COUNSELORS.find(c => c.email.toLowerCase() === lower);
+  if (preApproved) return { role: 'COUNSELOR', name: preApproved.name };
+
+  // 2. Check Admin Domain
+  if (lower.endsWith('@basechaninternational.com')) return { role: 'ADMIN_GOVERNANCE' };
+
+  // 3. Fallbacks
+  if (lower.includes('auditor')) return { role: 'STAFF_AUDITOR' };
+  if (lower.endsWith('.basechaninternational@gmail.com') || lower.includes('counselor')) return { role: 'COUNSELOR' };
+
+  return { role: 'STUDENT' };
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -50,109 +70,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [fcmToken, setFcmToken] = useState<string | null>(null);
 
   useEffect(() => {
+    let profileUnsub: (() => void) | null = null;
+
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
+        // 0. Cleanup previous profile listener if exists
+        if (profileUnsub) {
+          profileUnsub();
+          profileUnsub = null;
+        }
+
         if (firebaseUser) {
           setCurrentUser(firebaseUser);
           
-          const role = deriveRole(firebaseUser.email ?? '');
-          const isApproved = role !== 'STUDENT'; // Admins/Counselors auto-approved, Students need manual approval
+          const { role, name: whitelistedName } = deriveRole(firebaseUser.email ?? '');
+          const isApproved = role !== 'STUDENT';
           const derivedUsername = (firebaseUser.email?.split('@')[0] || firebaseUser.uid)
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '');
 
-          // Fallback base user profile (ensures immediate responsiveness)
-          let resolvedAppUser: AppUser = {
+          const resolvedAppUser: AppUser = {
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? '',
             username: derivedUsername,
-            displayName: firebaseUser.displayName || derivedUsername || 'User',
+            displayName: whitelistedName || firebaseUser.displayName || derivedUsername || 'User',
             photoURL: firebaseUser.photoURL ?? '',
             role,
             isApproved,
           };
 
-          // Attempt Firestore sync if database is available
-          try {
-            const userRef = doc(db, 'users', firebaseUser.uid);
-            const snap = await getDoc(userRef);
+          // 1. Set initial local state immediately to avoid flicker/blank screens
+          setAppUser(resolvedAppUser);
 
+          // 2. Setup real-time listener for user profile
+          const userRef = doc(db, 'users', firebaseUser.uid);
+
+          // 2b. Sync Claims with Backend (Fire and forget or check result)
+          fetch('/api/v1/auth/sync-claims', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, email: firebaseUser.email })
+          }).catch(err => console.warn("Claims sync deferred:", err));
+
+          profileUnsub = onSnapshot(userRef, async (snap) => {
             if (snap.exists()) {
               const data = snap.data() as AppUser;
-              if (!data.username && firebaseUser.email) {
-                await setDoc(userRef, { username: derivedUsername }, { merge: true }).catch(() => {});
-                data.username = derivedUsername;
-              }
-              resolvedAppUser = { ...resolvedAppUser, ...data };
+              // If we find a profile, merge it with our local resolved user
+              setAppUser(prev => ({ ...resolvedAppUser, ...prev, ...data }));
             } else {
-              // Create user profile in Firestore
+              // Create user profile in Firestore if it doesn't exist
               await setDoc(userRef, {
                 ...resolvedAppUser,
                 createdAt: serverTimestamp(),
               }).catch((e) => {
-                console.warn('Firestore user profile sync deferred:', e.message);
+                console.warn('Firestore user profile creation deferred:', e.message);
               });
             }
+          }, (err) => {
+            console.error("Firestore Profile Listener Error:", err);
+          });
 
-            // --- FCM Registration ---
+          // 3. Handle FCM (Async, non-blocking)
+          try {
             const messaging = await getMessagingInstance();
-            const vapidKey = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string) ||
-                             (typeof process !== 'undefined' ? (process.env as any).NEXT_PUBLIC_FIREBASE_VAPID_KEY : undefined) ||
-                             (typeof process !== 'undefined' ? (process.env as any).REACT_APP_FIREBASE_VAPID_KEY : undefined);
-            const cleanVapidKey = vapidKey?.trim();
+            const vapidKey = ((import.meta as any).env?.VITE_FIREBASE_VAPID_KEY as string) ||
+                             (typeof process !== 'undefined' ? (process.env as any).NEXT_PUBLIC_FIREBASE_VAPID_KEY : undefined);
 
-            if (messaging && cleanVapidKey && typeof Notification !== 'undefined') {
-              try {
-                let permission = Notification.permission;
-                if (permission === 'default') {
-                  permission = await Notification.requestPermission();
+            if (messaging && vapidKey && typeof Notification !== 'undefined') {
+              if (Notification.permission === 'granted') {
+                const token = await getToken(messaging, { vapidKey });
+                if (token && token !== fcmToken) {
+                  await updateDoc(userRef, {
+                    pushTokens: arrayUnion({ token, platform: 'WEB', updatedAt: new Date().toISOString() })
+                  }).catch(() => {});
+                  setFcmToken(token);
                 }
-
-                if (permission === 'granted') {
-                  const token = await getToken(messaging, { vapidKey: cleanVapidKey });
-                  if (token && token !== fcmToken) {
-                    console.log("FCM Token acquired:", token);
-
-                    // 1. Sync with Firestore (for backward compatibility)
-                    await updateDoc(userRef, {
-                      pushTokens: arrayUnion({ token, platform: 'WEB', updatedAt: new Date().toISOString() })
-                    }).catch(() => {});
-
-                    // 2. Sync with Backend Service
-                    await fetch('/api/v1/notifications/register-device', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${await firebaseUser.getIdToken()}`
-                      },
-                      body: JSON.stringify({
-                        userId: firebaseUser.uid,
-                        deviceToken: token,
-                        platform: 'WEB'
-                      })
-                    }).then(res => {
-                      if (res.ok) {
-                        setFcmToken(token);
-                        console.log("Device registered with backend successfully");
-                      }
-                    }).catch(err => console.warn("Backend device registration failed:", err));
-                  }
-                }
-              } catch (error) {
-                console.warn("FCM push registration skipped:", error);
               }
-
-              // Foreground message listener
-              onMessage(messaging, (payload) => {
-                console.log("Foreground message received:", payload);
-              });
             }
-
-          } catch (firestoreErr: any) {
-            console.warn('Firestore database access note:', firestoreErr?.message || firestoreErr);
+          } catch (fcmErr) {
+            console.warn("FCM setup background error:", fcmErr);
           }
 
-          setAppUser(resolvedAppUser);
         } else {
           setCurrentUser(null);
           setAppUser(null);
@@ -164,7 +162,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return unsub;
+    return () => {
+      unsub();
+      if (profileUnsub) profileUnsub();
+    };
   }, []);
 
   return (

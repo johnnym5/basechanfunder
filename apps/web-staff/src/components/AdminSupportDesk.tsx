@@ -31,6 +31,7 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useNotificationModal } from '../context/NotificationContext';
 import { toast } from 'sonner';
 
 interface StudentThread {
@@ -46,6 +47,7 @@ interface StudentThread {
 export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = ({ initialStudentId }) => {
   const { appUser } = useAuth();
   const { theme } = useTheme();
+  const { showNotification } = useNotificationModal();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(initialStudentId || null);
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
@@ -191,14 +193,25 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
   };
 
   const handleApproveUnlink = async (accountId: string) => {
-    if (window.confirm('Accept and unlink this account? This will recalculate compliance metrics.')) {
-      await deleteDoc(doc(db, 'financial_accounts', accountId));
-      toast.success('Account unlinked successfully.');
-    }
+    showNotification({
+      title: 'Approve Unlink',
+      message: 'Are you sure you want to accept and unlink this account? This will recalculate compliance metrics immediately.',
+      type: 'CONFIRM',
+      confirmText: 'Unlink Account',
+      onConfirm: async () => {
+        await deleteDoc(doc(db, 'financial_accounts', accountId));
+        toast.success('Account unlinked successfully.');
+      }
+    });
   };
 
   const handleRejectUnlink = async (accountId: string, studentId: string) => {
-     if (window.confirm('Reject this unlinking request?')) {
+    showNotification({
+      title: 'Reject Unlink',
+      message: 'Are you sure you want to reject this unlinking request?',
+      type: 'CONFIRM',
+      confirmText: 'Reject Request',
+      onConfirm: async () => {
         await updateDoc(doc(db, 'financial_accounts', accountId), {
            unlinkStatus: 'UNLINK_REJECTED',
            updatedAt: serverTimestamp()
@@ -216,7 +229,9 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
            isRead: false,
            status: 'OPEN'
         });
-     }
+        toast.info('Unlink request rejected.');
+      }
+    });
   };
 
   const handleResolve = async () => {

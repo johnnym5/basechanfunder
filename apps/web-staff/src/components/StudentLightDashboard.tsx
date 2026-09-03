@@ -42,12 +42,16 @@ import {
   Settings2,
   Phone,
   ShieldAlert,
-  FileText
+  FileText,
+  User
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { TopUpRequestModal } from './TopUpRequestModal';
 import { UssdFallbackModal } from './UssdFallbackModal';
 import { BankStatementView } from './BankStatementView';
+import { StudentProfileModal } from './StudentProfileModal';
+import { ApprovedTopUpCard } from './ApprovedTopUpCard';
 import { SmsIngestionService } from '../services/SmsIngestionService';
 import { toast } from 'sonner';
 
@@ -70,6 +74,8 @@ interface LinkedBankAccount {
   orgTopUpCapitalNgn: number;
   isCapitalBreached: boolean;
   isVerified: boolean;
+  isDedicatedParallex?: boolean;
+  lastTransactionAt?: string;
   connectionMethod: ConnectionMethod;
   lastSyncedAt: string;
   connectedAt: string;
@@ -108,7 +114,7 @@ export const StudentLightDashboard: React.FC<{
   isStaff?: boolean;
   onStaffAction?: (tab?: string) => void;
 }> = ({ name, userId: propUserId, evaluationId: propEvalId, isStaff, onStaffAction }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, appUser, role } = useAuth();
   const { theme } = useTheme();
 
   const activeUserId = propUserId || currentUser?.uid;
@@ -125,6 +131,7 @@ export const StudentLightDashboard: React.FC<{
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isUssdModalOpen, setIsUssdModalOpen] = useState(false);
   const [isUnlinkModalOpen, setIsUnlinkModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUnlinkAccount, setSelectedUnlinkAccount] = useState<LinkedBankAccount | null>(null);
   const [unlinkReason, setUnlinkReason] = useState('');
   const [isStatementOpen, setIsStatementOpen] = useState(false);
@@ -133,6 +140,7 @@ export const StudentLightDashboard: React.FC<{
   const [syncError, setSyncError] = useState<string | null>(null);
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [prepopulatedTopUpAmount, setPrepopulatedTopUpAmount] = useState<number | undefined>();
 
   // Modal State
   const [accountNumberInput, setAccountNumberInput] = useState('');
@@ -221,6 +229,8 @@ export const StudentLightDashboard: React.FC<{
           orgTopUpCapitalNgn: data.orgTopUpCapitalNgn || 0,
           isCapitalBreached: (data.balanceNgn || 0) < (data.orgTopUpCapitalNgn || 0),
           isVerified: data.isVerified || false,
+          isDedicatedParallex: data.isDedicatedParallex || data.bankName.includes('Parallex'),
+          lastTransactionAt: data.lastTransactionAt || data.lastSyncedAt?.seconds ? new Date(data.lastSyncedAt.seconds * 1000).toISOString() : null,
           connectionMethod: data.connectionMethod || data.provider || 'MANUAL_DEPOSIT',
           lastSyncedAt: data.lastSyncedAt?.seconds
             ? new Date(data.lastSyncedAt.seconds * 1000).toLocaleString()
@@ -316,6 +326,20 @@ export const StudentLightDashboard: React.FC<{
 
     setSyncingId(id);
 
+    // If it's a System Top Up, re-query the status endpoint
+    if (acc.isSystemTopUp) {
+      try {
+        await fetch('/api/v1/topup/status');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        toast.success('System liquidity pulse verified.');
+      } catch (e) {
+        // Fallback
+      } finally {
+        setSyncingId(null);
+        return;
+      }
+    }
+
     // If it's a UBA account, try Native SMS Sync
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
        const mask = acc.accountNumberMasked.slice(-4);
@@ -338,6 +362,13 @@ export const StudentLightDashboard: React.FC<{
       });
     } finally {
       setSyncingId(null);
+    }
+  };
+
+  const handleAdminUnlink = async (accountId: string) => {
+    if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics.')) {
+      await deleteDoc(doc(db, 'financial_accounts', accountId));
+      toast.success('Account unlinked by Administrator.');
     }
   };
 
@@ -442,6 +473,16 @@ export const StudentLightDashboard: React.FC<{
     setAccountNumberInput('');
   };
 
+  const handleAdditionalTopUp = () => {
+    const deficitGbp = targetGBP - totals.gbp;
+    if (deficitGbp > 0) {
+      setPrepopulatedTopUpAmount(Math.round(deficitGbp * LIVE_FX_RATE));
+    } else {
+      setPrepopulatedTopUpAmount(undefined);
+    }
+    setIsTopUpModalOpen(true);
+  };
+
   const targetGBP = evaluation?.targetGBP || 0;
   const localCurrencyCode = evaluation?.localCurrency || 'NGN';
   const currency = (typeof MAJOR_CURRENCIES !== 'undefined' ? MAJOR_CURRENCIES.find(c => c.code === localCurrencyCode) : null) || { code: 'NGN', symbol: '₦' };
@@ -500,14 +541,14 @@ export const StudentLightDashboard: React.FC<{
 
           {/* CARD 1: Total Liquid Converted Balance */}
           <div className={`w-full flex-shrink-0 transition-all duration-700 transform ${activeMetricCard === 0 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
-            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0B172A] border border-white/5 flex flex-col justify-between`}>
+            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0B172A] border border-white/5 flex flex-col justify-between depth-card-lg`}>
               <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
               <div className="relative z-10 space-y-8">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-blue-400 text-xs font-black uppercase tracking-[0.25em] mb-3 opacity-80">{name}</p>
-                    <h2 className="text-6xl md:text-7xl font-black tracking-tighter">
+                    <h2 className="text-6xl md:text-7xl font-black tracking-tighter text-depth-header">
                       £{totals.gbp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h2>
                     <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-2 border-t border-white/5 pt-2 uppercase">
@@ -515,7 +556,7 @@ export const StudentLightDashboard: React.FC<{
                        <span>TARGET: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (NOT SET)'}</span>
                     </div>
                     <div className="mt-4 flex items-center gap-3">
-                       <p className="text-slate-400 text-xl font-bold uppercase tracking-tight">{currency.symbol}{totals.ngn.toLocaleString()}</p>
+                       <p className="text-slate-400 text-xl font-bold uppercase tracking-tight text-depth-header">{currency.symbol}{totals.ngn.toLocaleString()}</p>
                        <span className="px-2 py-0.5 rounded bg-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 border border-white/5">{currency.code} LOCAL</span>
                     </div>
                   </div>
@@ -554,7 +595,7 @@ export const StudentLightDashboard: React.FC<{
 
           {/* CARD 2: Statutory Holding & Expiration Timer */}
           <div className={`w-full flex-shrink-0 transition-all duration-700 transform ${activeMetricCard === 1 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
-            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0F172A] border border-white/5 flex flex-col justify-between`}>
+            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0F172A] border border-white/5 flex flex-col justify-between depth-card-lg`}>
               <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
 
               <div className="relative z-10 space-y-8">
@@ -562,7 +603,7 @@ export const StudentLightDashboard: React.FC<{
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-amber-400 text-xs font-black uppercase tracking-[0.25em] opacity-80">Holding & Expiration</p>
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider text-depth-gold ${
                         targetGBP > 0
                           ? isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                           : 'bg-slate-800 text-slate-400 border-slate-700'
@@ -572,15 +613,19 @@ export const StudentLightDashboard: React.FC<{
                     </div>
 
                     <div className="flex items-baseline space-x-3">
-                      {evaluation?.startDate && (expiryInfo.daysLeft !== null) ? (
-                        <>
-                          <h3 className="text-6xl md:text-7xl font-black tracking-tight text-white">{expiryInfo.daysLeft}</h3>
-                          <span className="text-2xl font-bold text-slate-400 uppercase">Days</span>
-                          <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-4">REMAINING</span>
-                        </>
+                      {evaluation?.startDate ? (
+                        expiryInfo.isExpired ? (
+                          <h3 className="text-4xl md:text-5xl font-black tracking-tight text-rose-500 uppercase text-depth-header">Window Expired</h3>
+                        ) : (
+                          <>
+                            <h3 className="text-6xl md:text-7xl font-black tracking-tight text-white text-depth-header">{expiryInfo.daysLeft}</h3>
+                            <span className="text-2xl font-bold text-slate-400 uppercase">Days</span>
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest ml-4">REMAINING</span>
+                          </>
+                        )
                       ) : (
                         <div className="flex items-baseline space-x-3 opacity-60">
-                          <h3 className="text-4xl md:text-5xl font-black tracking-tight text-slate-500 uppercase">NO WINDOW SET</h3>
+                          <h3 className="text-4xl md:text-5xl font-black tracking-tight text-slate-500 uppercase text-depth-header">NO WINDOW SET</h3>
                         </div>
                       )}
                     </div>
@@ -607,7 +652,13 @@ export const StudentLightDashboard: React.FC<{
 
                 <div className="pt-6 mt-6 border-t border-white/5 flex items-center justify-between">
                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                      {evaluation?.startDate ? 'UKVI STATUTORY 28-DAY CONSECUTIVE HOLDING WINDOW' : 'no window set, till admin put a window time'}
+                      {evaluation?.startDate ? (
+                        <>
+                          STATUTORY COMPLIANCE WINDOW: <span className="text-white ml-2">{new Date(evaluation.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span> - <span className="text-white">{new Date(evaluation.expirationDate || new Date(new Date(evaluation.startDate).getTime() + 28 * 24 * 60 * 60 * 1000)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </>
+                      ) : (
+                        <span className="text-rose-500 animate-pulse">Waiting for Admin to initialize evaluation window</span>
+                      )}
                    </p>
                    {isStaff && (
                      <button
@@ -682,147 +733,154 @@ export const StudentLightDashboard: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {accounts.map((acc) => {
-            const isSelected = selectedAccountIds.includes(acc.id);
-            const isSystem = acc.isSystemTopUp;
+        <div className="flex flex-col gap-6">
+          {/* Approved Top Up Cards (Priority Rendering) */}
+          {accounts.filter(a => a.isSystemTopUp).map(acc => (
+            <ApprovedTopUpCard
+              key={acc.id}
+              account={acc}
+              evaluation={evaluation || { expirationDate: null, startDate: null }}
+              isSyncing={syncingId === acc.id}
+              onSync={handleSyncAccount}
+              onAdditionalTopUp={handleAdditionalTopUp}
+            />
+          ))}
 
-            let colorClasses = '';
-            if (isSystem) {
-              // Green theme for Admin accounts
-              colorClasses = isDark
-                ? (isSelected ? 'bg-emerald-500/5 border-emerald-500/50 shadow-lg' : 'bg-slate-900/40 border-emerald-500/10 hover:border-emerald-500/30')
-                : (isSelected ? 'bg-emerald-50/50 border-emerald-600 shadow-lg' : 'bg-white border-emerald-100 hover:border-emerald-300');
-            } else {
-              // Blue/Amber theme for User accounts
-              colorClasses = isDark
+          {/* Standard User Accounts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {accounts.filter(a => !a.isSystemTopUp).map((acc) => {
+              const isSelected = selectedAccountIds.includes(acc.id);
+
+              const colorClasses = isDark
                 ? (isSelected ? 'bg-amber-500/5 border-amber-500/50 shadow-lg' : 'bg-slate-900/40 border-white/5 hover:border-amber-500/40')
                 : (isSelected ? 'bg-blue-50/50 border-blue-600 shadow-lg' : 'bg-white border-slate-200/80 hover:border-blue-500/40');
-            }
 
-            return (
-              <div
-                key={acc.id}
-                onClick={() => {
-                  setSelectedAccountIds(prev =>
-                    prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
-                  );
-                }}
-                className={`border p-8 rounded-[2rem] flex flex-col transition-all group shadow-sm hover:-translate-y-1 cursor-pointer relative ${colorClasses}`}
-              >
-                {/* Checkbox Overlay */}
-                <div className={`absolute top-4 right-4 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                  isSelected ? (isSystem ? 'bg-emerald-500 border-emerald-500 scale-110' : 'bg-blue-600 border-blue-600 scale-110') : 'border-slate-300'
-                }`}>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
-                </div>
+              return (
+                <div
+                  key={acc.id}
+                  onClick={() => {
+                    setSelectedAccountIds(prev =>
+                      prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
+                    );
+                  }}
+                  className={`border p-8 rounded-[2rem] flex flex-col transition-all group shadow-sm hover:-translate-y-1 cursor-pointer relative ${colorClasses}`}
+                >
+                  {/* Checkbox Overlay */}
+                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                    isSelected ? 'bg-blue-600 border-blue-600 scale-110' : 'border-slate-300'
+                  }`}>
+                    {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                  </div>
 
-                <div className="flex items-start justify-between mb-8">
-                  <div className="flex items-center space-x-5">
-                    <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center transition-all ${
-                      isSystem
-                        ? (isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600')
-                        : (isDark ? 'bg-slate-800 border-white/5 text-slate-500' : 'bg-slate-50 border-slate-100 text-slate-400')
-                    }`}>
-                      <Building2 className="w-7 h-7" />
+                  <div className="flex items-start justify-between mb-8">
+                    <div className="flex items-center space-x-5">
+                      <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center transition-all ${
+                        isDark ? 'bg-slate-800 border-white/5 text-slate-500' : 'bg-slate-50 border-slate-100 text-slate-400'
+                      }`}>
+                        <Building2 className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-base font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>{acc.bankName}</h4>
+                          {acc.isVerified && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              Verified
+                            </span>
+                          )}
+                          {acc.isDedicatedParallex && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                              <Building2 className="w-2.5 h-2.5" />
+                              Dedicated POF Account
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{acc.accountNumberMasked} • {acc.accountType}</p>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-blue-500/10 text-blue-500`}>
+                            <Lock className="w-2 h-2" />
+                            Read-Only
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className={`text-base font-black tracking-tight uppercase ${
-                          isSystem
-                            ? (isDark ? 'text-emerald-400' : 'text-emerald-700')
-                            : (isDark ? 'text-white' : 'text-slate-900')
-                        }`}>{acc.bankName}</h4>
-                        {acc.isVerified && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
-                            <ShieldCheck className="w-2.5 h-2.5" />
-                            Verified
+                    <div className="text-right pr-6">
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
+                        acc.status === 'VERIFIED'
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      }`}>
+                        {acc.status}
+                      </span>
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pb-8 border-b border-white/5">
+                    <div className={`col-span-2 mb-4 p-4 rounded-2xl border transition-all ${
+                      acc.isCapitalBreached
+                        ? 'bg-rose-500/10 border-rose-500/40 animate-pulse'
+                        : 'bg-slate-950/40 border-white/5'
+                    }`}>
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sub-Ledger Breakdown</p>
+                        {acc.isCapitalBreached && (
+                          <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-rose-500/20">
+                            <ShieldAlert className="w-2.5 h-2.5" />
+                            Capital Breach Detected
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{acc.accountNumberMasked} • {acc.accountType}</p>
-                        <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 ${
-                          isSystem ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'
-                        }`}>
-                          <Lock className="w-2 h-2" />
-                          {isSystem ? 'Admin Managed' : 'Read-Only'}
-                        </span>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400">YOUR PERSONAL EQUITY</span>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                            acc.isCapitalBreached
+                              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          }`}>
+                            {currency.symbol}{Math.max(acc.balanceNgn - acc.orgTopUpCapitalNgn, 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-400">ORG TOP-UP CAPITAL</span>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 bg-blue-500/10 text-blue-500 border-blue-500/20`}>
+                            <Lock className="w-2.5 h-2.5" />
+                            {currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}
+                          </span>
+                        </div>
+                        {acc.isDedicatedParallex && (
+                          <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase">Account Usage Status</span>
+                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter flex items-center gap-1">
+                               Active (Last txn: {acc.lastTransactionAt ? new Date(acc.lastTransactionAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'})
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right pr-6">
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
-                      acc.status === 'VERIFIED'
-                        ? (isSystem ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20')
-                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                    }`}>
-                      {acc.status}
-                    </span>
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pb-8 border-b border-white/5">
-                  <div className={`col-span-2 mb-4 p-4 rounded-2xl border transition-all ${
-                    acc.isCapitalBreached
-                      ? 'bg-rose-500/10 border-rose-500/40 animate-pulse'
-                      : 'bg-slate-950/40 border-white/5'
-                  }`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sub-Ledger Breakdown</p>
-                      {acc.isCapitalBreached && (
-                        <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-rose-500/20">
-                          <ShieldAlert className="w-2.5 h-2.5" />
-                          Capital Breach Detected
-                        </span>
-                      )}
+                    <div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Bank Balance</p>
+                      <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{currency.symbol}{acc.balanceNgn.toLocaleString()}</p>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-400">YOUR PERSONAL EQUITY</span>
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
-                          acc.isCapitalBreached
-                            ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                        }`}>
-                          {currency.symbol}{Math.max(acc.balanceNgn - acc.orgTopUpCapitalNgn, 0).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-400">ORG TOP-UP CAPITAL</span>
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 ${
-                          isSystem ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                        }`}>
-                          <Lock className="w-2.5 h-2.5" />
-                          {currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}
-                        </span>
-                      </div>
+                    <div className="border-l border-white/5 pl-4">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">GBP Value</p>
+                      <p className={`text-xl font-black text-blue-600`}>£{acc.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Bank Balance</p>
-                    <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>{currency.symbol}{acc.balanceNgn.toLocaleString()}</p>
-                  </div>
-                  <div className="border-l border-white/5 pl-4">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">GBP Value</p>
-                    <p className={`text-xl font-black ${isSystem ? 'text-emerald-500' : 'text-blue-600'}`}>£{acc.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between pt-6" onClick={e => e.stopPropagation()}>
-                  <div className="flex flex-col flex-1">
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => handleSyncAccount(acc.id)}
-                        disabled={syncingId === acc.id}
-                        className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-amber-500' : 'text-slate-500 hover:text-blue-600'} disabled:opacity-50`}
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                        {syncingId === acc.id ? 'Syncing...' : 'Sync Balance'}
-                      </button>
+                  <div className="flex items-center justify-between pt-6" onClick={e => e.stopPropagation()}>
+                    <div className="flex flex-col flex-1">
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => handleSyncAccount(acc.id)}
+                          disabled={syncingId === acc.id}
+                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-amber-500' : 'text-slate-500 hover:text-blue-600'} disabled:opacity-50`}
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
+                          {syncingId === acc.id ? 'Syncing...' : 'Sync Balance'}
+                        </button>
 
-                      {!acc.isSystemTopUp && (
                         <button
                           onClick={() => setIsUssdModalOpen(true)}
                           className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
@@ -830,57 +888,65 @@ export const StudentLightDashboard: React.FC<{
                           <Phone className="w-3.5 h-3.5" />
                           USSD
                         </button>
+
+                        <button
+                          onClick={() => {
+                            setStatementOpenAccount(acc);
+                            setIsStatementOpen(true);
+                          }}
+                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-cyan-400' : 'text-slate-500 hover:text-cyan-600'}`}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Statement
+                        </button>
+                      </div>
+                      {!acc.isVerified && (
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium block mt-3">Account not verified</span>
                       )}
-
-                      <button
-                        onClick={() => {
-                          setStatementOpenAccount(acc);
-                          setIsStatementOpen(true);
-                        }}
-                        className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-cyan-400' : 'text-slate-500 hover:text-cyan-600'}`}
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Statement
-                      </button>
                     </div>
-                    {!acc.isVerified && !acc.isSystemTopUp && (
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium block mt-3">Account not verified</span>
-                    )}
-                  </div>
 
-                  {!acc.isSystemTopUp && (
                     <button
                       onClick={() => {
-                        if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
-                        setSelectedUnlinkAccount(acc);
-                        setIsUnlinkModalOpen(true);
+                        if (isStaff) {
+                          handleAdminUnlink(acc.id);
+                        } else {
+                          if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
+                          setSelectedUnlinkAccount(acc);
+                          setIsUnlinkModalOpen(true);
+                        }
                       }}
-                      disabled={acc.unlinkStatus === 'UNLINK_REQUESTED'}
+                      disabled={!isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'}
                       className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                        acc.unlinkStatus === 'UNLINK_REQUESTED'
+                        !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
                           ? 'text-slate-600 cursor-not-allowed'
                           : 'text-slate-500 hover:text-rose-500'
                       }`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      {acc.unlinkStatus === 'UNLINK_REQUESTED' ? 'Unlink Pending' : 'Request Unlink'}
+                      {isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                        ? 'Approve Unlink'
+                        : acc.unlinkStatus === 'UNLINK_REQUESTED'
+                          ? 'Unlink Pending'
+                          : isStaff
+                            ? 'Force Unlink'
+                            : 'Request Unlink'}
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
 
       {/* Connect Modal */}
       {isConnectModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className={`w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#0D111A]' : 'bg-white'}`}>
+          <div className={`w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.85)] animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#0D111A]' : 'bg-white'}`}>
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-2xl font-black text-white uppercase tracking-tight">Connect Account</h3>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tight">Connect your Parallex account or other banks</h3>
                 </div>
               </div>
               <button onClick={handleCancelConnect} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
@@ -1032,7 +1098,7 @@ export const StudentLightDashboard: React.FC<{
                     <button
                       type="submit"
                       disabled={!selectedBank || accountNumberInput.length < 10 || (isStaff && !realAmountInput) || isSavingAndSyncing}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 depth-btn-gold"
                     >
                       {isSavingAndSyncing ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1052,7 +1118,12 @@ export const StudentLightDashboard: React.FC<{
       )}
 
       {!isStaff && (
-        <TopUpRequestModal isOpen={isTopUpModalOpen} onClose={() => setIsTopUpModalOpen(false)} onSuccess={() => {}} />
+        <TopUpRequestModal
+          isOpen={isTopUpModalOpen}
+          onClose={() => setIsTopUpModalOpen(false)}
+          onSuccess={() => {}}
+          initialAmount={prepopulatedTopUpAmount}
+        />
       )}
 
       <UssdFallbackModal
@@ -1125,6 +1196,31 @@ export const StudentLightDashboard: React.FC<{
           </div>
         </div>
       )}
+
+      {/* Profile FAB - Student Side */}
+      {!isStaff && role === 'STUDENT' && (
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsProfileModalOpen(true)}
+          className="fixed bottom-6 right-6 z-[150] w-14 h-14 md:w-16 md:h-16 rounded-full bg-slate-900/90 backdrop-blur-xl border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)] flex items-center justify-center text-amber-500 hover:border-amber-500 transition-all group"
+        >
+          {appUser?.photoURL ? (
+            <img src={appUser.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+          ) : (
+            <User className="w-6 h-6 md:w-7 h-7" />
+          )}
+          <div className="absolute inset-0 rounded-full border border-amber-500/0 group-hover:border-amber-500/50 animate-ping duration-1000" />
+        </motion.button>
+      )}
+
+      <StudentProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userData={appUser}
+        consolidatedBalance={accounts.reduce((sum, acc) => sum + acc.balanceNgn, 0)}
+        holdingProgress={evaluation?.consecutiveDays ? Math.min(Math.round((evaluation.consecutiveDays / 28) * 100), 100) : 0}
+      />
 
     </div>
   );

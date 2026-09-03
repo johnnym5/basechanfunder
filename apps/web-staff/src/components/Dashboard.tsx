@@ -22,6 +22,9 @@ import {
   Clock,
   Zap,
   Search,
+  SearchX,
+  RefreshCw,
+  UserPlus,
   ChevronRight,
   Activity,
   X,
@@ -42,17 +45,24 @@ import { ProfessionalSpinner } from './ui/LoadingStates';
 import { ManualOverrideModal } from './ManualOverrideModal';
 import { AdminTimerModal } from './AdminTimerModal';
 import { AddStudentModal } from './AddStudentModal';
+import { AdminStudentProfileDrawer } from './AdminStudentProfileDrawer';
 import { useTheme } from '../context/ThemeContext';
+import { useNotificationModal } from '../context/NotificationContext';
+import { StudentTableFilters, FilterCriteria } from './StudentTableFilters';
+import { toast } from 'sonner';
 
 // --- Types ---
 
-type ComplianceStatus = 'CLEARED' | 'NEEDS_TOPUP' | 'NEAR_MATURITY' | 'AT_RISK' | 'PENDING' | 'NEW';
+type ComplianceStatus = 'CLEARED' | 'NEEDS_TOPUP' | 'NEAR_MATURITY' | 'AT_RISK' | 'PENDING' | 'NEW' | 'WAITING_APPROVAL' | 'UNAUTHENTICATED' | 'AT_RISK_CAPITAL_BREACH' | 'ARCHIVED';
 
 interface Student {
   id: string;
   userId: string;
   name: string;
   email: string;
+  phoneNumber?: string;
+  accountNumbers: string[];
+  parallexAccountNumbers: string[];
   status: ComplianceStatus;
   isApproved: boolean;
   consecutiveDays: number;
@@ -65,6 +75,10 @@ interface Student {
   expirationDate: string | null;
   timerCustomMessage: string | null;
   isTimerActive: boolean;
+  assignedCounselorId?: string;
+  counselorName?: string;
+  destinationCountry?: string;
+  ingestionChannels: string[];
   pendingRequest?: {
     id: string;
     type: 'TOP_UP' | 'EXTENSION';
@@ -221,14 +235,30 @@ const HistoryLogModal: React.FC<{ isOpen: boolean; onClose: () => void; student:
 export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMessageStudent }) => {
   const { appUser, role } = useAuth();
   const { theme } = useTheme();
+  const { showNotification } = useNotificationModal();
   const [students, setStudents] = useState<Student[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // New Filter State
+  const INITIAL_FILTERS: FilterCriteria = {
+    searchTerm: '',
+    statuses: [],
+    assignedCounselorId: 'ALL',
+    financialState: 'ALL',
+    timerStatus: 'ALL',
+    destinationCountry: 'ALL',
+    ingestionChannel: 'ALL'
+  };
+  const [advancedFilters, setAdvancedFilters] = useState<FilterCriteria>(INITIAL_FILTERS);
+
+  // Keep legacy filter for backward compatibility if needed, but we'll prioritize advancedFilters
   const [filter, setFilter] = useState<ComplianceStatus | 'ALL' | 'REQUESTS' | 'UNAPPROVED'>('ALL');
   const [requestTypeFilter, setRequestTypeFilter] = useState<'ALL' | 'FINANCE' | 'DAYS'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
@@ -237,6 +267,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Request Handling State
@@ -350,7 +381,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       );
 
       // Add manual balance override from evaluation doc
-      const manualTotalGbp = (s as any).currentBalanceNgn / LIVE_FX;
+      const manualTotalGbp = ((s as any).currentBalanceNgn || 0) / LIVE_FX;
 
       const totalGbp = accountsTotalGbp + manualTotalGbp;
 
@@ -361,7 +392,36 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       const isApproved = userProfile ? (userProfile.isApproved ?? false) : s.isApproved;
       const name = s.name === 'Unknown Student' && userProfile ? (userProfile.displayName || userProfile.username || s.name) : s.name;
 
-      return { ...s, name, isApproved, balanceGbp: totalGbp, pendingRequest: studentRequest };
+      // New data fields for filtering
+      const phoneNumber = userProfile?.phoneNumber || '';
+      const accountNumbers = studentAccs.map(a => a.accountNumberMasked || '').filter(Boolean);
+      const onboarding = userProfile?.onboardingProfile;
+      const parallexAccountNumbers = [onboarding?.parallexAccountNumber].filter(Boolean);
+      const destinationCountry = onboarding?.destinationCountry || '';
+
+      const ingestionChannels: string[] = [];
+      if (studentAccs.some(a => a.connectionMethod !== 'MANUAL_DEPOSIT')) ingestionChannels.push('AUTOMATED');
+      if (manualTotalGbp > 0 || studentAccs.some(a => a.connectionMethod === 'MANUAL_DEPOSIT')) ingestionChannels.push('MANUAL');
+      if (studentAccs.length === 0 && manualTotalGbp === 0) ingestionChannels.push('UNVERIFIED');
+
+      // Adjust status based on approval
+      let finalStatus = s.status;
+      if (!isApproved) finalStatus = 'WAITING_APPROVAL';
+
+      return {
+        ...s,
+        name,
+        isApproved,
+        status: finalStatus,
+        balanceGbp: totalGbp,
+        pendingRequest: studentRequest,
+        phoneNumber,
+        accountNumbers,
+        parallexAccountNumbers,
+        destinationCountry,
+        ingestionChannels,
+        counselorName: s.counselor || 'Unassigned'
+      };
     });
 
     // Add users who are NOT in pof_evaluations yet but are unapproved
@@ -369,14 +429,17 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       const isAlreadyIn = merged.some(s => s.userId === u.uid || s.email === u.email);
       const isStudentRole = u.role === 'STUDENT' || (!u.email?.endsWith('@basechaninternational.com') && !u.email?.endsWith('.basechaninternational@gmail.com'));
 
-      if (!isAlreadyIn && isStudentRole && !u.isApproved) {
+      if (!isAlreadyIn && isStudentRole) {
         merged.push({
           id: u.uid, // Temporary ID as they don't have an eval yet
           userId: u.uid,
           name: u.displayName || u.username || 'New User',
           email: u.email || '',
-          status: 'PENDING',
-          isApproved: false,
+          phoneNumber: u.phoneNumber || '',
+          accountNumbers: [],
+          parallexAccountNumbers: [u.onboardingProfile?.parallexAccountNumber].filter(Boolean),
+          status: u.isApproved ? 'PENDING' : 'UNAUTHENTICATED',
+          isApproved: u.isApproved ?? false,
           consecutiveDays: 0,
           balanceGbp: 0,
           targetGbp: 0,
@@ -386,7 +449,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           isNew: true,
           expirationDate: null,
           timerCustomMessage: null,
-          isTimerActive: false
+          isTimerActive: false,
+          ingestionChannels: ['UNVERIFIED'],
+          destinationCountry: u.onboardingProfile?.destinationCountry || ''
         });
       }
     });
@@ -405,35 +470,79 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   }), [liveStudents]);
 
   const filteredStudents = useMemo(() => {
+    const normalize = (val: string) => val.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    const query = normalize(advancedFilters.searchTerm);
+
     return liveStudents.filter(s => {
-      let matchesFilter = true;
-      if (filter === 'ALL') matchesFilter = true;
-      else if (filter === 'CLEARED') matchesFilter = s.status === 'CLEARED';
-      else if (filter === 'NEAR_MATURITY') {
-        // Almost Done: less than 7 days left to reach 28
-        matchesFilter = s.consecutiveDays >= 21 && s.consecutiveDays < 28 && s.status !== 'CLEARED';
+      // 1. Text Search Matching (Multi-field)
+      if (query) {
+        const fieldsToMatch = [
+          s.name,
+          s.email,
+          s.userId,
+          s.phoneNumber || '',
+          ...(s.accountNumbers || []),
+          ...(s.parallexAccountNumbers || [])
+        ];
+        const isMatch = fieldsToMatch.some(f => normalize(f).includes(query));
+        if (!isMatch) return false;
       }
-      else if (filter === 'AT_RISK') matchesFilter = s.status === 'AT_RISK';
-      else if (filter === 'UNAPPROVED') matchesFilter = !s.isApproved;
-      else if (filter === 'REQUESTS') {
-        matchesFilter = !!s.pendingRequest || s.status === 'NEEDS_TOPUP';
-        if (matchesFilter && requestTypeFilter !== 'ALL') {
-          if (s.pendingRequest) {
-            const mappedType = requestTypeFilter === 'FINANCE' ? 'TOP_UP' : 'EXTENSION';
-            matchesFilter = s.pendingRequest?.type === mappedType;
-          } else {
-            // If system flagged but no request, we treat it as Finance Addition by default
-            matchesFilter = requestTypeFilter === 'FINANCE';
+
+      // 2. Status Filter (Multi-select)
+      if (advancedFilters.statuses.length > 0) {
+        if (!advancedFilters.statuses.includes(s.status)) return false;
+      }
+
+      // 3. Counselor Assignment
+      if (advancedFilters.assignedCounselorId !== 'ALL') {
+        if (advancedFilters.assignedCounselorId === 'UNASSIGNED') {
+          if (s.counselorName !== 'Unassigned') return false;
+        } else {
+          // Assuming we match by name or UID if available
+          if (s.assignedCounselorId !== advancedFilters.assignedCounselorId && s.counselorName !== advancedFilters.assignedCounselorId) {
+             // Try dynamic lookup
+             const counselor = allUsers.find(u => u.uid === advancedFilters.assignedCounselorId);
+             if (!counselor || s.counselorName !== counselor.displayName) return false;
           }
         }
       }
 
-      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           s.email.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesFilter && matchesSearch;
+      // 4. Financial State
+      if (advancedFilters.financialState !== 'ALL') {
+        const isDeficit = s.balanceGbp < s.targetGbp;
+        const isBreached = (s as any).isCapitalBreached || s.status === 'AT_RISK_CAPITAL_BREACH' || s.status === 'AT_RISK';
+        const hasPendingFee = !!s.pendingRequest; // Assuming requests represent top-ups needing verification
+
+        if (advancedFilters.financialState === 'DEFICIT' && !isDeficit) return false;
+        if (advancedFilters.financialState === 'FULLY_CLEARED' && isDeficit) return false;
+        if (advancedFilters.financialState === 'CAPITAL_BREACHED' && !isBreached) return false;
+        if (advancedFilters.financialState === 'PENDING_TOPUP_FEE' && !hasPendingFee) return false;
+      }
+
+      // 5. Timer Status
+      if (advancedFilters.timerStatus !== 'ALL') {
+        const remaining = s.expirationDate ? Math.ceil((new Date(s.expirationDate).getTime() - Date.now()) / 86400000) : null;
+        const isActive = s.isTimerActive && s.consecutiveDays > 0;
+
+        if (advancedFilters.timerStatus === 'ACTIVE_COUNTDOWN' && !isActive) return false;
+        if (advancedFilters.timerStatus === 'NEAR_EXPIRATION' && (remaining === null || remaining > 7 || remaining < 0)) return false;
+        if (advancedFilters.timerStatus === 'EXPIRED' && (remaining !== null && remaining >= 0)) return false;
+        if (advancedFilters.timerStatus === 'PAUSED' && s.isTimerActive) return false;
+      }
+
+      // 6. Destination
+      if (advancedFilters.destinationCountry !== 'ALL') {
+        if (s.destinationCountry !== advancedFilters.destinationCountry) return false;
+      }
+
+      // 7. Ingestion Channel
+      if (advancedFilters.ingestionChannel !== 'ALL') {
+        if (!s.ingestionChannels.includes(advancedFilters.ingestionChannel)) return false;
+      }
+
+      return true;
     });
-  }, [liveStudents, filter, requestTypeFilter, searchTerm]);
+  }, [liveStudents, advancedFilters, allUsers]);
 
   const handleApprove = async (student: Student) => {
     // ... logic ...
@@ -537,18 +646,51 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
   const handleDeleteProfile = async () => {
     if (!selectedStudent) return;
-    if (!window.confirm(`Are you sure you want to PERMANENTLY erase ${selectedStudent.name}'s profile?`)) return;
 
-    setIsSubmitting(true);
-    try {
-      await deleteDoc(doc(db, 'pof_evaluations', selectedStudent.id));
-      setSelectedStudent(null);
-    } catch (e) {
-      console.error('Delete error:', e);
-    } finally {
-      setIsSubmitting(false);
-    }
+    showNotification({
+      title: "Archive Student?",
+      message: "This will move the student's account and all linked records to the Archive Vault for 7 days before permanent deletion. Access will be revoked immediately.",
+      type: "CONFIRM",
+      confirmText: "Archive & Disable",
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        const t = toast.loading(`Archiving ${selectedStudent.name}...`);
+        try {
+          const res = await fetch('/api/v1/admin/users/archive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: selectedStudent.userId,
+              evaluationId: selectedStudent.id
+            })
+          });
+
+          if (!res.ok) throw new Error("Server failed to archive user");
+
+          // Audit Log
+          await addDoc(collection(db, 'audit_logs'), {
+            actor: appUser?.email || 'Admin',
+            action: 'USER_ARCHIVED',
+            detail: `Moved ${selectedStudent.name} to 7-day Archive Vault.`,
+            studentId: selectedStudent.userId,
+            createdAt: serverTimestamp()
+          });
+
+          toast.success('User moved to Archive Vault.', { id: t });
+          setSelectedStudent(null);
+        } catch (e: any) {
+          console.error('Archive error:', e);
+          toast.error(`Archival failed: ${e.message}`, { id: t });
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+    });
   };
+
+  const counselors = useMemo(() =>
+    allUsers.filter(u => u.role === 'COUNSELOR').map(u => ({ uid: u.uid || u.id, displayName: u.displayName || u.username || 'Counselor' }))
+  , [allUsers]);
 
   if (loading) {
     return (
@@ -611,67 +753,31 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         />
       </div>
 
-      {/* 2. List Header & Search */}
+      {/* 2. List Header & Multi-Criteria Search Engine */}
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-2 md:space-x-3">
-             <div className="w-1 md:w-1.5 h-5 md:h-6 bg-amber-500 rounded-full" />
-             <h3 className={`text-xs md:text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-               {filter === 'ALL' ? 'All Students' : filter === 'REQUESTS' ? 'Pending Requests' : filter === 'UNAPPROVED' ? 'Unauthenticated Users' : filter.replace('_', ' ')}
-             </h3>
-             {filter !== 'ALL' && (
-               <button
-                 onClick={() => {
-                   setFilter('ALL');
-                   setRequestTypeFilter('ALL');
-                 }}
-                 className="text-[8px] md:text-[9px] font-black text-slate-500 hover:text-amber-600 uppercase tracking-widest ml-1 transition-colors"
-               >
-                 (Reset)
-               </button>
-             )}
-             <button
-               onClick={() => setIsAddUserOpen(true)}
-               className={`flex items-center space-x-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all ml-2 md:ml-4 ${
-                 theme === 'dark' ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/20' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'
-               }`}
-             >
-               <Users className="w-3 h-3 md:w-3.5 md:h-3.5" />
-               <span>Add New Student</span>
-             </button>
-          </div>
-
-          {filter === 'REQUESTS' && (
-            <div className="flex items-center space-x-2 bg-slate-900/40 p-1 rounded-xl border border-white/5">
-              {[
-                { id: 'ALL', label: 'All' },
-                { id: 'FINANCE', label: 'Finance' },
-                { id: 'DAYS_EXTENSION', label: 'Days Extension' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setRequestTypeFilter(t.id as any)}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${requestTypeFilter === t.id ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`border rounded-lg md:rounded-xl pl-8 md:pl-9 pr-4 py-1.5 md:py-2 text-[10px] md:text-xs focus:outline-none focus:border-amber-500/50 transition-all w-full md:w-64 backdrop-blur-md ${
-                theme === 'dark' ? 'bg-slate-900/50 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-950'
-              }`}
-            />
-          </div>
+        <div className="flex items-center space-x-3">
+           <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+           <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+             Student Management Roster
+           </h3>
+           <button
+             onClick={() => setIsAddUserOpen(true)}
+             className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ml-4 ${
+               theme === 'dark' ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/20' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'
+             }`}
+           >
+             <UserPlus className="w-3.5 h-3.5" />
+             <span>Add New Student</span>
+           </button>
         </div>
+
+        <StudentTableFilters
+          filters={advancedFilters}
+          onFilterChange={setAdvancedFilters}
+          counselors={counselors}
+          onReset={() => setAdvancedFilters(INITIAL_FILTERS)}
+          isDark={theme === 'dark'}
+        />
 
         {/* 3. Student Table */}
         <div className={`border rounded-2xl md:rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl transition-colors duration-500 ${
@@ -679,9 +785,23 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         }`}>
           <div className="overflow-x-auto">
             {filteredStudents.length === 0 ? (
-              <div className="p-10 md:p-20 text-center space-y-3 md:space-y-4">
-                <Users className="w-10 h-10 md:w-12 md:h-12 text-slate-300 mx-auto opacity-20" />
-                <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest">No matching students found</p>
+              <div className="p-20 text-center flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                <div className="w-24 h-24 rounded-[2.5rem] bg-slate-950/40 border border-white/5 flex items-center justify-center text-slate-500 shadow-2xl">
+                  <SearchX className="w-12 h-12" />
+                </div>
+                <div className="space-y-2 max-w-sm mx-auto">
+                   <p className="text-sm font-black text-white uppercase tracking-tight">No match found</p>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                     No students match your current search or filter criteria. Try expanding your parameters or resetting the filters.
+                   </p>
+                </div>
+                <button
+                  onClick={() => setAdvancedFilters(INITIAL_FILTERS)}
+                  className="flex items-center gap-2 px-8 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-amber-500"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reset All Filters
+                </button>
               </div>
             ) : (
               <table className="w-full text-left font-sans">
@@ -782,26 +902,28 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       </div>
 
       {selectedStudent && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-700" onClick={() => setSelectedStudent(null)}>
-          <div className={`w-full max-w-xl border-l h-screen shadow-2xl animate-in slide-in-from-left fade-in duration-1000 ease-in-out overflow-y-auto ${
-            theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'
-          }`} onClick={e => e.stopPropagation()}>
-
-            <div className={`sticky top-0 p-8 border-b backdrop-blur-xl z-20 flex justify-between items-center ${
-              theme === 'dark' ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-100'
+        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-500" onClick={() => setSelectedStudent(null)}>
+          <aside
+            className={`fixed right-0 top-0 bottom-0 h-screen w-full max-w-[420px] backdrop-blur-2xl border-l rounded-l-3xl shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-50 flex flex-col overflow-y-auto animate-in slide-in-from-right duration-500 ease-out transition-colors ${
+              theme === 'dark' ? 'bg-slate-900/75 border-white/15 text-slate-100' : 'bg-white/80 border-slate-200 text-slate-900'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`sticky top-0 p-6 border-b backdrop-blur-xl z-20 flex justify-between items-center transition-colors ${
+              theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-white/40 border-slate-100'
             }`}>
               <div>
-                <h3 className={`text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>Student Info</h3>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1 uppercase">Reviewing Compliance Profile</p>
+                <h3 className="text-xl font-black uppercase tracking-tight">Student Info</h3>
+                <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Reviewing Compliance Profile</p>
               </div>
-              <button onClick={() => setSelectedStudent(null)} className={`p-3 rounded-2xl transition-all ${
-                theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
+              <button onClick={() => setSelectedStudent(null)} className={`p-2.5 rounded-xl transition-all ${
+                theme === 'dark' ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
               }`}>
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-8 space-y-8">
+            <div className="p-6 space-y-8 flex-1">
               {!isEditMode ? (
                 <>
                   <div
@@ -925,6 +1047,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                         <CheckCircle2 className="w-5 h-5" />
                       </button>
                     )}
+
+                    <button
+                      onClick={() => setIsProfileDrawerOpen(true)}
+                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                      }`}
+                    >
+                      <span>View Full Profile</span>
+                      <Eye className="w-5 h-5 text-amber-500" />
+                    </button>
 
                     <div className="grid grid-cols-2 gap-4">
                       <button
@@ -1072,7 +1204,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                 </div>
               )}
             </div>
-          </div>
+          </aside>
         </div>
       )}
 
@@ -1099,6 +1231,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         student={selectedStudent}
+      />
+
+      <AdminStudentProfileDrawer
+        isOpen={isProfileDrawerOpen}
+        onClose={() => setIsProfileDrawerOpen(false)}
+        student={selectedStudent}
+        onUpdate={() => {}}
       />
     </div>
   );

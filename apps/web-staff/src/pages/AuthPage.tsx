@@ -112,17 +112,12 @@ export const AuthPage: React.FC = () => {
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      const lowerEmail = (user.email || '').toLowerCase();
-      const role = lowerEmail.endsWith('@basechaninternational.com')
-        ? 'ADMIN_GOVERNANCE'
-        : lowerEmail.endsWith('.basechaninternational@gmail.com')
-        ? 'COUNSELOR'
-        : 'STUDENT';
+      const { role, name: whitelistedName } = deriveRole(user.email || '');
 
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        displayName: whitelistedName || user.displayName || user.email?.split('@')[0] || 'User',
         photoURL: user.photoURL || '',
         username: user.email?.split('@')[0] || user.uid,
         role,
@@ -251,14 +246,19 @@ export const AuthPage: React.FC = () => {
       const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       await updateProfile(cred.user, { displayName: cleanName });
 
-      const derivedRole = deriveRole(cleanEmail);
+      // Send verification email using custom settings
+      import('../firebase').then(({ getActionCodeSettings }) => {
+        sendEmailVerification(cred.user, getActionCodeSettings());
+      });
+
+      const { role: derivedRole, name: whitelistedName } = deriveRole(cleanEmail);
 
       // Save profile
       await setDoc(doc(db, 'users', cred.user.uid), {
         uid: cred.user.uid,
         email: cleanEmail,
         username: cleanUsername,
-        displayName: cleanName,
+        displayName: whitelistedName || cleanName,
         photoURL: '',
         role: derivedRole,
         isApproved: derivedRole !== 'STUDENT',

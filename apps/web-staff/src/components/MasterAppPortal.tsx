@@ -26,7 +26,10 @@ import {
   ShieldAlert,
   ArrowLeft,
   Bell,
-  X
+  X,
+  Database,
+  Briefcase,
+  BarChartHorizontal
 } from 'lucide-react';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
@@ -40,10 +43,12 @@ import { SettingsConsole } from './SettingsConsole';
 import { StudentSupportChat } from './StudentSupportChat';
 import { AdminSupportDesk } from './AdminSupportDesk';
 import { StaffStudentViewMode } from './StaffStudentViewMode';
-import { LandingPage } from '../pages/LandingPage';
 import { StudentOnboardingWizard } from './StudentOnboardingWizard';
+import { AppUpdateModal } from './AppUpdateModal';
+import { AdminCounselorRoster } from './AdminCounselorRoster';
 
 export const MasterAppPortal: React.FC = () => {
+// ... existing imports ...
   const { appUser, role, currentUser, loading: authLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -112,26 +117,98 @@ export const MasterAppPortal: React.FC = () => {
   }
 
   const isStaffOrAdmin = role === 'STAFF_AUDITOR' || role === 'COUNSELOR' || role === 'ADMIN_GOVERNANCE';
+  const isAdmin = role === 'ADMIN_GOVERNANCE';
   const isDark = theme === 'dark';
 
   // Define sidebar items based on role
   const navItems = isStaffOrAdmin ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'students', label: 'Student Roster', icon: Users },
+    ...(isAdmin ? [{ id: 'counselors', label: 'Counselors', icon: Briefcase }] : []),
     { id: 'support', label: 'Support Desk', icon: MessageCircle },
+    ...(isAdmin ? [{ id: 'database', label: 'Database Explorer', icon: Database }] : []),
     { id: 'params', label: 'Settings', icon: Sliders },
   ] : [
     { id: 'dashboard', label: 'Overview', icon: BarChart3 },
   ];
 
   return (
-    <div className={`h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 ${
+    <div className={`h-screen w-full flex font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 relative ${
       theme === 'dark' ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
-      <div className="flex-1 flex overflow-hidden">
+      {/* Background Graphic Layer */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] ${isDark ? 'bg-blue-500/5' : 'bg-blue-500/10'}`} />
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] ${isDark ? 'bg-amber-500/5' : 'bg-amber-500/10'}`} />
+      </div>
+
+      {/* STICKY SIDEBAR (For Staff/Admin Only) */}
+      {isStaffOrAdmin && role !== 'STUDENT' && (
+        <aside className="sticky top-0 h-screen w-64 border-r border-white/10 bg-slate-900/40 backdrop-blur-3xl flex flex-col justify-between p-6 z-40 shrink-0 hidden md:flex">
+          <div className="space-y-8">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                 <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-tighter text-white">Governance</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Portal v1.2</p>
+              </div>
+            </div>
+
+            <nav className="space-y-2">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'support') setIsAdminSupportOpen(true);
+                    else if (item.id === 'params') {
+                      setActiveTab('params');
+                      setIsSettingsOpen(true);
+                    }
+                    else if (item.id === 'database') {
+                      setActiveTab('database');
+                      setIsSettingsOpen(true);
+                    }
+                    else setActiveTab(item.id);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                    (activeTab === item.id || (item.id === 'database' && activeTab === 'database') || (item.id === 'params' && activeTab === 'params'))
+                      ? 'bg-amber-500 text-slate-950 shadow-xl shadow-amber-500/20 scale-[1.02]'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <item.icon className={`w-4 h-4 ${(activeTab === item.id || (item.id === 'database' && activeTab === 'database') || (item.id === 'params' && activeTab === 'params')) ? 'text-slate-950' : 'text-slate-500'}`} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="space-y-4">
+             <button
+               onClick={toggleTheme}
+               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+             >
+                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-blue-400" />}
+                <span>{isDark ? 'Light UI' : 'Dark UI'}</span>
+             </button>
+             <button
+               onClick={() => signOut(auth)}
+               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/10 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+             >
+                <LogOut className="w-4 h-4" />
+                <span>Terminate Session</span>
+             </button>
+          </div>
+        </aside>
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         {/* Main Viewport */}
         <main className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.03),transparent)]">
 
-          {/* Top Header (Hidden for Student - Student has its own Profile FAB header) */}
+          {/* Top Header */}
           <header className={`h-14 md:h-16 flex-shrink-0 px-4 md:px-8 border-b flex items-center justify-between transition-colors duration-500 ${
             theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-white border-slate-200 shadow-sm'
           } ${role === 'STUDENT' ? 'hidden' : 'flex'}`}>
@@ -146,146 +223,82 @@ export const MasterAppPortal: React.FC = () => {
                 </button>
               ) : (
                 role !== 'STUDENT' && (
-                  <h1 className={`text-[9px] md:text-xs font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
-                    Hello <span className="text-amber-500">{appUser.displayName || 'User'}</span>, welcome to your <span className="text-amber-500">{role?.split('_')[0]} Dashboard</span>
-                  </h1>
+                  <div className="flex items-center gap-4">
+                    {/* Mobile Menu Trigger could go here */}
+                    <h1 className={`text-[9px] md:text-xs font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
+                      Governance Control <span className="text-slate-500 mx-2">/</span> <span className="text-amber-500">{activeTab.replace('_', ' ')}</span>
+                    </h1>
+                  </div>
                 )
               )}
             </div>
 
             <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
-              <div className="relative" ref={profileMenuRef}>
-                <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className={`flex items-center space-x-4 p-0.5 rounded-full border-2 transition-all hover:scale-105 active:scale-95 ${
-                    isDark
-                      ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222]'
-                      : 'border-blue-600 shadow-md shadow-blue-500/20 bg-white'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-slate-800">
-                    {appUser.photoURL ? (
-                      <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-black text-blue-600 uppercase">{(appUser.displayName?.[0] || 'U')}</span>
-                    )}
-                  </div>
-                </button>
-
-                {isProfileOpen && (
-                  <div className={`absolute right-0 top-full mt-4 w-72 rounded-[2.5rem] shadow-2xl z-[150] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right border-2 ${
-                    isDark
-                      ? 'bg-[#0B1222] border-blue-500/30 text-white shadow-[0_20px_60px_rgba(0,0,0,0.95)]'
-                      : 'bg-white border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)]'
-                  }`}>
-                    <div className={`flex items-center space-x-3 pb-3 border-b ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm overflow-hidden border shrink-0 ${
-                        isDark ? 'bg-blue-500/20 border-blue-500/40 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'
-                      }`}>
-                        {appUser.photoURL ? (
-                          <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          appUser.displayName?.[0]?.toUpperCase() || 'U'
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{appUser.displayName}</p>
-                        <p className={`text-[10px] font-mono truncate ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>@{appUser.username || 'user'}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      {navItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            if (item.id === 'support') setIsAdminSupportOpen(true);
-                            else if (item.id === 'params') setIsSettingsOpen(true);
-                            else setActiveTab(item.id);
-                            setIsProfileOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                            activeTab === item.id
-                              ? (isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-200')
-                              : (isDark ? 'text-slate-200 hover:bg-white/5' : 'text-slate-800 hover:bg-slate-100')
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2.5">
-                            <item.icon className={`w-4 h-4 ${activeTab === item.id ? 'text-blue-500' : 'text-slate-400'}`} />
-                            <span>{item.label}</span>
-                          </div>
-                        </button>
-                      ))}
-                      <div className={`my-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`} />
-                      <button
-                        onClick={toggleTheme}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                          isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2.5">
-                          {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-blue-400" />}
-                          <span>{isDark ? 'Light Theme' : 'Dark Theme'}</span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          setIsNotificationsOpen(true);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                          isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2.5">
-                          <Bell className="w-4 h-4 text-amber-500" />
-                          <span>Notifications & Alerts</span>
-                        </div>
-                      </button>
-                    </div>
-
-                    <div className={`pt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                      <button
-                        onClick={() => signOut(auth)}
-                        className="w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+               <div className="hidden md:flex flex-col items-end">
+                  <p className="text-[10px] font-black uppercase text-white leading-none">{appUser.displayName}</p>
+                  <p className="text-[8px] font-bold text-amber-500 uppercase tracking-widest mt-1">{role?.replace(/_/g, ' ')}</p>
+               </div>
+               <div className="w-10 h-10 rounded-full border-2 border-blue-500 p-0.5 shadow-lg shadow-blue-500/20">
+                  <img src={appUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${appUser.uid}`} className="w-full h-full rounded-full object-cover" alt="" />
+               </div>
             </div>
           </header>
 
-          <div className={`flex-1 overflow-y-auto ${role === 'STUDENT' ? 'p-0' : 'p-3 md:p-8'}`}>
+          <div className={`flex-1 overflow-y-auto custom-scrollbar backdrop-blur-[75px] ${role === 'STUDENT' ? 'p-0' : 'p-3 md:p-8'} ${isDark ? 'bg-black/20' : 'bg-white/20'}`}>
             <div className={role === 'STUDENT' ? 'w-full' : 'max-w-7xl mx-auto'}>
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
               ) : !appUser.isApproved && role === 'STUDENT' ? (
-                <LandingPage isPendingApproval={true} />
+                <div className="min-h-screen bg-[#030712] flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in fade-in duration-1000">
+                  <div className="w-24 h-24 rounded-[2.5rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-2xl shadow-amber-500/10">
+                    <ShieldAlert className="w-12 h-12 animate-pulse" />
+                  </div>
+                  <div className="space-y-3 max-w-md">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tight">Account Pending</h2>
+                    <p className="text-sm font-medium text-slate-400 leading-relaxed uppercase tracking-wider">
+                      Please wait for admin to approve your account. Your dashboard will automatically unlock once verified.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5">
+                    <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Awaiting Governance Clearance...</span>
+                  </div>
+                </div>
               ) : (
                 <>
                   {role === 'STUDENT' && activeTab === 'dashboard' && <StudentMobileFirstDashboard name={appUser.displayName} />}
-                  {isStaffOrAdmin && (
-                    <>
-                      {activeTab === 'dashboard' && (
-                        role === 'COUNSELOR' ? <CounselorPortal /> : <StaffDashboard
-                          onInspect={(id) => setInspectingStudentId(id)}
-                          onMessageStudent={(id) => {
-                            setSupportInitialStudentId(id);
-                            setIsAdminSupportOpen(true);
-                          }}
-                        />
-                      )}
-                    </>
+
+                  {/* Dashboard Tab: Show Stats and recent activity */}
+                  {activeTab === 'dashboard' && isStaffOrAdmin && (
+                     role === 'COUNSELOR' ? <CounselorPortal /> : <StaffDashboard
+                        onInspect={(id) => setInspectingStudentId(id)}
+                        onMessageStudent={(id) => {
+                          setSupportInitialStudentId(id);
+                          setIsAdminSupportOpen(true);
+                        }}
+                      />
+                  )}
+
+                  {/* Student Roster Tab: Main Table */}
+                  {activeTab === 'students' && isStaffOrAdmin && (
+                     <StaffDashboard
+                        onInspect={(id) => setInspectingStudentId(id)}
+                        onMessageStudent={(id) => {
+                          setSupportInitialStudentId(id);
+                          setIsAdminSupportOpen(true);
+                        }}
+                      />
+                  )}
+
+                  {/* Counselors Tab (Admin Only) */}
+                  {activeTab === 'counselors' && isAdmin && (
+                    <AdminCounselorRoster />
                   )}
 
                   {role === 'COUNSELOR' && activeTab === 'students' && <CounselorPortal />}
 
                   {/* Fallback if no tab matches */}
-                  {(!role || !['dashboard', 'students'].includes(activeTab)) && (
+                  {(!role || !['dashboard', 'students', 'counselors'].includes(activeTab)) && (
                     <div className="flex flex-col items-center justify-center py-20 space-y-4">
                       <Compass className="w-12 h-12 text-slate-700" />
                       <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Select a menu item to continue</p>
@@ -355,8 +368,8 @@ export const MasterAppPortal: React.FC = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar">
-              <SettingsConsole />
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <SettingsConsole initialTab={activeTab === 'database' ? 'database' : 'risk'} />
             </div>
           </div>
         </div>
@@ -365,6 +378,8 @@ export const MasterAppPortal: React.FC = () => {
       {role === 'STUDENT' && isSupportOpen && (
         <StudentSupportChat isPopUp={true} onClose={() => setIsSupportOpen(false)} />
       )}
+
+      {getPlatformType() === 'NATIVE_ANDROID' && <AppUpdateModal />}
     </div>
   );
 };

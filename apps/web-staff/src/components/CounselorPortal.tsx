@@ -298,31 +298,6 @@ export const CounselorPortal: React.FC = () => {
           </div>
         </div>
 
-        {/* Global counselor alerts */}
-        <footer className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#0F131C] border border-white/5 p-6 rounded-3xl flex items-start space-x-4 shadow-xl">
-            <Activity className="w-5 h-5 text-cyan-400 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-black text-white uppercase tracking-tight">OANDA Bridge</h4>
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Processing live spot rate evaluations at 1,945.50 GBP/NGN.</p>
-            </div>
-          </div>
-          <div className="bg-[#0F131C] border border-white/5 p-6 rounded-3xl flex items-start space-x-4 shadow-xl">
-            <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-black text-white uppercase tracking-tight">Governance Node</h4>
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Manual overrides and board approvals are logged for the UKVI audit trail.</p>
-            </div>
-          </div>
-          <div className="bg-[#0F131C] border border-white/5 p-6 rounded-3xl flex items-start space-x-4 shadow-xl">
-            <ShieldCheck className="w-5 h-5 text-emerald-400 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-black text-white uppercase tracking-tight">Data Integrity</h4>
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Cross-referencing Open Banking statements with student ledger history.</p>
-            </div>
-          </div>
-        </footer>
-
       </div>
     </div>
   );

@@ -215,7 +215,11 @@ export const StudentPortal: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-slate-500" />
-                  <span className="text-xs font-black uppercase tracking-widest text-white">UKVI 28-Day Maturity Window</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-white">
+                    {evaluation?.startDate ? (
+                      <>COMPLIANCE WINDOW: {new Date(evaluation.startDate).toLocaleDateString()} - {new Date(evaluation.expirationDate || new Date(new Date(evaluation.startDate).getTime() + 28 * 24 * 60 * 60 * 1000)).toLocaleDateString()}</>
+                    ) : 'UKVI 28-Day Maturity Window'}
+                  </span>
                 </div>
                 <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-tighter">
                    Continuous Tracking

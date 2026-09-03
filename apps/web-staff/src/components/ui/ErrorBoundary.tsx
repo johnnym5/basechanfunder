@@ -11,16 +11,18 @@ interface State {
   hasError: boolean;
   error?: Error;
   copied: boolean;
+  showDetails: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    copied: false
+    copied: false,
+    showDetails: false
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, copied: false };
+    return { hasError: true, error, copied: false, showDetails: false };
   }
 
   public async componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -51,7 +53,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private copyError = () => {
     if (this.state.error) {
-      navigator.clipboard.writeText(this.state.error.stack || this.state.error.toString());
+      const fullError = `Error: ${this.state.error.message}\n\nStack Trace:\n${this.state.error.stack}`;
+      navigator.clipboard.writeText(fullError);
       this.setState({ copied: true });
       setTimeout(() => this.setState({ copied: false }), 2000);
     }
@@ -61,7 +64,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-[#07090e] flex items-center justify-center p-6 text-slate-100 font-sans">
-          <div className="max-w-md w-full bg-slate-900/50 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-2xl space-y-8 text-center">
+          <div className="max-w-xl w-full bg-slate-900/50 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-3xl shadow-2xl space-y-8 text-center overflow-hidden">
             <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.1)]">
               <ShieldAlert className="w-8 h-8" />
             </div>
@@ -74,15 +77,38 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {this.state.error && (
-              <div className="relative group/error p-4 bg-slate-950 border border-white/5 rounded-2xl text-[10px] font-mono text-rose-400/80 text-left overflow-auto max-h-32">
-                <button
-                  onClick={this.copyError}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/5 text-slate-500 hover:text-white transition-all opacity-0 group-hover/error:opacity-100"
-                  title="Copy full error stack"
-                >
-                  {this.state.copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-                {this.state.error.toString()}
+              <div className="space-y-4">
+                <div className="relative group/error p-4 bg-slate-950 border border-white/5 rounded-2xl text-[10px] font-mono text-rose-400/80 text-left overflow-hidden">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Error Preview</span>
+                    <button
+                      onClick={this.copyError}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all text-[9px] font-black uppercase tracking-widest ${
+                        this.state.copied ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {this.state.copied ? (
+                        <><Check className="w-3 h-3" /> Copied Full Stack</>
+                      ) : (
+                        <><Copy className="w-3 h-3" /> Copy Full Stack</>
+                      )}
+                    </button>
+                  </div>
+                  <p className="line-clamp-3 mb-2">{this.state.error.message}</p>
+
+                  <button
+                    onClick={() => this.setState({ showDetails: !this.state.showDetails })}
+                    className="text-[8px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400"
+                  >
+                    {this.state.showDetails ? 'Hide Stack Trace' : 'View Full Stack Trace'}
+                  </button>
+
+                  {this.state.showDetails && (
+                    <div className="mt-4 custom-scrollbar overflow-auto max-h-60 whitespace-pre text-slate-500 border-t border-white/5 pt-4">
+                      {this.state.error.stack}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

@@ -28,8 +28,10 @@ export interface SMSWebhookPayload {
 export interface DebitWaterfallResult {
   totalBalanceNgn: number;
   orgTopUpCapitalNgn: number;
-  userEquityNgn: number;
+  userPersonalEquityNgn: number;
   isCapitalBreached: boolean;
+  studentStatus?: string;
+  isTimerPaused?: boolean;
 }
 
 @Injectable()
@@ -40,7 +42,8 @@ export class IngestionService {
     accountId: string,
     debitAmountNgn: number,
     currentTotalNgn: number,
-    orgCapitalNgn: number
+    orgCapitalNgn: number,
+    isDedicatedParallex: boolean = false
   ): Promise<DebitWaterfallResult> {
     const newTotal = currentTotalNgn - debitAmountNgn;
     const isBreached = newTotal < orgCapitalNgn;
@@ -48,18 +51,39 @@ export class IngestionService {
 
     this.logger.log(`Processing Debit for ${accountId}: Amount=₦${debitAmountNgn}, NewTotal=₦${newTotal}, Breached=${isBreached}`);
 
+    let studentStatus = 'ACTIVE';
+    let isTimerPaused = false;
+
     if (isBreached) {
       this.logger.warn(`CAPITAL BREACH ALERT for ${accountId}: Org Capital ₦${orgCapitalNgn} encroached!`);
-      // TODO: Dispatch real-time Push Notification to student
-      // TODO: Set student compliance status to AT_RISK_CAPITAL_BREACH
-      // TODO: Pause active 28-day holding timer
+      studentStatus = 'AT_RISK_CAPITAL_BREACH';
+      isTimerPaused = true;
+
+      // Trigger Internal Alert to Core Server
+      try {
+        const coreServerUrl = process.env.CORE_SERVER_URL || 'http://localhost:3000';
+        // In a real scenario, we'd use a robust client or message queue
+        fetch(`${coreServerUrl}/api/v1/internal/alerts/breach`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: accountId, // Assuming accountId maps to userId here for demo
+            requiredFloor: orgCapitalNgn,
+            currentBalance: newTotal
+          })
+        }).catch(err => this.logger.error(`Failed to trigger breach alert: ${err.message}`));
+      } catch (error) {
+        this.logger.error(`Breach alert dispatch failed: ${error.message}`);
+      }
     }
 
     return {
       totalBalanceNgn: newTotal,
       orgTopUpCapitalNgn: orgCapitalNgn,
-      userEquityNgn: userEquity,
-      isCapitalBreached: isBreached
+      userPersonalEquityNgn: userEquity,
+      isCapitalBreached: isBreached,
+      studentStatus,
+      isTimerPaused
     };
   }
 

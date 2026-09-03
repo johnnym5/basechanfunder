@@ -56,6 +56,7 @@ import {
 import { TopUpRequestModal } from './TopUpRequestModal';
 import { StudentSupportChat } from './StudentSupportChat';
 import { UssdFallbackModal } from './UssdFallbackModal';
+import { ApprovedTopUpCard } from './ApprovedTopUpCard';
 import { SmsIngestionService } from '../services/SmsIngestionService';
 import { toast } from 'sonner';
 
@@ -76,6 +77,8 @@ interface LinkedBankAccount {
   orgTopUpCapitalNgn: number;
   isCapitalBreached: boolean;
   isVerified: boolean;
+  isDedicatedParallex?: boolean;
+  lastTransactionAt?: string;
   connectionMethod: ConnectionMethod;
   lastSyncedAt: string;
   status: AccountStatus;
@@ -133,6 +136,7 @@ export const StudentMobileFirstDashboard: React.FC<{
   const [pendingAccountId, setPendingAccountId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [activeMetricCard, setActiveMetricCard] = useState(0); // 0 = Balance, 1 = Timer
+  const [prepopulatedTopUpAmount, setPrepopulatedTopUpAmount] = useState<number | undefined>();
 
   // 5-Second Slide-Out Notification Toast State
   const [activeToast, setActiveToast] = useState<ToastNotification | null>(null);
@@ -247,6 +251,8 @@ export const StudentMobileFirstDashboard: React.FC<{
           orgTopUpCapitalNgn: item.orgTopUpCapitalNgn || 0,
           isCapitalBreached: (item.balanceNgn || 0) < (item.orgTopUpCapitalNgn || 0),
           isVerified: item.isVerified || false,
+          isDedicatedParallex: item.isDedicatedParallex || item.bankName.includes('Parallex'),
+          lastTransactionAt: item.lastTransactionAt || item.lastSyncedAt?.seconds ? new Date(item.lastSyncedAt.seconds * 1000).toISOString() : null,
           isSystemTopUp: item.isSystemTopUp || false,
           unlinkStatus: item.unlinkStatus || 'ACTIVE',
           connectionMethod: item.connectionMethod || item.provider || 'MANUAL_DEPOSIT',
@@ -384,6 +390,20 @@ export const StudentMobileFirstDashboard: React.FC<{
 
     setSyncingId(id);
 
+    // If it's a System Top Up, re-query the status endpoint
+    if (acc.isSystemTopUp) {
+      try {
+        await fetch('/api/v1/topup/status');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        toast.success('System liquidity pulse verified.');
+      } catch (e) {
+        // Fallback
+      } finally {
+        setSyncingId(null);
+        return;
+      }
+    }
+
     // If it's a UBA account, try Native SMS Sync
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
        const mask = acc.accountNumberMasked.slice(-4);
@@ -407,6 +427,13 @@ export const StudentMobileFirstDashboard: React.FC<{
       });
     } finally {
       setSyncingId(null);
+    }
+  };
+
+  const handleAdminUnlink = async (accountId: string) => {
+    if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics.')) {
+      await deleteDoc(doc(db, 'financial_accounts', accountId));
+      toast.success('Account unlinked by Administrator.');
     }
   };
 
@@ -472,6 +499,19 @@ export const StudentMobileFirstDashboard: React.FC<{
     (window as any).AndroidBridge.triggerSmsSync(accountNumberInput.slice(-4));
   };
 
+  const handleResendVerification = async () => {
+    if (!currentUser) return;
+    const t = toast.loading('Dispatching verification link...');
+    try {
+      const { sendEmailVerification } = await import('firebase/auth');
+      const { getActionCodeSettings } = await import('../firebase');
+      await sendEmailVerification(currentUser, getActionCodeSettings());
+      toast.success('Verification link sent to your inbox.', { id: t });
+    } catch (err: any) {
+      toast.error('Failed to send link. Please try again later.', { id: t });
+    }
+  };
+
   const handleContinueManual = async () => {
     if (!pendingAccountId) return;
     setIsSavingAndSyncing(true);
@@ -499,6 +539,16 @@ export const StudentMobileFirstDashboard: React.FC<{
     setSelectedBank('');
     setBankSearchQuery('');
     setAccountNumberInput('');
+  };
+
+  const handleAdditionalTopUp = () => {
+    const deficitGbp = targetGBP - totals.gbp;
+    if (deficitGbp > 0) {
+      setPrepopulatedTopUpAmount(Math.round(deficitGbp * LIVE_FX_RATE));
+    } else {
+      setPrepopulatedTopUpAmount(undefined);
+    }
+    setIsTopUpModalOpen(true);
   };
 
   if (loading && accounts.length === 0) {
@@ -696,6 +746,27 @@ export const StudentMobileFirstDashboard: React.FC<{
       {/* MAIN MOBILE CONTENT CONTAINER */}
       <main className="w-full px-3.5 sm:px-6 py-4 space-y-4 max-w-4xl mx-auto pb-12">
 
+        {/* Email Verification Banner */}
+        {currentUser && !currentUser.emailVerified && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase text-amber-500 tracking-widest leading-none">Verify Your Email</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Unlock full dashboard functionality & secure syncs</p>
+              </div>
+            </div>
+            <button
+              onClick={handleResendVerification}
+              className="w-full sm:w-auto px-6 py-2 bg-amber-500 text-slate-950 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap"
+            >
+              Resend Verification
+            </button>
+          </div>
+        )}
+
         {/* METRIC CARDS PAGED CONTAINER */}
         <section className="relative group">
           <div className="relative overflow-hidden rounded-3xl min-h-[220px] flex items-stretch">
@@ -789,15 +860,19 @@ export const StudentMobileFirstDashboard: React.FC<{
                   </div>
 
                   <div className="flex items-baseline space-x-2 mt-1">
-                    {evaluation?.startDate && expiryInfo.daysLeft > 0 ? (
-                      <>
-                        <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                          {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
-                        </h3>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-                          Remaining
-                        </span>
-                      </>
+                    {evaluation?.startDate ? (
+                      expiryInfo.isExpired ? (
+                        <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-rose-500 uppercase">Window Expired</h3>
+                      ) : (
+                        <>
+                          <h3 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+                            {expiryInfo.daysLeft} <span className="text-lg font-bold text-slate-400">Days</span>
+                          </h3>
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                            Remaining
+                          </span>
+                        </>
+                      )
                     ) : (
                       <div className="flex items-baseline space-x-2 opacity-60">
                         <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-500 uppercase">No window set</h3>
@@ -826,7 +901,13 @@ export const StudentMobileFirstDashboard: React.FC<{
 
                   <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between">
                   <span className="text-[9px] font-mono text-slate-400 uppercase tracking-tighter">
-                    {evaluation?.startDate ? 'UKVI 28-Day Window' : 'no window set, till admin put a window time'}
+                    {evaluation?.startDate ? (
+                      <>
+                        TIMELINE: <span className="text-white font-bold">{new Date(evaluation.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span> - <span className="text-white font-bold">{new Date(evaluation.expirationDate || new Date(new Date(evaluation.startDate).getTime() + 28 * 24 * 60 * 60 * 1000)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </>
+                    ) : (
+                      <span className="text-rose-500 animate-pulse font-black">NO COMPLIANCE WINDOW SET BY ADMIN</span>
+                    )}
                   </span>
                   {isStaff && (
                     <button
@@ -889,7 +970,23 @@ export const StudentMobileFirstDashboard: React.FC<{
           </div>
 
           <div className="space-y-3">
-            {accounts.map((acc) => {
+            {/* Approved System Top Up Cards */}
+            {accounts.filter(a => a.isSystemTopUp).map(acc => (
+              <ApprovedTopUpCard
+                key={acc.id}
+                account={{
+                  ...acc,
+                  connectedAt: acc.lastSyncedAt // Fallback
+                }}
+                evaluation={evaluation || { expirationDate: null, startDate: null }}
+                isSyncing={syncingId === acc.id}
+                onSync={handleSyncAccount}
+                onAdditionalTopUp={handleAdditionalTopUp}
+              />
+            ))}
+
+            {/* Standard Accounts */}
+            {accounts.filter(a => !a.isSystemTopUp).map((acc) => {
               const isSelected = selectedAccountIds.includes(acc.id);
               return (
                 <div
@@ -917,6 +1014,12 @@ export const StudentMobileFirstDashboard: React.FC<{
                             <span className="px-1 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[6px] font-black uppercase tracking-tighter flex items-center gap-0.5">
                               <ShieldCheck className="w-2 h-2" />
                               Verified
+                            </span>
+                          )}
+                          {acc.isDedicatedParallex && (
+                            <span className="px-1 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[6px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                              <Building2 className="w-2 h-2" />
+                              Dedicated POF
                             </span>
                           )}
                         </div>
@@ -961,6 +1064,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                           <span className="text-slate-400 uppercase tracking-tighter">Org Capital</span>
                           <span className="text-blue-400 flex items-center gap-0.5"><Lock className="w-2 h-2" />{currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}</span>
                         </div>
+                        {acc.isDedicatedParallex && (
+                          <div className="pt-2 border-t border-white/5">
+                             <p className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter flex items-center gap-1">
+                                <Activity className="w-2 h-2" />
+                                Active (Last txn: {acc.lastTransactionAt ? new Date(acc.lastTransactionAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'})
+                             </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
@@ -1000,18 +1111,28 @@ export const StudentMobileFirstDashboard: React.FC<{
                         {!acc.isSystemTopUp && (
                           <button
                             onClick={() => {
-                              if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
-                              setSelectedUnlinkAccount(acc);
-                              setIsUnlinkModalOpen(true);
+                              if (isStaff) {
+                                handleAdminUnlink(acc.id);
+                              } else {
+                                if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
+                                setSelectedUnlinkAccount(acc);
+                                setIsUnlinkModalOpen(true);
+                              }
                             }}
-                            disabled={acc.unlinkStatus === 'UNLINK_REQUESTED'}
+                            disabled={!isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'}
                             className={`transition-colors ${
-                              acc.unlinkStatus === 'UNLINK_REQUESTED'
+                              !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
                                 ? 'text-slate-700 cursor-not-allowed'
                                 : 'text-slate-500 hover:text-rose-400'
                             }`}
                           >
-                            {acc.unlinkStatus === 'UNLINK_REQUESTED' ? 'Unlink Pending' : 'Unlink'}
+                            {isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                              ? 'Approve Unlink'
+                              : acc.unlinkStatus === 'UNLINK_REQUESTED'
+                                ? 'Unlink Pending'
+                                : isStaff
+                                  ? 'Force Unlink'
+                                  : 'Unlink'}
                           </button>
                         )}
                       </div>
@@ -1110,6 +1231,7 @@ export const StudentMobileFirstDashboard: React.FC<{
           isOpen={isTopUpModalOpen}
           onClose={() => setIsTopUpModalOpen(false)}
           onSuccess={() => {}}
+          initialAmount={prepopulatedTopUpAmount}
         />
       )}
 
@@ -1130,7 +1252,7 @@ export const StudentMobileFirstDashboard: React.FC<{
             <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>Connect Account</h3>
+                  <h3 className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>Connect your Parallex account or other banks</h3>
                 </div>
               </div>
               <button onClick={handleCancelConnect} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">

@@ -5,6 +5,12 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging, isSupported } from 'firebase/messaging';
 
+export const getActionCodeSettings = () => ({
+  // Use current window origin for dynamic environment support
+  url: `${window.location.origin}/#/auth/action`,
+  handleCodeInApp: true,
+});
+
 const firebaseConfig = {
   apiKey: 'AIzaSyCRRpdnvjEuWvGfWXRRlUP88IY2KhJdHOg',
   authDomain: 'basechanfunder.firebaseapp.com',

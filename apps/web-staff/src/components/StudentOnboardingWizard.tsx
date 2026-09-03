@@ -28,18 +28,24 @@ import {
   Building2,
   UserCheck,
   Search,
-  Check
+  Check,
+  Plus,
+  Layers,
+  LogOut
 } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { getPlatformType } from '../utils/deviceDetection';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OnboardingProfile {
   homeState: string;
   homeCountry: string;
+  phoneNumber: string;
   destinationCountry: string;
   targetCurrency: string;
   targetCurrencySymbol: string;
@@ -154,6 +160,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   const [profile, setProfile] = useState<OnboardingProfile>({
     homeState: '',
     homeCountry: 'Nigeria',
+    phoneNumber: '',
     destinationCountry: 'United Kingdom',
     targetCurrency: 'GBP',
     targetCurrencySymbol: '£',
@@ -175,20 +182,30 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   const [balance, setBalance] = useState<string | null>(null);
   const [scanLabel, setScanLabel] = useState('Pass 1: Checking bank SMS sender tags & account tail...');
 
+  const platform = getPlatformType();
+  const isNative = platform === 'NATIVE_ANDROID';
+
   const isSponsored = !profile.isSelf;
 
   const getStepList = () => {
     const list = [
       'welcome',
       'location',
+      'phone_number',
       'destination',
       'sponsorship',
     ];
     if (isSponsored) list.push('sponsor_rel');
     list.push('parallex_check');
     list.push('account_details');
-    list.push('sms_pitch');
-    list.push('verification');
+
+    if (isNative) {
+      list.push('sms_pitch');
+      list.push('verification');
+    } else {
+      list.push('apk_required');
+    }
+
     return list;
   };
 
@@ -261,6 +278,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
           onboardingProfile: {
             homeState: profile.homeState,
             homeCountry: profile.homeCountry,
+            phoneNumber: profile.phoneNumber,
             destinationCountry: profile.destinationCountry,
             targetCurrency: profile.targetCurrency,
             targetCurrencySymbol: profile.targetCurrencySymbol,
@@ -363,7 +381,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
       for (const msg of messages) {
         const match = msg.match(/(?:balance|bal)[:\s]*[₦NGN]*\s*([\d,]+(?:\.\d{2})?)/i) ||
-                      msg.match(/₦\s*([\d,]+(?:\.\d{2})?)/);
+          msg.match(/₦\s*([\d,]+(?:\.\d{2})?)/);
         if (match) {
           foundVal = match[1].replace(/,/g, '');
           break;
@@ -426,6 +444,21 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
     onComplete();
   };
 
+  const handleSkipToDashboard = async () => {
+    if (currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          balanceVerificationStatus: 'AWAITING_MOBILE_APP_SYNC',
+          onboardingComplete: true,
+          onboardingCompletedAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    onComplete();
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden">
       {/* ── Background Image Layer (Smooth Crossfade & Slow Steady Zoom) ── */}
@@ -455,36 +488,39 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         </AnimatePresence>
       </div>
 
-      {/* ── 50% Opaque Frosted Glass Backdrop Overlay ── */}
       <div
-        className={`absolute inset-0 backdrop-blur-md transition-colors duration-500 pointer-events-none ${
-          isDark
-            ? 'bg-[#030712]/50' // 50% opaque dark frosted glass
-            : 'bg-white/50'     // 50% opaque light frosted glass
-        }`}
+        className={`absolute inset-0 backdrop-blur-[75px] transition-colors duration-500 pointer-events-none ${isDark
+            ? 'bg-[#030712]/60' // Slightly more opaque for better contrast with 75px blur
+            : 'bg-white/60'
+          }`}
       />
 
-      {/* ── Top Bar: Dynamic Encouraging Progress & Light/Dark Switch ── */}
+      {/* ── Top Bar: Logo Exit & Progress ── */}
       <header className="relative px-6 py-4 flex items-center justify-between z-20 border-b border-black/5 dark:border-white/5">
         <div className="flex items-center gap-4">
           {step > 0 && currentStepKey !== 'verification' ? (
             <button
               onClick={goBack}
-              className={`p-2 rounded-xl transition-all shadow-sm ${
-                isDark
+              className={`p-2 rounded-xl transition-all shadow-sm ${isDark
                   ? 'bg-slate-900/90 border border-white/10 hover:bg-slate-800 text-white'
                   : 'bg-white/90 border border-slate-200 hover:bg-slate-100 text-slate-700'
-              }`}
+                }`}
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           ) : (
-            <img
-              src={isDark ? '/logo_white.png' : '/logo.png'}
-              alt="Basechan Funder"
-              className="h-8 object-contain"
-            />
+            <button
+              onClick={() => signOut(auth)}
+              className="group transition-transform hover:scale-105 active:scale-95"
+              title="Exit to Login"
+            >
+              <img
+                src={isDark ? '/logo_white.png' : '/logo.png'}
+                alt="Basechan Funder"
+                className="h-8 object-contain"
+              />
+            </button>
           )}
 
           {/* Dynamic Encouraging Copy & Percentage */}
@@ -497,27 +533,21 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
           )}
         </div>
 
-        {/* Theme Mode Toggle Button */}
+        {/* Theme Action */}
         <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm ${
-              isDark
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm ${isDark
                 ? 'bg-slate-900/90 border-white/10 text-amber-300 hover:bg-slate-800'
                 : 'bg-white/90 border-slate-200 text-slate-700 hover:bg-slate-100'
-            }`}
+              }`}
           >
             {isDark ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-400" />
-                <span>Light Mode</span>
-              </>
+              <Sun className="w-4 h-4 text-amber-400" />
             ) : (
-              <>
-                <Moon className="w-4 h-4 text-blue-600" />
-                <span>Dark Mode</span>
-              </>
+              <Moon className="w-4 h-4 text-blue-600" />
             )}
+            <span className="hidden sm:inline">{isDark ? 'Light' : 'Dark'}</span>
           </button>
         </div>
       </header>
@@ -534,9 +564,8 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
       {/* ── Main Question Viewport (Optimized for Mobile APK & Viewport bounds) ── */}
       <main
-        className={`flex-1 relative z-10 overflow-y-auto overflow-x-hidden flex items-center justify-center px-4 py-6 sm:p-8 md:p-12 ${
-          isDark ? 'text-white' : 'text-slate-900'
-        }`}
+        className={`flex-1 relative z-10 overflow-y-auto overflow-x-hidden flex items-center justify-center px-4 py-6 sm:p-8 md:p-12 ${isDark ? 'text-white' : 'text-slate-900'
+          }`}
       >
         <AnimatePresence custom={direction} mode="wait">
           {/* SCREEN 0: Welcome & Value Proposition */}
@@ -613,11 +642,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeState}
                     onChange={e => updateProfile('homeState', e.target.value)}
                     placeholder="e.g. Lagos, Abuja, Rivers"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
-                      isDark
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
                         ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
                         : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                    }`}
+                      }`}
                   />
                 </div>
 
@@ -630,11 +658,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeCountry}
                     onChange={e => updateProfile('homeCountry', e.target.value)}
                     placeholder="e.g. Nigeria"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
-                      isDark
+                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
                         ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
                         : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                    }`}
+                      }`}
                   />
                 </div>
               </div>
@@ -642,6 +669,53 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               <button
                 onClick={goNext}
                 disabled={!profile.homeCountry.trim()}
+                className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </motion.div>
+          )}
+
+          {/* SCREEN 1.5: Phone Number */}
+          {currentStepKey === 'phone_number' && (
+            <motion.div
+              key="phone_number"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg space-y-8"
+            >
+              <div className="space-y-3">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight">
+                  What is your phone number?
+                </h2>
+                <p className="text-base font-semibold opacity-75">
+                  We use this for priority SMS alerts and account security.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
+                  Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  value={profile.phoneNumber}
+                  onChange={e => updateProfile('phoneNumber', e.target.value.replace(/[^\d+]/g, ''))}
+                  placeholder="e.g. +234 800 000 0000"
+                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
+                      ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
+                      : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                    }`}
+                />
+              </div>
+
+              <button
+                onClick={goNext}
+                disabled={profile.phoneNumber.length < 8}
                 className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
               >
                 <span>Continue</span>
@@ -677,22 +751,20 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     <button
                       key={item.country}
                       onClick={() => updateProfile('destinationCountry', item.country)}
-                      className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border text-left transition-all shadow-sm ${
-                        isSelected
+                      className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border text-left transition-all shadow-sm ${isSelected
                           ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                           : isDark
-                          ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
-                          : 'bg-white/95 border-slate-200 hover:border-slate-300'
-                      }`}
+                            ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                            : 'bg-white/95 border-slate-200 hover:border-slate-300'
+                        }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm border ${
-                          isSelected
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm border ${isSelected
                             ? 'bg-blue-600 border-blue-500 text-white'
                             : isDark
-                            ? 'bg-white/5 border-white/10 text-blue-400'
-                            : 'bg-blue-50 border-blue-200 text-blue-600'
-                        }`}>
+                              ? 'bg-white/5 border-white/10 text-blue-400'
+                              : 'bg-blue-50 border-blue-200 text-blue-600'
+                          }`}>
                           {item.code}
                         </div>
                         <div>
@@ -745,13 +817,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     updateProfile('isSelf', true);
                     updateProfile('sponsorRelationship', '');
                   }}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
-                    profile.isSelf
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${profile.isSelf
                       ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
-                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
-                  }`}
+                        ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                        : 'bg-white/95 border-slate-200 hover:border-slate-300'
+                    }`}
                 >
                   <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto" />
                   <p className="text-xl font-black">Self-Funded</p>
@@ -760,13 +831,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
                 <button
                   onClick={() => updateProfile('isSelf', false)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
-                    !profile.isSelf
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${!profile.isSelf
                       ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
-                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
-                  }`}
+                        ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                        : 'bg-white/95 border-slate-200 hover:border-slate-300'
+                    }`}
                 >
                   <Building2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto" />
                   <p className="text-xl font-black">Sponsored</p>
@@ -810,11 +880,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   value={profile.sponsorRelationship}
                   onChange={e => updateProfile('sponsorRelationship', e.target.value)}
                   placeholder="e.g. Father, Mother, Sibling, Government"
-                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
-                    isDark
+                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
                       ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
                       : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                  }`}
+                    }`}
                 />
               </div>
 
@@ -852,28 +921,26 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   onClick={() => updateProfile('hasParallexAccount', true)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
-                    profile.hasParallexAccount
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${profile.hasParallexAccount
                       ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
-                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
-                  }`}
+                        ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                        : 'bg-white/95 border-slate-200 hover:border-slate-300'
+                    }`}
                 >
                   <Building2 className="w-10 h-10 mx-auto text-blue-600 dark:text-blue-400" />
                   <p className="text-xl font-black">Yes, I do</p>
-                  <p className="text-xs opacity-75">I hold a Parallex Bank student account.</p>
+                  <p className="text-xs opacity-75">I hold a Parallex Bank account.</p>
                 </button>
 
                 <button
                   onClick={() => updateProfile('hasParallexAccount', false)}
-                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${
-                    !profile.hasParallexAccount
+                  className={`p-6 rounded-2xl border text-center space-y-3 transition-all shadow-sm ${!profile.hasParallexAccount
                       ? 'border-blue-600 bg-blue-600/15 dark:bg-blue-500/25 ring-2 ring-blue-600 dark:ring-blue-400'
                       : isDark
-                      ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
-                      : 'bg-white/95 border-slate-200 hover:border-slate-300'
-                  }`}
+                        ? 'bg-slate-900/90 border-white/10 hover:border-white/20'
+                        : 'bg-white/95 border-slate-200 hover:border-slate-300'
+                    }`}
                 >
                   <Building2 className="w-10 h-10 mx-auto opacity-50" />
                   <p className="text-xl font-black">No, Other Bank</p>
@@ -925,11 +992,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       value={profile.parallexAccountNumber}
                       onChange={e => updateProfile('parallexAccountNumber', e.target.value.replace(/\D/g, ''))}
                       placeholder="0123456789"
-                      className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${
-                        isDark
+                      className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${isDark
                           ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
                           : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                      }`}
+                        }`}
                     />
                   </div>
                 ) : (
@@ -938,7 +1004,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                         Bank Name
                       </label>
-                      
+
                       {/* Searchable trigger / input */}
                       <div className="relative">
                         <input
@@ -953,11 +1019,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                             if (!isBankDropdownOpen) setIsBankDropdownOpen(true);
                           }}
                           placeholder="Search your bank..."
-                          className={`w-full text-base font-bold pl-11 pr-10 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
-                            isDark
+                          className={`w-full text-base font-bold pl-11 pr-10 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
                               ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/40 focus:border-blue-500'
                               : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                          }`}
+                            }`}
                         />
                         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" />
                         <button
@@ -972,11 +1037,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                       {/* Dropdown Options List */}
                       {isBankDropdownOpen && (
                         <div
-                          className={`absolute left-0 right-0 top-full mt-2 max-h-56 overflow-y-auto rounded-2xl border shadow-2xl z-50 p-2 space-y-1 backdrop-blur-xl ${
-                            isDark
+                          className={`absolute left-0 right-0 top-full mt-2 max-h-56 overflow-y-auto rounded-2xl border shadow-2xl z-50 p-2 space-y-1 backdrop-blur-xl ${isDark
                               ? 'bg-slate-950/95 border-white/15 text-white shadow-black/80'
                               : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-300/60'
-                          }`}
+                            }`}
                         >
                           {NIGERIAN_BANKS.filter(bank =>
                             bank.toLowerCase().includes(bankSearch.toLowerCase())
@@ -998,13 +1062,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                                     setIsBankDropdownOpen(false);
                                     setBankSearch('');
                                   }}
-                                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left text-sm font-bold transition-all ${
-                                    isSelected
+                                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left text-sm font-bold transition-all ${isSelected
                                       ? 'bg-blue-600 text-white shadow-md'
                                       : isDark
-                                      ? 'hover:bg-white/10 text-white/90'
-                                      : 'hover:bg-slate-100 text-slate-800'
-                                  }`}
+                                        ? 'hover:bg-white/10 text-white/90'
+                                        : 'hover:bg-slate-100 text-slate-800'
+                                    }`}
                                 >
                                   <span>{bank}</span>
                                   {isSelected && <Check className="w-4 h-4 text-white" />}
@@ -1026,11 +1089,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                         value={profile.accountNumber}
                         onChange={e => updateProfile('accountNumber', e.target.value.replace(/\D/g, ''))}
                         placeholder="0123456789"
-                        className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${
-                          isDark
+                        className={`w-full text-2xl md:text-3xl font-mono font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 tracking-wider shadow-sm ${isDark
                             ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
                             : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                        }`}
+                          }`}
                       />
                     </div>
                   </>
@@ -1052,7 +1114,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
             </motion.div>
           )}
 
-          {/* SCREEN 7: SMS Permission Pre-Pitch */}
+          {/* SCREEN 7: SMS Permission Pre-Pitch (NATIVE ONLY) */}
           {currentStepKey === 'sms_pitch' && (
             <motion.div
               key="sms_pitch"
@@ -1113,11 +1175,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     {['Read-Only', 'End-to-End Encrypted', 'Strict Compliance'].map(badge => (
                       <span
                         key={badge}
-                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${
-                          isDark
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${isDark
                             ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
                             : 'bg-blue-50/90 border-blue-200 text-blue-700'
-                        }`}
+                          }`}
                       >
                         {badge}
                       </span>
@@ -1151,6 +1212,65 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   </div>
                 </>
               )}
+            </motion.div>
+          )}
+
+          {/* SCREEN 7b: APK Required (WEB ONLY) */}
+          {currentStepKey === 'apk_required' && (
+            <motion.div
+              key="apk_required"
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full max-w-lg text-center space-y-8 flex flex-col items-center justify-center"
+            >
+              <div className="w-24 h-24 rounded-3xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-xl shadow-amber-500/10 backdrop-blur-md">
+                <Layers className="w-12 h-12" />
+              </div>
+
+              <div className="space-y-4 max-w-md">
+                <h2 className="text-2xl md:text-4xl font-black leading-tight">
+                  APK Ingestion Required
+                </h2>
+                <p className="text-base md:text-lg font-semibold opacity-85 leading-relaxed">
+                  SMS balance reading requires our secure Android app. Download the APK to enable automatic balance sync, or skip if already installed.
+                </p>
+              </div>
+
+              <div className="w-full space-y-4">
+                <a
+                  href="/downloads/basechan-funder.apk"
+                  download
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl shadow-amber-500/30 transition-all"
+                >
+                  <Phone className="w-5 h-5" />
+                  <span>📲 Download Android APK</span>
+                </a>
+
+                <button
+                  onClick={handleSkipToDashboard}
+                  className={`w-full py-4 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all ${isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                >
+                  Already Downloaded? Skip to Dashboard
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                {['Direct Sync', 'Real-time Alerts', 'Native Security'].map(badge => (
+                  <span
+                    key={badge}
+                    className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${isDark
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        : 'bg-amber-50 border-amber-200 text-amber-700'
+                      }`}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
             </motion.div>
           )}
 

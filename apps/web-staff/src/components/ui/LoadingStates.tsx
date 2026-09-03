@@ -50,7 +50,43 @@ export const TableSkeletonLoader: React.FC<{ rows?: number }> = ({ rows = 5 }) =
         </div>
       ))}
       {/* Shimmer effect overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+    </div>
+  );
+};
+
+export const DashboardSkeleton: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-[#030712] p-6 md:p-10 space-y-8 animate-pulse">
+      {/* Header Skeleton */}
+      <div className="flex justify-between items-center">
+        <div className="space-y-3">
+          <div className="h-10 w-48 bg-slate-900 rounded-xl"></div>
+          <div className="h-4 w-64 bg-slate-900/60 rounded-lg"></div>
+        </div>
+        <div className="w-12 h-12 rounded-full bg-slate-900"></div>
+      </div>
+
+      {/* Hero Card Skeleton */}
+      <div className="h-64 w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 p-10">
+        <div className="space-y-4">
+          <div className="h-4 w-32 bg-slate-800 rounded"></div>
+          <div className="h-16 w-64 bg-slate-800 rounded-2xl"></div>
+          <div className="h-6 w-48 bg-slate-800/60 rounded"></div>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="h-48 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+        <div className="h-48 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+      </div>
+
+      {/* Table Area */}
+      <div className="space-y-4">
+        <div className="h-6 w-48 bg-slate-900 rounded-lg"></div>
+        <TableSkeletonLoader rows={3} />
+      </div>
     </div>
   );
 };

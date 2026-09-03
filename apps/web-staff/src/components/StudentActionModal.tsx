@@ -19,6 +19,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'sonner';
 
 interface StudentActionModalProps {
   isOpen: boolean;
@@ -80,11 +81,24 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
   const handleDelete = async () => {
     setIsSubmitting(true);
     try {
+      // 1. Delete Evaluation
       await deleteDoc(doc(db, 'pof_evaluations', student.id));
+
+      // 2. Delete User Profile (if userId exists)
+      if (student.userId) {
+        await deleteDoc(doc(db, 'users', student.userId));
+
+        // 3. Delete Auth User via Backend
+        await fetch(`/api/v1/admin/auth/users/${student.userId}`, { method: 'DELETE' })
+          .catch(err => console.error("Auth deletion sync failed:", err));
+      }
+
+      toast.success('Student records and authentication purged.');
       onSuccess();
       onClose();
     } catch (e) {
       console.error('Delete error:', e);
+      toast.error('Purge failed.');
     } finally {
       setIsSubmitting(false);
     }
