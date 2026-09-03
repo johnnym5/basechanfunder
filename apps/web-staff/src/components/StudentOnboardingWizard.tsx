@@ -26,7 +26,9 @@ import {
   Sun,
   Moon,
   Building2,
-  UserCheck
+  UserCheck,
+  Search,
+  Check
 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -71,21 +73,38 @@ const DESTINATION_OPTIONS = [
 
 const NIGERIAN_BANKS = [
   'Access Bank',
-  'GTBank',
-  'First Bank',
-  'Zenith Bank',
-  'UBA',
-  'Stanbic IBTC',
+  'Citibank Nigeria',
+  'Ecobank Nigeria',
   'Fidelity Bank',
-  'Union Bank',
-  'Ecobank',
-  'Sterling Bank',
-  'Wema Bank',
-  'FCMB',
-  'Polaris Bank',
-  'Keystone Bank',
+  'First Bank of Nigeria',
+  'First City Monument Bank (FCMB)',
+  'Globus Bank',
+  'Guaranty Trust Bank (GTBank)',
   'Heritage Bank',
+  'Jaiz Bank',
+  'Keystone Bank',
+  'Kuda Bank',
+  'Lotus Bank',
+  'Moniepoint MFB',
+  'Opay',
+  'Optimus Bank',
+  'Palmpay',
   'Parallex Bank',
+  'Polaris Bank',
+  'Premium Trust Bank',
+  'Providus Bank',
+  'Stanbic IBTC Bank',
+  'Standard Chartered Bank',
+  'Sterling Bank',
+  'SunTrust Bank',
+  'TAJBank',
+  'Titan Trust Bank',
+  'Union Bank of Nigeria',
+  'United Bank for Africa (UBA)',
+  'Unity Bank',
+  'VFD Microfinance Bank',
+  'Wema Bank / ALAT',
+  'Zenith Bank',
   'Other'
 ];
 
@@ -145,6 +164,10 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
     bankName: 'Parallex Bank',
     accountNumber: '',
   });
+
+  // Searchable Bank Selector State
+  const [bankSearch, setBankSearch] = useState('');
+  const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
 
   // SMS scan state
   const [smsPermState, setSmsPermState] = useState<'pitch' | 'requesting' | 'denied' | 'granted'>('pitch');
@@ -423,12 +446,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         }}
       />
 
-      {/* ── 75% Opaque Backdrop Overlay (Allows subtle image peek through) ── */}
+      {/* ── 50% Opaque Frosted Glass Backdrop Overlay ── */}
       <div
-        className={`absolute inset-0 backdrop-blur-[2px] transition-colors duration-500 pointer-events-none ${
+        className={`absolute inset-0 backdrop-blur-md transition-colors duration-500 pointer-events-none ${
           isDark
-            ? 'bg-[#030712]/75' // 75% opaque dark
-            : 'bg-white/75'     // 75% opaque white
+            ? 'bg-[#030712]/50' // 50% opaque dark frosted glass
+            : 'bg-white/50'     // 50% opaque light frosted glass
         }`}
       />
 
@@ -894,28 +917,86 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   </div>
                 ) : (
                   <>
-                    <div>
+                    <div className="relative">
                       <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
                         Bank Name
                       </label>
+                      
+                      {/* Searchable trigger / input */}
                       <div className="relative">
-                        <select
-                          value={profile.bankName}
-                          onChange={e => updateProfile('bankName', e.target.value)}
-                          className={`w-full text-base font-bold px-5 py-4 rounded-2xl border appearance-none transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
+                        <input
+                          type="text"
+                          value={isBankDropdownOpen ? bankSearch : profile.bankName}
+                          onFocus={() => {
+                            setIsBankDropdownOpen(true);
+                            setBankSearch('');
+                          }}
+                          onChange={e => {
+                            setBankSearch(e.target.value);
+                            if (!isBankDropdownOpen) setIsBankDropdownOpen(true);
+                          }}
+                          placeholder="Search your bank..."
+                          className={`w-full text-base font-bold pl-11 pr-10 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${
                             isDark
-                              ? 'bg-slate-900 border-white/10 text-white'
-                              : 'bg-white border-slate-300 text-slate-900'
+                              ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/40 focus:border-blue-500'
+                              : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
+                          }`}
+                        />
+                        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" />
+                        <button
+                          type="button"
+                          onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 transition-opacity"
+                        >
+                          <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isBankDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+
+                      {/* Dropdown Options List */}
+                      {isBankDropdownOpen && (
+                        <div
+                          className={`absolute left-0 right-0 top-full mt-2 max-h-56 overflow-y-auto rounded-2xl border shadow-2xl z-50 p-2 space-y-1 backdrop-blur-xl ${
+                            isDark
+                              ? 'bg-slate-950/95 border-white/15 text-white shadow-black/80'
+                              : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-300/60'
                           }`}
                         >
-                          {NIGERIAN_BANKS.map(bank => (
-                            <option key={bank} value={bank} className={isDark ? 'bg-slate-900' : 'bg-white'}>
-                              {bank}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
-                      </div>
+                          {NIGERIAN_BANKS.filter(bank =>
+                            bank.toLowerCase().includes(bankSearch.toLowerCase())
+                          ).length === 0 ? (
+                            <div className="p-4 text-center text-xs font-semibold opacity-60">
+                              No matching bank found. You can select "Other".
+                            </div>
+                          ) : (
+                            NIGERIAN_BANKS.filter(bank =>
+                              bank.toLowerCase().includes(bankSearch.toLowerCase())
+                            ).map(bank => {
+                              const isSelected = profile.bankName === bank;
+                              return (
+                                <button
+                                  key={bank}
+                                  type="button"
+                                  onClick={() => {
+                                    updateProfile('bankName', bank);
+                                    setIsBankDropdownOpen(false);
+                                    setBankSearch('');
+                                  }}
+                                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left text-sm font-bold transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white shadow-md'
+                                      : isDark
+                                      ? 'hover:bg-white/10 text-white/90'
+                                      : 'hover:bg-slate-100 text-slate-800'
+                                  }`}
+                                >
+                                  <span>{bank}</span>
+                                  {isSelected && <Check className="w-4 h-4 text-white" />}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div>
