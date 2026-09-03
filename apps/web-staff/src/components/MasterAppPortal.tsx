@@ -8,7 +8,9 @@ import {
   collection,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import {
   ShieldCheck,
@@ -29,11 +31,11 @@ import {
   X,
   Database,
   Briefcase,
-  BarChartHorizontal
+  ChevronDown
 } from 'lucide-react';
 import { ProfessionalSpinner } from './ui/LoadingStates';
-import { NotificationDropdown } from './ui/NotificationDropdown';
 import { useTheme } from '../context/ThemeContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Import View Components
 import { StaffDashboard } from './Dashboard';
@@ -46,9 +48,9 @@ import { StaffStudentViewMode } from './StaffStudentViewMode';
 import { StudentOnboardingWizard } from './StudentOnboardingWizard';
 import { AppUpdateModal } from './AppUpdateModal';
 import { AdminCounselorRoster } from './AdminCounselorRoster';
+import { getPlatformType } from '../utils/deviceDetection';
 
 export const MasterAppPortal: React.FC = () => {
-// ... existing imports ...
   const { appUser, role, currentUser, loading: authLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -87,15 +89,15 @@ export const MasterAppPortal: React.FC = () => {
     if (role !== 'STUDENT') { setOnboardingChecked(true); return; }
 
     // Check Firestore for onboardingComplete flag
-    import('firebase/firestore').then(({ doc, getDoc }) => {
-      import('../firebase').then(({ db }) => {
-        getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
-          const data = snap.data();
-          const completed = data?.onboardingComplete === true;
-          setShowOnboarding(!completed);
-          setOnboardingChecked(true);
-        }).catch(() => { setOnboardingChecked(true); });
-      });
+    getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const completed = data?.onboardingComplete === true;
+        setShowOnboarding(!completed);
+      }
+      setOnboardingChecked(true);
+    }).catch(() => {
+      setOnboardingChecked(true);
     });
   }, [appUser, currentUser, role, onboardingChecked]);
 
@@ -120,7 +122,7 @@ export const MasterAppPortal: React.FC = () => {
   const isAdmin = role === 'ADMIN_GOVERNANCE';
   const isDark = theme === 'dark';
 
-  // Define sidebar items based on role
+  // Define nav items for the FAB dropdown
   const navItems = isStaffOrAdmin ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'students', label: 'Student Roster', icon: Users },
@@ -133,118 +135,189 @@ export const MasterAppPortal: React.FC = () => {
   ];
 
   return (
-    <div className={`h-screen w-full flex font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 relative ${
+    <div className={`h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 relative ${
       theme === 'dark' ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
-      {/* Background Graphic Layer */}
+      {/* ── Dynamic Animated Background Layer (100% to 175% slow zoom & pan + 75% Frosted Glass) ── */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] ${isDark ? 'bg-blue-500/5' : 'bg-blue-500/10'}`} />
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] ${isDark ? 'bg-amber-500/5' : 'bg-amber-500/10'}`} />
+        <AnimatePresence mode="sync">
+          <motion.div
+            key={role === 'STUDENT' ? (isDark ? 'student_dark' : 'student_light') : (isDark ? 'admin_dark' : 'admin_light')}
+            initial={{ opacity: 0, scale: 1.0, x: '-6%' }}
+            animate={{
+              opacity: 1,
+              scale: [1.0, 1.75, 1.0],
+              x: ['-6%', '6%', '-6%'],
+              y: ['-2%', '3%', '-2%'],
+            }}
+            transition={{
+              opacity: { duration: 1.2, ease: 'easeInOut' },
+              scale: { duration: 42, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
+              x: { duration: 38, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
+              y: { duration: 32, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
+            }}
+            className="absolute inset-[-20%] bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${
+                role === 'STUDENT'
+                  ? (isDark ? '/bg_student_dark.jpg' : '/bg_student_light.jpg')
+                  : (isDark ? '/bg_admin_dark.jpg' : '/bg_admin_light.jpg')
+              })`,
+              filter: isDark ? 'brightness(0.75) contrast(1.15)' : 'brightness(1.02) contrast(1.02)',
+            }}
+          />
+        </AnimatePresence>
+
+        {/* ── 75% Frosted Glass Overlay ── */}
+        <div
+          className={`absolute inset-0 backdrop-blur-xl transition-colors duration-500 ${
+            isDark ? 'bg-[#030712]/75' : 'bg-slate-50/75'
+          }`}
+        />
       </div>
-
-      {/* STICKY SIDEBAR (For Staff/Admin Only) */}
-      {isStaffOrAdmin && role !== 'STUDENT' && (
-        <aside className="sticky top-0 h-screen w-64 border-r border-white/10 bg-slate-900/40 backdrop-blur-3xl flex flex-col justify-between p-6 z-40 shrink-0 hidden md:flex">
-          <div className="space-y-8">
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                 <ShieldCheck className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-tighter text-white">Governance</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Portal v1.2</p>
-              </div>
-            </div>
-
-            <nav className="space-y-2">
-              {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === 'support') setIsAdminSupportOpen(true);
-                    else if (item.id === 'params') {
-                      setActiveTab('params');
-                      setIsSettingsOpen(true);
-                    }
-                    else if (item.id === 'database') {
-                      setActiveTab('database');
-                      setIsSettingsOpen(true);
-                    }
-                    else setActiveTab(item.id);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                    (activeTab === item.id || (item.id === 'database' && activeTab === 'database') || (item.id === 'params' && activeTab === 'params'))
-                      ? 'bg-amber-500 text-slate-950 shadow-xl shadow-amber-500/20 scale-[1.02]'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <item.icon className={`w-4 h-4 ${(activeTab === item.id || (item.id === 'database' && activeTab === 'database') || (item.id === 'params' && activeTab === 'params')) ? 'text-slate-950' : 'text-slate-500'}`} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <div className="space-y-4">
-             <button
-               onClick={toggleTheme}
-               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
-             >
-                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-blue-400" />}
-                <span>{isDark ? 'Light UI' : 'Dark UI'}</span>
-             </button>
-             <button
-               onClick={() => signOut(auth)}
-               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/10 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
-             >
-                <LogOut className="w-4 h-4" />
-                <span>Terminate Session</span>
-             </button>
-          </div>
-        </aside>
-      )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
         {/* Main Viewport */}
         <main className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.03),transparent)]">
 
-          {/* Top Header */}
-          <header className={`h-14 md:h-16 flex-shrink-0 px-4 md:px-8 border-b flex items-center justify-between transition-colors duration-500 ${
+          {/* Top Header - Consolidated with Profile FAB */}
+          <header className={`h-16 flex-shrink-0 px-6 md:px-8 border-b flex items-center justify-between transition-colors duration-500 ${
             theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-white border-slate-200 shadow-sm'
-          } ${role === 'STUDENT' ? 'hidden' : 'flex'}`}>
-            <div className="flex items-center space-x-3 md:space-x-6 min-w-0 flex-1 pr-4">
+          }`}>
+            <div className="flex items-center space-x-4">
               {inspectingStudentId ? (
                 <button
                   onClick={() => setInspectingStudentId(null)}
-                  className="flex items-center gap-2 bg-slate-900 border border-white/10 text-white px-2.5 md:px-4 py-1 md:py-1.5 rounded-lg text-[8px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shrink-0"
+                  className="flex items-center gap-2 bg-slate-900 border border-white/10 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
                 >
-                  <ArrowLeft className="w-2 md:w-3 h-2 md:h-3" />
-                  <span className="truncate">Exit Student Page</span>
+                  <ArrowLeft className="w-3 h-3" />
+                  <span>Exit Inspector</span>
                 </button>
               ) : (
-                role !== 'STUDENT' && (
-                  <div className="flex items-center gap-4">
-                    {/* Mobile Menu Trigger could go here */}
-                    <h1 className={`text-[9px] md:text-xs font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
-                      Governance Control <span className="text-slate-500 mx-2">/</span> <span className="text-amber-500">{activeTab.replace('_', ' ')}</span>
-                    </h1>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                     <ShieldCheck className="w-6 h-6 text-white" />
                   </div>
-                )
+                  <div className="hidden sm:block">
+                    <h1 className={`text-xs font-black tracking-tight uppercase truncate ${isDark ? 'text-white' : 'text-blue-950'}`}>
+                      {role === 'STUDENT' ? 'Student Portal' : 'Governance Control'}
+                    </h1>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Basechan Funder v1.2</p>
+                  </div>
+                </div>
               )}
             </div>
 
-            <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
+            <div className="flex items-center space-x-6 shrink-0 relative" ref={profileMenuRef}>
+               {/* User Context Labels */}
                <div className="hidden md:flex flex-col items-end">
-                  <p className="text-[10px] font-black uppercase text-white leading-none">{appUser.displayName}</p>
+                  <p className={`text-[10px] font-black uppercase leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{appUser.displayName}</p>
                   <p className="text-[8px] font-bold text-amber-500 uppercase tracking-widest mt-1">{role?.replace(/_/g, ' ')}</p>
                </div>
-               <div className="w-10 h-10 rounded-full border-2 border-blue-500 p-0.5 shadow-lg shadow-blue-500/20">
-                  <img src={appUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${appUser.uid}`} className="w-full h-full rounded-full object-cover" alt="" />
-               </div>
+
+               {/* Consolidated Profile FAB Button */}
+               <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className={`w-11 h-11 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                    isDark
+                      ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
+                      : 'border-blue-600 shadow-blue-600/10 bg-white'
+                  }`}
+               >
+                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
+                    {appUser.photoURL ? (
+                      <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'U'}</span>
+                    )}
+                  </div>
+               </button>
+
+               {/* CONSOLIDATED DROPDOWN MENU */}
+               {isProfileOpen && (
+                 <div className={`absolute right-0 top-full mt-4 w-72 rounded-[2.5rem] shadow-2xl z-[150] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200 origin-top-right border-2 ${
+                   isDark
+                     ? 'bg-[#0B1222] border-blue-500/30 text-white shadow-[0_20px_60px_rgba(0,0,0,0.95)]'
+                     : 'bg-white border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)]'
+                 }`}>
+                   {/* Menu Header (Mobile) */}
+                   <div className={`md:hidden flex items-center space-x-3 pb-3 border-b ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm overflow-hidden border shrink-0 bg-blue-500/20 border-blue-500/40 text-blue-400">
+                        {appUser.displayName?.[0]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{appUser.displayName}</p>
+                        <p className="text-[10px] font-mono text-amber-500 truncate">{role?.replace(/_/g, ' ')}</p>
+                      </div>
+                   </div>
+
+                   {/* Main Navigation Items */}
+                   <div className="space-y-1">
+                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-3 mb-2">Navigation</p>
+                      {navItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            if (item.id === 'support') setIsAdminSupportOpen(true);
+                            else if (item.id === 'params' || item.id === 'database') {
+                              setActiveTab(item.id);
+                              setIsSettingsOpen(true);
+                            }
+                            else setActiveTab(item.id);
+                            setIsProfileOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-wide transition-all ${
+                            activeTab === item.id
+                              ? 'bg-amber-500 text-slate-950 shadow-lg'
+                              : isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <item.icon className={`w-4 h-4 ${activeTab === item.id ? 'text-slate-950' : 'text-slate-500'}`} />
+                          <span>{item.label}</span>
+                        </button>
+                      ))}
+                   </div>
+
+                   <div className={`my-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`} />
+
+                   {/* System Actions */}
+                   <div className="space-y-1">
+                      <button
+                        onClick={() => { toggleTheme(); setIsProfileOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold uppercase transition-all ${
+                          isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                         {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-blue-500" />}
+                         <span>{isDark ? 'Light UI Mode' : 'Dark UI Mode'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setIsNotificationsOpen(true); setIsProfileOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold uppercase transition-all ${
+                          isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                         <Bell className="w-4 h-4 text-amber-500" />
+                         <span>Notifications</span>
+                      </button>
+                   </div>
+
+                   <div className={`pt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                     <button
+                       onClick={() => signOut(auth)}
+                       className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-all"
+                     >
+                       <LogOut className="w-4 h-4" />
+                       <span>Terminate Session</span>
+                     </button>
+                   </div>
+                 </div>
+               )}
             </div>
           </header>
 
-          <div className={`flex-1 overflow-y-auto custom-scrollbar backdrop-blur-[75px] ${role === 'STUDENT' ? 'p-0' : 'p-3 md:p-8'} ${isDark ? 'bg-black/20' : 'bg-white/20'}`}>
+          <div className={`flex-1 overflow-y-auto custom-scrollbar backdrop-blur-[75px] ${role === 'STUDENT' ? 'p-0' : 'p-4 md:p-10'} ${isDark ? 'bg-black/20' : 'bg-white/20'}`}>
             <div className={role === 'STUDENT' ? 'w-full' : 'max-w-7xl mx-auto'}>
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
@@ -268,7 +341,7 @@ export const MasterAppPortal: React.FC = () => {
                 <>
                   {role === 'STUDENT' && activeTab === 'dashboard' && <StudentMobileFirstDashboard name={appUser.displayName} />}
 
-                  {/* Dashboard Tab: Show Stats and recent activity */}
+                  {/* Dashboard Tab */}
                   {activeTab === 'dashboard' && isStaffOrAdmin && (
                      role === 'COUNSELOR' ? <CounselorPortal /> : <StaffDashboard
                         onInspect={(id) => setInspectingStudentId(id)}
@@ -279,7 +352,7 @@ export const MasterAppPortal: React.FC = () => {
                       />
                   )}
 
-                  {/* Student Roster Tab: Main Table */}
+                  {/* Student Roster Tab */}
                   {activeTab === 'students' && isStaffOrAdmin && (
                      <StaffDashboard
                         onInspect={(id) => setInspectingStudentId(id)}
@@ -290,14 +363,14 @@ export const MasterAppPortal: React.FC = () => {
                       />
                   )}
 
-                  {/* Counselors Tab (Admin Only) */}
+                  {/* Counselors Tab */}
                   {activeTab === 'counselors' && isAdmin && (
                     <AdminCounselorRoster />
                   )}
 
                   {role === 'COUNSELOR' && activeTab === 'students' && <CounselorPortal />}
 
-                  {/* Fallback if no tab matches */}
+                  {/* Fallback */}
                   {(!role || !['dashboard', 'students', 'counselors'].includes(activeTab)) && (
                     <div className="flex flex-col items-center justify-center py-20 space-y-4">
                       <Compass className="w-12 h-12 text-slate-700" />
@@ -311,6 +384,7 @@ export const MasterAppPortal: React.FC = () => {
         </main>
       </div>
 
+      {/* MODALS */}
       {isNotificationsOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className={`w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border ${
