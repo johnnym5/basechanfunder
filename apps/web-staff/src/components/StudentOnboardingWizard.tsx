@@ -172,16 +172,34 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   const currentStepKey = getStepList()[step] || 'welcome';
   const totalSteps = getStepList().length;
 
-  // Percentage calculation: Starts at 20% on first question (step 1), progresses to 100%
-  const calculatePercentage = () => {
-    if (step === 0) return 10;
+  // Percentage & Dynamic Encouraging Copy calculation
+  const getProgressData = () => {
+    if (step === 0) return { pct: 10, text: 'Getting Started' };
     const remainingSteps = totalSteps - 1;
     const progressWithinQuestions = (step - 1) / (remainingSteps - 1);
     const pct = Math.round(20 + progressWithinQuestions * 80);
-    return Math.min(100, Math.max(20, pct));
+    const clampedPct = Math.min(100, Math.max(20, pct));
+
+    // Dynamic encouraging messaging
+    let message = `You're ${clampedPct}% there!`;
+    if (clampedPct === 20) {
+      message = "You're 20% there";
+    } else if (clampedPct > 20 && clampedPct <= 40) {
+      message = `Great start, you're ${clampedPct}% in!`;
+    } else if (clampedPct > 40 && clampedPct <= 60) {
+      message = `Not bad, ${100 - clampedPct}% left!`;
+    } else if (clampedPct > 60 && clampedPct <= 85) {
+      message = `Doing great! You're ${clampedPct}% there`;
+    } else if (clampedPct > 85 && clampedPct < 100) {
+      message = `So close, you're ${clampedPct}% there, one more to go!`;
+    } else if (clampedPct >= 100) {
+      message = 'All done! 100% completed';
+    }
+
+    return { pct: clampedPct, text: message };
   };
 
-  const progressPercentage = calculatePercentage();
+  const { pct: progressPercentage, text: progressMessage } = getProgressData();
 
   // Determine active background graphic for each screen
   const getBackgroundImage = () => {
@@ -387,9 +405,18 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col font-sans select-none overflow-hidden">
-      {/* ── Background Image Layer (Subtle Faded Graphic) ── */}
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-700 pointer-events-none scale-105"
+      {/* ── Background Image Layer (Subtle Faded Graphic with Slow Continuous Zoom) ── */}
+      <motion.div
+        key={getBackgroundImage()}
+        initial={{ scale: 1.0 }}
+        animate={{ scale: 1.15 }}
+        transition={{
+          duration: 25,
+          ease: 'linear',
+          repeat: Infinity,
+          repeatType: 'reverse',
+        }}
+        className="absolute inset-0 bg-cover bg-center pointer-events-none"
         style={{
           backgroundImage: `url(${getBackgroundImage()})`,
           filter: isDark ? 'brightness(0.85) contrast(1.1)' : 'brightness(1.05) contrast(1.0)',
@@ -405,7 +432,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         }`}
       />
 
-      {/* ── Top Bar: Percentage Progress & Light/Dark Switch ── */}
+      {/* ── Top Bar: Dynamic Encouraging Progress & Light/Dark Switch ── */}
       <header className="relative px-6 py-4 flex items-center justify-between z-20 border-b border-black/5 dark:border-white/5">
         <div className="flex items-center gap-4">
           {step > 0 && currentStepKey !== 'verification' ? (
@@ -428,11 +455,11 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
             />
           )}
 
-          {/* Percentage Indicator (Starts at 20% on Question 1) */}
+          {/* Dynamic Encouraging Copy & Percentage */}
           {step > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                {progressPercentage}% Complete
+              <span className="text-xs md:text-sm font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                {progressMessage}
               </span>
             </div>
           )}
