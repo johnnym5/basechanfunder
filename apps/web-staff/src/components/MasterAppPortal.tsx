@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
+import { AdminNotificationPopover } from './ui/AdminNotificationPopover';
 import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -48,7 +49,9 @@ import { StaffStudentViewMode } from './StaffStudentViewMode';
 import { StudentOnboardingWizard } from './StudentOnboardingWizard';
 import { AppUpdateModal } from './AppUpdateModal';
 import { AdminCounselorRoster } from './AdminCounselorRoster';
+import { AdminStudentProfileDrawer } from './AdminStudentProfileDrawer';
 import { getPlatformType } from '../utils/deviceDetection';
+import { toast } from 'sonner';
 
 export const MasterAppPortal: React.FC = () => {
   const { appUser, role, currentUser, loading: authLoading } = useAuth();
@@ -62,6 +65,12 @@ export const MasterAppPortal: React.FC = () => {
   const [supportInitialStudentId, setSupportInitialStudentId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [inspectingStudentId, setInspectingStudentId] = useState<string | null>(null);
+
+  // Profile Drawer State (Accessible globally in portal)
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<any>(null);
+  const [drawerTab, setDrawerTab] = useState<'profile' | 'activity'>('profile');
+  const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
 
   // Profile Menu State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -117,6 +126,8 @@ export const MasterAppPortal: React.FC = () => {
   const isStaffOrAdmin = role === 'STAFF_AUDITOR' || role === 'COUNSELOR' || role === 'ADMIN_GOVERNANCE';
   const isAdmin = role === 'ADMIN_GOVERNANCE';
   const isDark = theme === 'dark';
+  const platform = getPlatformType();
+  const isNative = platform === 'NATIVE_ANDROID';
 
   const navItems = isStaffOrAdmin ? [
     ...(isAdmin ? [{ id: 'counselors', label: 'Counselors', icon: Briefcase }] : []),
@@ -128,6 +139,13 @@ export const MasterAppPortal: React.FC = () => {
     <div className={`h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-hidden transition-colors duration-500 relative ${
       theme === 'dark' ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
+      {/* ── Native Status Bar Spacer / "Border" ── */}
+      {isNative && (
+        <div className={`h-8 w-full flex-shrink-0 z-[200] border-y transition-colors duration-500 ${
+          isDark ? 'bg-slate-950 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+        }`} />
+      )}
+
       {/* Dynamic Animated Background Layer */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <AnimatePresence mode="sync">
@@ -183,71 +201,87 @@ export const MasterAppPortal: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 relative z-10 overflow-hidden">
         <main className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar">
 
-          {/* Restructured Top Header */}
-          <header className={`h-16 flex-shrink-0 px-6 md:px-8 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] ${
+          {/* Restructured Top Header - Optimized for Desktop & Mobile */}
+          <header className={`h-16 sm:h-20 flex-shrink-0 px-6 sm:px-10 md:px-12 border-b transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] ${
             theme === 'dark' ? 'bg-slate-950/40 border-white/5 shadow-2xl' : 'bg-white/70 border-slate-200 shadow-sm'
           }`}>
-            <div className="flex items-center space-x-4">
-              {inspectingStudentId ? (
-                <button
-                  onClick={() => setInspectingStudentId(null)}
-                  className="flex items-center gap-2 bg-slate-900 border border-white/10 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass"
-                >
-                  <ArrowLeft className="w-3 h-3" />
-                  <span>Exit Inspector</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <h1 className={`text-base md:text-xl font-black uppercase tracking-tighter text-depth-header`}>
-                    <span className={isDark ? 'text-slate-400' : 'text-blue-950'}>HELLO </span>
-                    <span className="text-amber-500">{appUser?.displayName?.toUpperCase() || 'ADMIN'}</span>
-                  </h1>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-4 md:space-x-6 shrink-0 relative" ref={profileMenuRef}>
-               {/* Right Utility Cluster */}
-               <div className="flex items-center gap-2 md:gap-4">
-                  {/* Notification Bell (Unified Pop-up) */}
-                  <NotificationDropdown />
-
-                  {/* Light / Dark Mode Toggle */}
+            <div className="h-full flex items-center justify-between">
+              <div className="flex items-center space-x-4 min-w-0">
+                {inspectingStudentId ? (
                   <button
-                    onClick={toggleTheme}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all depth-btn-glass ${
-                      isDark ? 'bg-white/5 border-white/5 text-amber-400 hover:bg-amber-500/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                    title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    onClick={() => setInspectingStudentId(null)}
+                    className="flex items-center gap-2 bg-slate-900 border border-white/10 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
                   >
-                    {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Exit Inspector</span>
                   </button>
-               </div>
-
-               {/* Profile FAB Button (Acts as Menu Trigger) */}
-               <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className={`w-11 h-11 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
-                    isDark
-                      ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
-                      : 'border-blue-600 shadow-blue-600/10 bg-white'
-                  }`}
-               >
-                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
-                    {appUser.photoURL ? (
-                      <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'A'}</span>
-                    )}
+                ) : (
+                  <div className="flex items-center gap-2 truncate">
+                    <h1 className={`text-sm sm:text-lg md:text-2xl font-black uppercase tracking-tighter text-depth-header whitespace-nowrap`}>
+                      <span className={isDark ? 'text-slate-400' : 'text-blue-950'}>HI </span>
+                      <span className="text-amber-500">{appUser?.displayName?.split(' ')[0]?.toUpperCase() || 'ADMIN'}</span>
+                    </h1>
                   </div>
-               </button>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-3 sm:space-x-6 shrink-0 relative" ref={profileMenuRef}>
+                 {/* Right Utility Cluster */}
+                 <div className="flex items-center gap-2 sm:gap-4">
+                    {/* Notification Bell */}
+                    {isStaffOrAdmin ? (
+                      <AdminNotificationPopover
+                        onViewStudent={async (userId, eventId) => {
+                          setDrawerTab('activity');
+                          setHighlightEventId(eventId || null);
+                          const userSnap = await getDoc(doc(db, 'users', userId));
+                          if (userSnap.exists()) {
+                            setSelectedStudentForDrawer({ id: userId, ...userSnap.data() });
+                            setIsProfileDrawerOpen(true);
+                          } else {
+                            toast.error("Could not find student profile.");
+                          }
+                        }}
+                      />
+                    ) : (
+                      <NotificationDropdown />
+                    )}
+
+                    {/* Light / Dark Mode Toggle */}
+                    <button
+                      onClick={toggleTheme}
+                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all depth-btn-glass ${
+                        isDark ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-amber-500/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </button>
+                 </div>
+
+                 {/* Profile FAB Button */}
+                 <button
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                      isDark
+                        ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
+                        : 'border-blue-600 shadow-blue-600/10 bg-white'
+                    }`}
+                 >
+                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
+                      {appUser.photoURL ? (
+                        <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm sm:text-lg font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'A'}</span>
+                      )}
+                    </div>
+                 </button>
 
                {/* DROPDOWN MENU - Further Trimmed */}
                {isProfileOpen && (
-                 <div className={`absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl z-[150] p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right border ${
+                 <div className={`absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl z-[150] p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right border ${
                    isDark
-                     ? 'bg-[#0B1222]/98 backdrop-blur-xl border-white/10 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
-                     : 'bg-white border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.1)]'
+                     ? 'bg-slate-900/60 backdrop-blur-[75px] border-white/10 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
+                     : 'bg-white/60 backdrop-blur-[75px] border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.1)]'
                  }`}>
                    <div className="space-y-0.5">
                       <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-3 my-1 opacity-50">Governance</p>
@@ -281,11 +315,12 @@ export const MasterAppPortal: React.FC = () => {
                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-all"
                      >
                        <LogOut className="w-3 h-3" />
-                       <span>Terminate Session</span>
+                       <span>Log Out</span>
                      </button>
                    </div>
-                 </div>
-               )}
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
@@ -294,19 +329,19 @@ export const MasterAppPortal: React.FC = () => {
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
               ) : !appUser.isApproved && role === 'STUDENT' ? (
-                <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8">
-                  <div className="w-24 h-24 rounded-[2.5rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-2xl shadow-amber-500/10">
-                    <ShieldAlert className="w-12 h-12 animate-pulse" />
+                <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4 sm:space-y-8">
+                  <div className="w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-[2.5rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-2xl shadow-amber-500/10">
+                    <ShieldAlert className="w-6 h-6 sm:w-12 sm:h-12 animate-pulse" />
                   </div>
-                  <div className="space-y-3 max-w-md">
-                    <h2 className={`text-3xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Account Pending</h2>
-                    <p className="text-sm font-medium text-slate-400 leading-relaxed uppercase tracking-wider">
+                  <div className="space-y-1 sm:space-y-3 max-w-md">
+                    <h2 className={`text-lg sm:text-3xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Account Pending</h2>
+                    <p className="text-[10px] sm:text-sm font-medium text-slate-400 leading-relaxed uppercase tracking-wider px-2">
                       Please wait for admin to approve your account.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5">
-                    <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Awaiting Clearance...</span>
+                  <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 scale-90 sm:scale-100">
+                    <Loader2 className="w-2.5 h-2.5 text-amber-500 animate-spin" />
+                    <span className="text-[7px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest">Awaiting Clearance...</span>
                   </div>
                 </div>
               ) : (
@@ -319,6 +354,11 @@ export const MasterAppPortal: React.FC = () => {
                           setSupportInitialStudentId(id);
                           setIsAdminSupportOpen(true);
                         }}
+                        onViewProfile={(student) => {
+                          setSelectedStudentForDrawer(student);
+                          setDrawerTab('profile');
+                          setIsProfileDrawerOpen(true);
+                        }}
                       />
                   )}
                   {activeTab === 'students' && isStaffOrAdmin && (
@@ -327,6 +367,11 @@ export const MasterAppPortal: React.FC = () => {
                         onMessageStudent={(id) => {
                           setSupportInitialStudentId(id);
                           setIsAdminSupportOpen(true);
+                        }}
+                        onViewProfile={(student) => {
+                          setSelectedStudentForDrawer(student);
+                          setDrawerTab('profile');
+                          setIsProfileDrawerOpen(true);
                         }}
                       />
                   )}
@@ -343,7 +388,7 @@ export const MasterAppPortal: React.FC = () => {
 
       {/* MODALS */}
       {isAdminSupportOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsAdminSupportOpen(false)}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { setIsAdminSupportOpen(false); setActiveTab('dashboard'); }}>
           <div className={`w-full max-w-6xl h-[90vh] rounded-[2.5rem] border overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.85)] animate-in zoom-in-95 duration-300 flex flex-col ${
             isDark ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'
           }`} onClick={e => e.stopPropagation()}>
@@ -352,7 +397,7 @@ export const MasterAppPortal: React.FC = () => {
                 <MessageCircle className="w-5 h-5 text-amber-500" />
                 <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Support Governance Desk</h3>
               </div>
-              <button onClick={() => setIsAdminSupportOpen(false)} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
+              <button onClick={() => { setIsAdminSupportOpen(false); setActiveTab('dashboard'); }} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -364,16 +409,16 @@ export const MasterAppPortal: React.FC = () => {
       )}
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsSettingsOpen(false)}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { setIsSettingsOpen(false); setActiveTab('dashboard'); }}>
           <div className={`w-full max-w-5xl h-[85vh] rounded-[2.5rem] border overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.85)] animate-in zoom-in-95 duration-300 flex flex-col ${
             isDark ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'
           }`} onClick={e => e.stopPropagation()}>
             <div className={`p-6 border-b flex justify-between items-center ${isDark ? 'bg-slate-950/20 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
               <div className="flex items-center gap-3">
                 <Sliders className="w-5 h-5 text-amber-500" />
-                <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>System Parameters</h3>
+                <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Settings</h3>
               </div>
-              <button onClick={() => setIsSettingsOpen(false)} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
+              <button onClick={() => { setIsSettingsOpen(false); setActiveTab('dashboard'); }} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -387,6 +432,18 @@ export const MasterAppPortal: React.FC = () => {
       {role === 'STUDENT' && isSupportOpen && (
         <StudentSupportChat isPopUp={true} onClose={() => setIsSupportOpen(false)} />
       )}
+
+      {/* Global Student Inspector Drawer */}
+      <AdminStudentProfileDrawer
+        isOpen={isProfileDrawerOpen}
+        onClose={() => {
+          setIsProfileDrawerOpen(false);
+          setHighlightEventId(null);
+        }}
+        student={selectedStudentForDrawer}
+        initialTab={drawerTab}
+        highlightEventId={highlightEventId}
+      />
 
       {getPlatformType() === 'NATIVE_ANDROID' && <AppUpdateModal />}
     </div>
