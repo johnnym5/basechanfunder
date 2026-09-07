@@ -7,15 +7,32 @@ import * as path from 'path';
 
 async function bootstrap() {
   // Load environment variables from root .env
-  dotenv.config({ path: path.join(__dirname, '../../../.env') });
+  const rootDir = path.join(__dirname, '../../../');
+  dotenv.config({ path: path.join(rootDir, '.env') });
 
   // Initialize Firebase Admin once
   if (!admin.apps.length) {
-    admin.initializeApp({
+    const serviceAccountPath = path.join(rootDir, 'service-account.json');
+
+    const config: admin.AppOptions = {
       projectId: process.env.FIREBASE_PROJECT_ID || 'basechanfunder',
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'basechanfunder.firebasestorage.app'
-    });
-    Logger.log('🔥 Firebase Admin initialized', 'Bootstrap');
+    };
+
+    try {
+      // Prefer explicit service account file for local dev and production stability
+      if (require('fs').existsSync(serviceAccountPath)) {
+        config.credential = admin.credential.cert(serviceAccountPath);
+        Logger.log('🔑 Using explicit Service Account Key', 'Bootstrap');
+      } else {
+        Logger.warn('⚠️ No service-account.json found. Falling back to Application Default Credentials.', 'Bootstrap');
+      }
+
+      admin.initializeApp(config);
+      Logger.log('🔥 Firebase Admin initialized', 'Bootstrap');
+    } catch (err: any) {
+      Logger.error(`❌ Firebase Admin init failed: ${err.message}`, 'Bootstrap');
+    }
   }
 
   const app = await NestFactory.create(AppModule);

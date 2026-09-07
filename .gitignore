@@ -16,6 +16,7 @@ pkg/
 .env.*.local
 *.pem
 *.key
+service-account.json
 
 # IDE & System Files
 .DS_Store

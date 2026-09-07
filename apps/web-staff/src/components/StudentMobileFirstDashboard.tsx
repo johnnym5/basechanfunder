@@ -449,9 +449,29 @@ export const StudentMobileFirstDashboard: React.FC<{
   };
 
   const handleAdminUnlink = async (accountId: string) => {
+    const acc = accounts.find(a => a.id === accountId);
+    if (!acc) return;
+
     if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics.')) {
-      await deleteDoc(doc(db, 'financial_accounts', accountId));
-      toast.success('Account unlinked by Administrator.');
+      try {
+        await deleteDoc(doc(db, 'financial_accounts', accountId));
+
+        // Add Notification
+        await addDoc(collection(db, 'notifications'), {
+          userId: currentUser?.uid, // If in student view, this might be tricky, usually staffId
+          studentId: currentUser?.uid,
+          studentName: name,
+          title: 'Account Force-Unlinked',
+          body: `Bank account (${acc.bankName}) was removed by an Administrator.`,
+          type: 'ALERT',
+          createdAt: serverTimestamp(),
+          isRead: false
+        });
+
+        toast.success('Account unlinked by Administrator.');
+      } catch (err: any) {
+        toast.error('Failed to unlink: ' + err.message);
+      }
     }
   };
 
@@ -487,6 +507,17 @@ export const StudentMobileFirstDashboard: React.FC<{
         lastSyncedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      });
+
+      // 1b. Add Notification
+      await addDoc(collection(db, 'notifications'), {
+        userId: currentUser.uid,
+        studentName: name,
+        title: 'New Bank Source Linked',
+        body: `Student linked a new ${selectedBank} account (${mask}).`,
+        type: 'INFO',
+        createdAt: serverTimestamp(),
+        isRead: false
       });
 
       setPendingAccountId(docRef.id);

@@ -44,12 +44,19 @@ export class AuthController {
     }
 
     try {
-      this.logger.log(`Syncing claims for UID: ${uid}, Email: ${email}`);
+      this.logger.log(`Syncing claims for UID: ${uid}, Email: ${email} -> Role: ${role}`);
 
-      // 2. Set Custom User Claims
-      await admin.auth().setCustomUserClaims(uid, { role });
+      // 2. Set Custom User Claims (Optional / Best Effort)
+      // This requires high-level Admin SDK permissions. If it fails (e.g. invalid_rapt),
+      // we log it but don't kill the request because Firestore is our primary backup.
+      try {
+        await admin.auth().setCustomUserClaims(uid, { role });
+        this.logger.log(`✅ Custom claims synced for ${uid}`);
+      } catch (authErr: any) {
+        this.logger.warn(`⚠️ Auth Claims sync skipped: ${authErr.message}. This is normal if you don't have an Admin Key.`);
+      }
 
-      // 3. Update Firestore profile as backup
+      // 3. Update Firestore profile (This is our main source of truth for the UI)
       await admin.firestore().collection('users').doc(uid).set({
         email,
         role,
@@ -57,10 +64,13 @@ export class AuthController {
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
-      return { status: 'SUCCESS', role };
+      return {
+        status: 'SUCCESS',
+        role,
+        message: 'Profile updated in Firestore. Custom claims may be delayed.'
+      };
     } catch (error: any) {
-      this.logger.error(`Error syncing claims for ${uid}: ${error.message}`);
-      // Don't throw to avoid 500 if possible, return error status
+      this.logger.error(`❌ Critical error updating user ${uid}: ${error.message}`);
       return { status: 'ERROR', message: error.message };
     }
   }

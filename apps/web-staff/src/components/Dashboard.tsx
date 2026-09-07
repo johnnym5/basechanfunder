@@ -27,7 +27,9 @@ import {
   RefreshCw,
   UserPlus,
   ChevronRight,
+  ChevronDown,
   Activity,
+  BarChart3,
   X,
   FileText,
   CheckCircle2,
@@ -53,6 +55,7 @@ import { StudentTableFilters, FilterCriteria } from './StudentTableFilters';
 import { toast } from 'sonner';
 
 import { resolveUserStatus, ComplianceStatus } from '../services/userStatusService';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
   id: string;
@@ -278,6 +281,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMetricsExpanded, setIsMetricsExpanded] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -840,6 +844,17 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     allUsers.filter(u => u.role === 'COUNSELOR').map(u => ({ uid: u.uid || u.id, displayName: u.displayName || u.username || 'Counselor' }))
   , [allUsers]);
 
+  const statConfigs = [
+    { label: "Total Students", value: stats.total, icon: Users, color: "text-slate-600 dark:text-slate-300", description: "Authorized student profiles", filterId: 'ALL' },
+    { label: "Cleared", value: stats.cleared, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400", description: "Full POF maturity reached", filterId: 'CLEARED' },
+    { label: "Top Up Required", value: stats.topUpRequired, icon: Zap, color: "text-amber-600 dark:text-amber-400", description: "Funding needed or pending", filterId: 'REQUESTS' },
+    { label: "Almost Done", value: stats.nearMaturity, icon: Clock, color: "text-cyan-600 dark:text-cyan-400", description: "Near 28-day maturity", filterId: 'NEAR_MATURITY' },
+    { label: "Auth Failed", value: stats.unapproved, icon: ShieldAlert, color: "text-rose-600 dark:text-rose-500", description: "Verification failed or pending", filterId: 'UNAPPROVED' },
+    ...(stats.pendingOnboarding > 0 ? [{ label: "Incomplete", value: stats.pendingOnboarding, icon: Loader2, color: "text-slate-600 dark:text-slate-400", description: "Awaiting setup completion", filterId: 'INCOMPLETE' }] : []),
+  ];
+
+  const activeStat = statConfigs.find(c => c.filterId === filter) || statConfigs[0];
+
   if (loading) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
@@ -851,67 +866,81 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   return (
     <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans text-main">
 
-      {/* 1. Statistics (Clickable Filters) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <StatCard
-          label="Total Students"
-          value={stats.total}
-          icon={Users}
-          color="text-slate-600 dark:text-slate-300"
-          description="Authorized student profiles"
-          onClick={() => setFilter('ALL')}
-          isActive={filter === 'ALL'}
-        />
-        <StatCard
-          label="Cleared"
-          value={stats.cleared}
-          icon={CheckCircle2}
-          color="text-emerald-600 dark:text-emerald-400"
-          description="Full POF maturity reached"
-          onClick={() => setFilter('CLEARED')}
-          isActive={filter === 'CLEARED'}
-        />
-        <StatCard
-          label="Top Up Required"
-          value={stats.topUpRequired}
-          icon={Zap}
-          color="text-amber-600 dark:text-amber-400"
-          description="Funding needed or pending"
-          onClick={() => {
-            setFilter('REQUESTS');
-            setRequestTypeFilter('ALL');
-          }}
-          isActive={filter === 'REQUESTS'}
-        />
-        <StatCard
-          label="Almost Done"
-          value={stats.nearMaturity}
-          icon={Clock}
-          color="text-cyan-600 dark:text-cyan-400"
-          description="Near 28-day maturity"
-          onClick={() => setFilter('NEAR_MATURITY')}
-          isActive={filter === 'NEAR_MATURITY'}
-        />
-        <StatCard
-          label="Auth Failed"
-          value={stats.unapproved}
-          icon={ShieldAlert}
-          color="text-rose-600 dark:text-rose-500"
-          description="Verification failed or pending"
-          onClick={() => setFilter('UNAPPROVED')}
-          isActive={filter === 'UNAPPROVED'}
-        />
-        {stats.pendingOnboarding > 0 && (
-          <StatCard
-            label="Incomplete"
-            value={stats.pendingOnboarding}
-            icon={Loader2}
-            color="text-slate-600 dark:text-slate-400"
-            description="Awaiting setup completion"
-            onClick={() => setFilter('INCOMPLETE')}
-            isActive={filter === 'INCOMPLETE'}
-          />
-        )}
+      {/* 1. Statistics (Responsive Hybrid Grid/Accordion) */}
+      <div className="space-y-3">
+        {/* Mobile Accordion Toggle */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
+            className="w-full glass-card p-4 flex items-center justify-between border border-white/10 rounded-2xl bg-slate-900/80 backdrop-blur-md shadow-xl transition-all active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-4">
+              <div className={`p-2 rounded-xl bg-slate-950 border border-white/5 ${activeStat.color}`}>
+                <activeStat.icon className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{activeStat.label}</p>
+                <p className="text-xl font-black text-white leading-none mt-1">{activeStat.value}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400">
+               <BarChart3 className="w-3.5 h-3.5" />
+               <span className="text-[9px] font-black uppercase tracking-widest">
+                 {isMetricsExpanded ? 'Collapse' : 'Expand'} ({statConfigs.length})
+               </span>
+               <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMetricsExpanded ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+
+          <AnimatePresence>
+            {isMetricsExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-1 gap-2 pt-3">
+                  {statConfigs.map((s) => (
+                    <StatCard
+                      key={s.filterId}
+                      label={s.label}
+                      value={s.value}
+                      icon={s.icon}
+                      color={s.color}
+                      description={s.description}
+                      onClick={() => {
+                        setFilter(s.filterId as any);
+                        if (s.filterId === 'REQUESTS') setRequestTypeFilter('ALL');
+                        setIsMetricsExpanded(false);
+                      }}
+                      isActive={filter === s.filterId}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Desktop Grid View */}
+        <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          {statConfigs.map((s) => (
+            <StatCard
+              key={s.filterId}
+              label={s.label}
+              value={s.value}
+              icon={s.icon}
+              color={s.color}
+              description={s.description}
+              onClick={() => {
+                setFilter(s.filterId as any);
+                if (s.filterId === 'REQUESTS') setRequestTypeFilter('ALL');
+              }}
+              isActive={filter === s.filterId}
+            />
+          ))}
+        </div>
       </div>
 
       {/* 2. Multi-Criteria Search Engine */}

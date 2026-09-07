@@ -253,9 +253,28 @@ export const StudentLightDashboard: React.FC<{
   };
 
   const handleAdminUnlink = async (accountId: string) => {
+    const acc = accounts.find(a => a.id === accountId);
+    if (!acc) return;
+
     if (window.confirm('Accept and unlink this account immediately?')) {
-      await deleteDoc(doc(db, 'financial_accounts', accountId));
-      toast.success('Account unlinked.');
+      try {
+        await deleteDoc(doc(db, 'financial_accounts', accountId));
+
+        // Add Notification
+        await addDoc(collection(db, 'notifications'), {
+          userId: activeUserId,
+          studentName: name,
+          title: 'Account Force-Unlinked',
+          body: `Bank account (${acc.bankName}) was removed by an Administrator.`,
+          type: 'ALERT',
+          createdAt: serverTimestamp(),
+          isRead: false
+        });
+
+        toast.success('Account unlinked.');
+      } catch (err: any) {
+        toast.error('Failed to unlink: ' + err.message);
+      }
     }
   };
 
@@ -293,6 +312,18 @@ export const StudentLightDashboard: React.FC<{
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // Add Notification
+      await addDoc(collection(db, 'notifications'), {
+        userId: activeUserId,
+        studentName: name,
+        title: 'New Bank Source Linked',
+        body: `${isStaff ? 'Admin' : 'Student'} linked a new ${selectedBank} account (${mask}).`,
+        type: 'INFO',
+        createdAt: serverTimestamp(),
+        isRead: false
+      });
+
       setIsConnectModalOpen(false);
     } finally {
       setIsSavingAndSyncing(false);

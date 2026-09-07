@@ -5,6 +5,7 @@ import {
   where,
   onSnapshot,
   doc,
+  getDoc,
   updateDoc,
   serverTimestamp,
   addDoc,
@@ -59,12 +60,15 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   useEffect(() => {
     if (!studentId) return;
 
-    // Listen to the specific student evaluation
-    const unsub = onSnapshot(doc(db, 'pof_evaluations', studentId), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setStudent({ id: snap.id, ...data });
-        // Pre-fill setup fields if they exist
+    // Listen to the student's evaluation using a query (matches useUserBalance logic)
+    const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', studentId));
+    const unsub = onSnapshot(evalQ, (snap) => {
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const data = docSnap.data();
+        setStudent({ id: docSnap.id, ...data });
+
+        // Pre-fill setup fields
         if (data.targetGBP) setTargetGbpInput(data.targetGBP.toString());
         if (data.localCurrency) setLocalCurrency(data.localCurrency);
         if (data.startDate) setTimerStartInput(data.startDate);
@@ -74,6 +78,13 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
             maxLimit: data.topUpPricingConfig.maxAllowedTopUpNgn || 150000000
           });
         }
+      } else {
+        // Fallback: Use basic user data if evaluation doesn't exist yet
+        getDoc(doc(db, 'users', studentId)).then(userSnap => {
+           if (userSnap.exists()) {
+             setStudent({ userId: studentId, userName: userSnap.data().displayName });
+           }
+        });
       }
       setLoading(false);
     });
@@ -181,11 +192,11 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full max-w-7xl mx-auto">
       <StudentLightDashboard
         evaluationId={studentId}
-        userId={student?.userId}
-        name={student?.userName || 'Student'}
+        userId={studentId}
+        name={student?.userName || student?.displayName || 'Student'}
         isStaff={true}
         onStaffAction={(tab) => {
           setModalTab((tab as any) || 'balance');
