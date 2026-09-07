@@ -348,54 +348,54 @@ export const StudentLightDashboard: React.FC<{
       )}
 
       {/* Hero Metric Card Section */}
-      <section className="mb-12 relative group">
-        <div className="relative overflow-hidden rounded-[2.5rem] min-h-[340px] flex items-stretch">
+      <section className="mb-6 md:mb-12 relative group px-1 sm:px-4">
+        <div className="relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] min-h-[280px] md:min-h-[340px] flex items-stretch">
 
           {/* CARD 1: Total Liquid Converted Balance */}
           <div className={`w-full flex-shrink-0 transition-all duration-700 transform ${activeMetricCard === 0 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
-            <div className="h-full glass-card p-10 md:p-14 text-white relative flex flex-col justify-between overflow-hidden !bg-slate-900 !border-white/10 shadow-2xl">
+            <div className="h-full glass-card p-4 sm:p-6 md:p-14 text-white relative flex flex-col justify-between overflow-hidden !bg-slate-900 !border-white/10 shadow-2xl">
               <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-              <div className="relative z-10 space-y-8">
+              <div className="relative z-10 space-y-4 md:space-y-8">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-blue-400 text-xs font-black uppercase tracking-[0.25em] mb-3 opacity-80">{name}</p>
-                    <h2 className="text-6xl md:text-7xl font-black tracking-tighter text-depth-header">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-blue-400 text-[10px] md:text-xs font-black uppercase tracking-[0.25em] mb-1 md:mb-3 opacity-80 truncate">{name}</p>
+                    <h2 className="text-3xl xs:text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter text-depth-header leading-none break-all">
                       £{totals.gbp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h2>
-                    <div className="flex justify-between text-[9px] font-mono text-slate-400 mt-2 border-t border-white/5 pt-2 uppercase">
+                    <div className="flex justify-between text-[7px] xs:text-[8px] md:text-[9px] font-mono text-slate-400 mt-2 md:mt-4 border-t border-white/5 pt-2 uppercase tracking-tighter">
                        <span>CURRENT: £{Math.round(totals.gbp).toLocaleString()}</span>
                        <span>TARGET: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (NOT SET)'}</span>
                     </div>
-                    <div className="mt-4 flex items-center gap-3">
-                       <p className="text-slate-400 text-xl font-bold uppercase tracking-tight text-depth-header">{currency.symbol}{totals.ngn.toLocaleString()}</p>
-                       <span className="px-2 py-0.5 rounded bg-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 border border-white/5">{currency.code} LOCAL</span>
+                    <div className="mt-2 md:mt-4 flex items-center gap-2 md:gap-3">
+                       <p className="text-slate-400 text-base md:text-xl font-bold uppercase tracking-tight text-depth-header">{currency.symbol}{totals.ngn.toLocaleString()}</p>
+                       <span className="px-1.5 py-0.5 rounded bg-white/5 text-[6px] md:text-[9px] font-black uppercase tracking-widest text-slate-500 border border-white/5">{currency.code}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-6 pt-6 border-t border-white/5">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center space-x-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                      <CreditCard className="w-4 h-4 text-slate-600" />
-                      <span>MARK & SELECT: <span className="text-white ml-1">{selectedAccountIds.length} / {accounts.length} SELECTED</span></span>
+                <div className="flex flex-wrap items-center justify-between gap-4 md:gap-6 pt-4 md:pt-6 border-t border-white/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-6">
+                    <div className="flex items-center space-x-2 md:space-x-2.5 text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-[0.2em] text-slate-500">
+                      <CreditCard className="w-3 h-3 md:w-4 md:h-4 text-slate-600" />
+                      <span>LINKED: <span className="text-white ml-1">{selectedAccountIds.length} / {accounts.length}</span></span>
                     </div>
                     <div className="hidden sm:block w-px h-4 bg-white/10" />
-                    <div className="flex items-center space-x-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                      <Building2 className="w-4 h-4 text-emerald-500/60" />
-                      <span>Bank: <span className="text-emerald-400 ml-1">
+                    <div className="flex items-center space-x-2 md:space-x-2.5 text-[8px] md:text-[10px] font-black uppercase tracking-wider md:tracking-[0.2em] text-slate-500">
+                      <Building2 className="w-3 h-3 md:w-4 md:h-4 text-emerald-500/60" />
+                      <span className="truncate max-w-[100px] xs:max-w-none">Bank: <span className="text-emerald-400 ml-1">
                         {selectedAccountIds.length === 0
-                          ? 'NO SOURCES'
+                          ? 'NONE'
                           : selectedAccountIds.length === 1
                             ? accounts.find(a => a.id === selectedAccountIds[0])?.bankName
-                            : `${accounts.find(a => a.id === selectedAccountIds[0])?.bankName} and ${selectedAccountIds.length - 1} others`}
+                            : `MULTI (+${selectedAccountIds.length - 1})`}
                       </span></span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => isStaff && onStaffAction ? onStaffAction() : setIsTopUpModalOpen(true)}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                    className="flex items-center gap-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
                   >
                     <span>{isStaff ? 'UPDATE TOP-UP' : 'REQUEST TOP-UP'}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -512,26 +512,26 @@ export const StudentLightDashboard: React.FC<{
       </section>
 
       {/* Compliance Checklist */}
-      <section className="mb-12">
-        <div className="px-2 mb-8">
-          <h3 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white">Compliance Documents</h3>
-          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] mt-1">Required files for proof of funds verification</p>
+      <section className="mb-8 md:mb-12 px-1 sm:px-4">
+        <div className="px-1 md:px-2 mb-3 md:mb-8">
+          <h3 className="text-base md:text-xl uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">Compliance Documents</h3>
+          <p className="text-[9px] md:text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mt-0.5">Required files for proof of funds verification</p>
         </div>
 
-        <div className="p-8 rounded-[2.5rem] border backdrop-blur-md flex items-center justify-between transition-all bg-white border-slate-200 shadow-md dark:bg-slate-900/80 dark:border-white/10 hover:border-blue-500/30">
-           <div className="flex items-center gap-6">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm ${
+        <div className="p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-5 transition-all bg-white border-slate-200 shadow-md dark:bg-slate-900/80 dark:border-white/10 hover:border-blue-500/30">
+           <div className="flex items-start gap-3 md:gap-6 w-full sm:w-auto">
+              <div className={`w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center border shadow-sm shrink-0 ${
                 appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
               }`}>
-                 {appUser?.mandateStatus === 'MANDATE_APPROVED' ? <CheckCircle2 className="w-8 h-8" /> : <ShieldCheck className="w-8 h-8" />}
+                 {appUser?.mandateStatus === 'MANDATE_APPROVED' ? <CheckCircle2 className="w-5 h-5 md:w-8 md:h-8" /> : <ShieldCheck className="w-5 h-5 md:w-8 md:h-8" />}
               </div>
-              <div>
-                 <h4 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+              <div className="min-w-0">
+                 <h4 className="text-sm md:text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white leading-tight">
                    {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Compliance Verification Cleared' :
                     appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Package Awaiting Verification' :
                     'Awaiting Compliance Verification'}
                  </h4>
-                 <p className="text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mt-1">
+                 <p className="text-[9px] md:text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mt-1.5 leading-relaxed">
                    {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Your regulatory account mandate has been fully verified and approved.' :
                     appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Your document package has been received and is under professional review.' :
                     'Submit your international passport and supporting financial documents for review.'}
@@ -540,7 +540,7 @@ export const StudentLightDashboard: React.FC<{
            </div>
            <button
              onClick={() => setIsDocumentWizardOpen(true)}
-             className={`px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+             className={`w-full sm:w-auto px-5 md:px-8 py-3 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all shadow-lg ${
                appUser?.mandateStatus === 'MANDATE_APPROVED'
                  ? 'bg-emerald-500 text-white shadow-emerald-500/20'
                  : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-500'
@@ -552,30 +552,30 @@ export const StudentLightDashboard: React.FC<{
       </section>
 
       {/* Bank Accounts Ledger */}
-      <section className="space-y-8">
-        <div className="flex justify-between items-end px-2">
-          <div>
-            <h3 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white">Bank Accounts Ledger</h3>
-            <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] mt-1">Select accounts to include in total asset calculation</p>
+      <section className="space-y-4 md:space-y-8 px-1 sm:px-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 px-1">
+          <div className="min-w-0">
+            <h3 className="text-base md:text-xl uppercase font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">Bank Accounts Ledger</h3>
+            <p className="text-[9px] md:text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mt-1">Select accounts to include in total asset calculation</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
              <button
                onClick={() => setSelectedAccountIds(accounts.map(a => a.id))}
-               className={`flex items-center space-x-2 text-[9px] font-black uppercase tracking-[0.2em] transition-all px-4 py-2 rounded-xl border border-white/5 hover:bg-white/5 text-slate-500`}
+               className="flex-1 lg:flex-none flex items-center justify-center space-x-2 text-[7px] md:text-[9px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500"
              >
                <CheckSquare className="w-3 h-3" />
                <span>Select All</span>
              </button>
              <button
                onClick={() => setSelectedAccountIds([])}
-               className={`flex items-center space-x-2 text-[9px] font-black uppercase tracking-[0.2em] transition-all px-4 py-2 rounded-xl border border-white/5 hover:bg-white/5 text-slate-500`}
+               className="flex-1 lg:flex-none flex items-center justify-center space-x-2 text-[7px] md:text-[9px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500"
              >
                <Square className="w-3 h-3" />
                <span>Clear</span>
              </button>
              <button
                onClick={() => setIsConnectModalOpen(true)}
-               className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest transition-all px-6 py-2.5 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-95"
+               className="w-full lg:w-auto flex items-center justify-center space-x-2 text-[9px] font-black uppercase tracking-widest transition-all px-5 py-2.5 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-95"
              >
                <Plus className="w-3.5 h-3.5" />
                <span>Connect Source</span>

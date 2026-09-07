@@ -271,20 +271,18 @@ export const StudentMobileFirstDashboard: React.FC<{
       // 1. Prepare Atomic Batch Write
       const batch = writeBatch(db);
 
-      // a. Identify and Update Subcollection Document
+      // a. Identify and Update Account Document
       let targetAccountId = '';
-      const matchedAcc = accounts.find(acc => SmsIngestionService.verifyMatch(mask, acc.accountNumberMasked.slice(-4)));
+      const matchedAcc = liveAccounts.find(acc => SmsIngestionService.verifyMatch(mask, acc.accountNumberMasked?.slice(-4) || ''));
 
-      if (matchedAcc) {
-        targetAccountId = matchedAcc.id;
-        const accRef = doc(db, 'users', currentUser.uid, 'financial_accounts', targetAccountId);
+      if (matchedAcc || pendingAccountId) {
+        targetAccountId = matchedAcc?.id || pendingAccountId || '';
+        const accRef = doc(db, 'financial_accounts', targetAccountId);
         batch.set(accRef, {
-          accountBalanceNgn: balance,
           balanceNgn: balance,
           balanceGbp: balance / LIVE_FX_RATE,
-          lastParsedAt: serverTimestamp(),
           lastSyncedAt: serverTimestamp(),
-          status: 'ACTIVE',
+          status: 'VERIFIED',
           updatedAt: serverTimestamp()
         }, { merge: true });
       }
@@ -808,61 +806,62 @@ export const StudentMobileFirstDashboard: React.FC<{
         </section>
 
         {/* COMPLIANCE CHECKLIST */}
-        <section className="space-y-3 px-4 md:px-0">
+        <section className="space-y-3 px-1 sm:px-4">
           <div className="px-1">
-            <h3 className="text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-sm sm:text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
               Compliance Checklist
             </h3>
-            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               Document Verification & Submissions
             </p>
           </div>
 
           <div
             onClick={() => setIsDocumentWizardOpen(true)}
-            className="glass-card p-4 flex items-center justify-between transition-all cursor-pointer bg-white border-slate-200 shadow-md dark:bg-slate-900/80 dark:border-white/10 hover:border-blue-500/30"
+            className="glass-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all cursor-pointer bg-white border-slate-200 shadow-md dark:bg-slate-900/80 dark:border-white/10 hover:border-blue-500/30"
           >
-             <div className="flex items-center gap-3">
+             <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm ${
                   appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
                 }`}>
                    <Upload className="w-5 h-5" />
                 </div>
-                <div>
-                   <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                <div className="min-w-0">
+                   <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest leading-tight">
                      {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Verification Cleared' :
                       appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Package Submitted' :
-                      'Manage Submissions'}
+                      'Awaiting Compliance Verification'}
                    </p>
-                   <p className="text-[9px] text-slate-600 dark:text-slate-500 font-bold uppercase tracking-tight">
+                   <p className="text-[9px] text-slate-500 font-bold uppercase truncate">
                      {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'All documents verified' : 'Passport & financial docs'}
                    </p>
                 </div>
              </div>
-             <ChevronRight className={`w-5 h-5 ${appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'text-emerald-500' : 'text-blue-600'}`} />
+             <div className="flex items-center justify-between w-full sm:w-auto mt-1 sm:mt-0">
+                <span className="text-[9px] font-black text-blue-600 sm:hidden">GO TO VAULT</span>
+                <ChevronRight className={`w-5 h-5 ${appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'text-emerald-500' : 'text-blue-600'}`} />
+             </div>
           </div>
         </section>
 
         {/* BANK ACCOUNTS LEDGER */}
-        <section className="space-y-3 pt-2 px-4 md:px-0">
-          <div className="flex justify-between items-center px-1">
+        <section className="space-y-3 pt-2 px-1 sm:px-4">
+          <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 px-1">
             <div>
-              <h3 className="text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h3 className="text-sm sm:text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Bank Accounts Ledger
               </h3>
-              <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+              <p className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 Open Banking & Verified Sources
               </p>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <button
-                onClick={() => setIsConnectModalOpen(true)}
-                className="flex items-center space-x-1.5 text-[9px] font-black uppercase tracking-wider px-4 py-2 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-all cursor-pointer active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Connect Bank</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setIsConnectModalOpen(true)}
+              className="flex items-center space-x-1.5 text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 transition-all cursor-pointer active:scale-95"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Connect Bank</span>
+            </button>
           </div>
 
           <div className="space-y-3">
