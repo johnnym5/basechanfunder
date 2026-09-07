@@ -40,9 +40,10 @@ export const useUserBalance = (userId: string | undefined) => {
       }
     });
 
-    // 2. Subcollection Financial Accounts Listener
-    const accountsRef = collection(db, 'users', userId, 'financial_accounts');
-    const unsubAccounts = onSnapshot(accountsRef, (snap) => {
+    // 2. Financial Accounts Listener (Top-Level Collection)
+    const accountsRef = collection(db, 'financial_accounts');
+    const q = query(accountsRef, where('userId', '==', userId));
+    const unsubAccounts = onSnapshot(q, (snap) => {
       const accData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setAccounts(accData);
     });
