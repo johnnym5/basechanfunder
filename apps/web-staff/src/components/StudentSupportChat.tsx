@@ -57,6 +57,21 @@ export const StudentSupportChat: React.FC<StudentSupportChatProps> = ({ onClose,
       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Message));
       setMessages(msgs);
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }, (err: any) => {
+      console.warn('Support chat stream error:', err);
+      if (err.message?.includes('index')) {
+        const indexUrl = err.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0];
+        if (indexUrl) {
+          toast.error("Chat Index Required", {
+            description: "A database index is needed to load your conversation history.",
+            action: {
+              label: "Create Index",
+              onClick: () => window.open(indexUrl, '_blank')
+            },
+            duration: 10000
+          });
+        }
+      }
     });
 
     return unsub;
@@ -87,7 +102,7 @@ export const StudentSupportChat: React.FC<StudentSupportChatProps> = ({ onClose,
       )}
       <div className={`flex flex-col bg-[#0D1424] border border-blue-500/30 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 ${
         isPopUp
-          ? 'fixed inset-x-3 bottom-3 sm:inset-auto sm:right-6 sm:bottom-6 sm:w-96 max-h-[85vh] h-[480px] rounded-3xl z-[200] max-w-[calc(100vw-1.5rem)]'
+          ? 'fixed top-[4.5rem] right-3 sm:right-6 sm:w-96 max-h-[75vh] h-[480px] rounded-3xl z-[200] max-w-[calc(100vw-1.5rem)] shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
           : 'h-[80vh] w-full max-w-md mx-auto rounded-3xl'
       }`}>
 
@@ -98,12 +113,10 @@ export const StudentSupportChat: React.FC<StudentSupportChatProps> = ({ onClose,
               <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
             </div>
             <div className="min-w-0">
               <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-tight truncate">Counselor Support</h3>
               <div className="flex items-center space-x-1.5">
-                 <Circle className="w-1.5 h-1.5 fill-emerald-500 text-emerald-500 shrink-0" />
                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Counselor Active</span>
               </div>
             </div>

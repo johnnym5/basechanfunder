@@ -11,7 +11,8 @@ import {
   getDocs,
   onSnapshot,
   orderBy,
-  limit
+  limit,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -51,9 +52,7 @@ import { useNotificationModal } from '../context/NotificationContext';
 import { StudentTableFilters, FilterCriteria } from './StudentTableFilters';
 import { toast } from 'sonner';
 
-// --- Types ---
-
-type ComplianceStatus = 'CLEARED' | 'NEEDS_TOPUP' | 'NEAR_MATURITY' | 'AT_RISK' | 'PENDING' | 'NEW' | 'WAITING_APPROVAL' | 'UNAUTHENTICATED' | 'AT_RISK_CAPITAL_BREACH' | 'ARCHIVED';
+import { resolveUserStatus, ComplianceStatus } from '../services/userStatusService';
 
 interface Student {
   id: string;
@@ -92,16 +91,16 @@ interface Student {
 
 // --- Sub-Components ---
 
-const StatCard: React.FC<{ label: string; value: number | string; icon: any; color: string; onClick?: () => void; isActive?: boolean }> = ({
-  label, value, icon: Icon, color, onClick, isActive
+const StatCard: React.FC<{ label: string; value: number | string; icon: any; color: string; description?: string; onClick?: () => void; isActive?: boolean }> = ({
+  label, value, icon: Icon, color, description, onClick, isActive
 }) => {
   const { theme } = useTheme();
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left border p-3.5 md:p-5 rounded-2xl md:rounded-3xl backdrop-blur-md relative overflow-hidden group transition-all ${
+      className={`w-full text-left p-3.5 md:p-5 glass-card relative group transition-all ${
         theme === 'dark'
-          ? `bg-slate-900/40 border-white/5 ${isActive ? 'border-amber-500/50 bg-amber-500/5 shadow-lg shadow-amber-500/5' : 'hover:border-white/10'}`
+          ? `${isActive ? 'border-amber-500/50 bg-amber-500/10 shadow-lg shadow-amber-500/5' : 'hover:border-white/20'}`
           : `bg-white border-slate-200 shadow-sm ${isActive ? 'border-amber-500 ring-2 ring-amber-500/10' : 'hover:border-slate-300'}`
       }`}
     >
@@ -115,6 +114,9 @@ const StatCard: React.FC<{ label: string; value: number | string; icon: any; col
       </div>
       <p className={`text-xl md:text-2xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-950'}`}>{value}</p>
       <p className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest mt-0.5 md:mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600'}`}>{label}</p>
+      {description && (
+        <p className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter mt-1 opacity-60 group-hover:opacity-100 transition-opacity truncate">{description}</p>
+      )}
     </button>
   );
 };
@@ -128,12 +130,21 @@ const StatusBadge: React.FC<{ status: ComplianceStatus; isNew?: boolean }> = ({ 
     AT_RISK: theme === 'dark' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-600 border-rose-200',
     PENDING: theme === 'dark' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-50 text-slate-500 border-slate-200',
     NEW: theme === 'dark' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-200',
+    PENDING_ONBOARDING: theme === 'dark' ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200',
+    AWAITING_VERIFICATION: theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200',
+    UNAUTHENTICATED: theme === 'dark' ? 'bg-rose-600/20 text-rose-500 border-rose-600/30 shadow-lg shadow-rose-900/10' : 'bg-rose-50 text-rose-700 border-rose-200 shadow-sm',
+  };
+
+  const labels: Record<string, string> = {
+    PENDING_ONBOARDING: 'INCOMPLETE ONBOARDING',
+    AWAITING_VERIFICATION: 'PENDING VERIFICATION',
+    UNAUTHENTICATED: 'IDENTIFICATION FAILED',
   };
 
   return (
     <div className="flex items-center gap-2">
       <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter whitespace-nowrap shadow-sm ${styles[status] || styles.PENDING}`}>
-        {status.replace('_', ' ')}
+        {labels[status] || status.replace('_', ' ')}
       </span>
       {isNew && (
         <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 uppercase tracking-widest animate-pulse">
@@ -147,6 +158,7 @@ const StatusBadge: React.FC<{ status: ComplianceStatus; isNew?: boolean }> = ({ 
 interface StaffDashboardProps {
   onInspect?: (id: string) => void;
   onMessageStudent?: (id: string) => void;
+  onViewProfile?: (student: any) => void;
 }
 
 const HistoryLogModal: React.FC<{ isOpen: boolean; onClose: () => void; student: Student | null }> = ({ isOpen, onClose, student }) => {
@@ -180,9 +192,7 @@ const HistoryLogModal: React.FC<{ isOpen: boolean; onClose: () => void; student:
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
-      <div className={`w-full max-w-2xl max-h-[80vh] rounded-[2.5rem] border flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${
-        theme === 'dark' ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'
-      }`}>
+      <div className="w-full max-w-2xl max-h-[80vh] glass-card flex flex-col animate-in zoom-in-95 duration-300 shadow-2xl overflow-hidden">
         <div className={`p-6 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
           <div className="flex items-center gap-3">
             <Activity className="w-5 h-5 text-cyan-500" />
@@ -232,7 +242,7 @@ const HistoryLogModal: React.FC<{ isOpen: boolean; onClose: () => void; student:
   );
 };
 
-export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMessageStudent }) => {
+export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMessageStudent, onViewProfile }) => {
   const { appUser, role } = useAuth();
   const { theme } = useTheme();
   const { showNotification } = useNotificationModal();
@@ -246,7 +256,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const INITIAL_FILTERS: FilterCriteria = {
     searchTerm: '',
     statuses: [],
-    assignedCounselorId: 'ALL',
+    assignedCounselorIds: [], // Changed from assignedCounselorId: 'ALL'
     financialState: 'ALL',
     timerStatus: 'ALL',
     destinationCountry: 'ALL',
@@ -255,7 +265,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const [advancedFilters, setAdvancedFilters] = useState<FilterCriteria>(INITIAL_FILTERS);
 
   // Keep legacy filter for backward compatibility if needed, but we'll prioritize advancedFilters
-  const [filter, setFilter] = useState<ComplianceStatus | 'ALL' | 'REQUESTS' | 'UNAPPROVED'>('ALL');
+  const [filter, setFilter] = useState<ComplianceStatus | 'ALL' | 'REQUESTS' | 'UNAPPROVED' | 'INCOMPLETE'>('ALL');
   const [requestTypeFilter, setRequestTypeFilter] = useState<'ALL' | 'FINANCE' | 'DAYS'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -267,8 +277,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Request Handling State
   const [modifyingRequest, setModifyingRequest] = useState<boolean>(false);
@@ -338,8 +351,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     return unsub;
   }, []);
 
-  // 1b. Subscribe to all users to find unauthenticated ones
+  // 1b. Subscribe to all users (Filter out those who haven't started setup to avoid polluting the roster)
   useEffect(() => {
+    // Only fetch users who have at least started setup or completed onboarding
+    // Or just fetch all and filter in JS if we want to show 'Incomplete' count
     const q = query(collection(db, 'users'));
     const unsub = onSnapshot(q, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -372,7 +387,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     const LIVE_FX = 1945.50;
 
     // Start with existing student evaluations
-    const merged: Student[] = students.map(s => {
+    const merged: Student[] = students.filter(s => {
+      const userProfile = allUsers.find(u => u.uid === s.userId || u.email === s.email);
+      return !userProfile || !userProfile.hardDeleted;
+    }).map(s => {
       const studentAccs = accounts.filter(a => a.userId === s.userId || a.userEmail === s.email);
 
       // Sum all bank accounts (handle both balanceGbp and balanceGBP casing)
@@ -389,7 +407,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
       // Sync details from users collection if available
       const userProfile = allUsers.find(u => u.uid === s.userId || u.email === s.email);
-      const isApproved = userProfile ? (userProfile.isApproved ?? false) : s.isApproved;
+      const isApproved = userProfile ? (userProfile.isApproved === true && userProfile.hardDeleted !== true) : s.isApproved;
       const name = s.name === 'Unknown Student' && userProfile ? (userProfile.displayName || userProfile.username || s.name) : s.name;
 
       // New data fields for filtering
@@ -404,9 +422,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       if (manualTotalGbp > 0 || studentAccs.some(a => a.connectionMethod === 'MANUAL_DEPOSIT')) ingestionChannels.push('MANUAL');
       if (studentAccs.length === 0 && manualTotalGbp === 0) ingestionChannels.push('UNVERIFIED');
 
-      // Adjust status based on approval
-      let finalStatus = s.status;
-      if (!isApproved) finalStatus = 'WAITING_APPROVAL';
+      // Adjust status based on approval and onboarding
+      const onboardingComplete = !!userProfile?.onboardingComplete || !!userProfile?.setupCompleted;
+      const finalStatus = resolveUserStatus({
+        isApproved,
+        onboardingComplete,
+        status: s.status,
+        anomalyRatio: s.anomalyRatio,
+        consecutiveDays: s.consecutiveDays || 0,
+        verificationFailed: userProfile?.verificationFailed
+      });
 
       return {
         ...s,
@@ -424,22 +449,32 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       };
     });
 
-    // Add users who are NOT in pof_evaluations yet but are unapproved
+    // Add users who are NOT in pof_evaluations yet
     allUsers.forEach(u => {
-      const isAlreadyIn = merged.some(s => s.userId === u.uid || s.email === u.email);
+      const uid = u.id || u.uid;
+
+      const isAlreadyIn = merged.some(s => s.userId === uid || s.email === u.email);
       const isStudentRole = u.role === 'STUDENT' || (!u.email?.endsWith('@basechaninternational.com') && !u.email?.endsWith('.basechaninternational@gmail.com'));
 
       if (!isAlreadyIn && isStudentRole) {
+        const isApproved = u.isApproved === true && u.hardDeleted !== true;
+        const onboardingComplete = !!u.onboardingComplete || !!u.setupCompleted;
+        const status = resolveUserStatus({
+          isApproved,
+          onboardingComplete,
+          verificationFailed: u.verificationFailed
+        });
+
         merged.push({
-          id: u.uid, // Temporary ID as they don't have an eval yet
-          userId: u.uid,
+          id: uid,
+          userId: uid,
           name: u.displayName || u.username || 'New User',
           email: u.email || '',
           phoneNumber: u.phoneNumber || '',
           accountNumbers: [],
           parallexAccountNumbers: [u.onboardingProfile?.parallexAccountNumber].filter(Boolean),
-          status: u.isApproved ? 'PENDING' : 'UNAUTHENTICATED',
-          isApproved: u.isApproved ?? false,
+          status,
+          isApproved: u.isApproved === true,
           consecutiveDays: 0,
           balanceGbp: 0,
           targetGbp: 0,
@@ -460,12 +495,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   }, [students, accounts, requests, allUsers]);
 
   const stats = useMemo(() => ({
-    total: liveStudents.length,
-    cleared: liveStudents.filter(s => s.status === 'CLEARED').length,
-    topUpRequired: liveStudents.filter(s => !!s.pendingRequest || s.status === 'NEEDS_TOPUP').length,
-    nearMaturity: liveStudents.filter(s => s.status === 'NEAR_MATURITY').length,
-    atRisk: liveStudents.filter(s => s.status === 'AT_RISK').length,
-    unapproved: liveStudents.filter(s => !s.isApproved).length,
+    total: liveStudents.filter(s => s.isApproved).length,
+    cleared: liveStudents.filter(s => s.status === 'CLEARED' && s.isApproved).length,
+    topUpRequired: liveStudents.filter(s => (!!s.pendingRequest || s.status === 'NEEDS_TOPUP') && s.isApproved).length,
+    nearMaturity: liveStudents.filter(s => s.status === 'NEAR_MATURITY' && s.isApproved).length,
+    atRisk: liveStudents.filter(s => s.status === 'AT_RISK' && s.isApproved).length,
+    unapproved: liveStudents.filter(s => s.status === 'AWAITING_VERIFICATION' || s.status === 'UNAUTHENTICATED').length,
+    pendingOnboarding: liveStudents.filter(s => s.status === 'PENDING_ONBOARDING').length,
     newUsers: liveStudents.filter(s => s.isNew).length
   }), [liveStudents]);
 
@@ -474,6 +510,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     const query = normalize(advancedFilters.searchTerm);
 
     return liveStudents.filter(s => {
+      // 0. Quick Category Filtering (Stat Cards)
+      if (filter === 'ALL' && (s.status === 'PENDING_ONBOARDING' || !s.isApproved)) return false;
+      if (filter === 'CLEARED' && (s.status !== 'CLEARED' || !s.isApproved)) return false;
+      if (filter === 'REQUESTS' && (!s.pendingRequest && s.status !== 'NEEDS_TOPUP')) return false;
+      if (filter === 'NEAR_MATURITY' && (s.status !== 'NEAR_MATURITY' || !s.isApproved)) return false;
+      if (filter === 'UNAPPROVED' && s.status !== 'AWAITING_VERIFICATION' && s.status !== 'UNAUTHENTICATED') return false;
+      if (filter === 'INCOMPLETE' && s.status !== 'PENDING_ONBOARDING') return false;
+
       // 1. Text Search Matching (Multi-field)
       if (query) {
         const fieldsToMatch = [
@@ -493,18 +537,32 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         if (!advancedFilters.statuses.includes(s.status)) return false;
       }
 
-      // 3. Counselor Assignment
-      if (advancedFilters.assignedCounselorId !== 'ALL') {
-        if (advancedFilters.assignedCounselorId === 'UNASSIGNED') {
-          if (s.counselorName !== 'Unassigned') return false;
-        } else {
-          // Assuming we match by name or UID if available
-          if (s.assignedCounselorId !== advancedFilters.assignedCounselorId && s.counselorName !== advancedFilters.assignedCounselorId) {
-             // Try dynamic lookup
-             const counselor = allUsers.find(u => u.uid === advancedFilters.assignedCounselorId);
-             if (!counselor || s.counselorName !== counselor.displayName) return false;
+      // 3. Counselor Assignment (Multi-select)
+      if (advancedFilters.assignedCounselorIds.length > 0) {
+        let isMatch = false;
+
+        for (const targetId of advancedFilters.assignedCounselorIds) {
+          if (targetId === 'UNASSIGNED') {
+            if (s.counselorName === 'Unassigned') {
+              isMatch = true;
+              break;
+            }
+          } else {
+            // Check by UID or Name
+            if (s.assignedCounselorId === targetId || s.counselorName === targetId) {
+              isMatch = true;
+              break;
+            }
+            // Try lookup from allUsers if student record has a name that matches counselor displayName
+            const counselor = allUsers.find(u => u.uid === targetId);
+            if (counselor && s.counselorName === counselor.displayName) {
+              isMatch = true;
+              break;
+            }
           }
         }
+
+        if (!isMatch) return false;
       }
 
       // 4. Financial State
@@ -542,10 +600,78 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
       return true;
     });
-  }, [liveStudents, advancedFilters, allUsers]);
+  }, [liveStudents, advancedFilters, allUsers, filter]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [advancedFilters, filter, requestTypeFilter, searchTerm]);
+
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage]);
+
+  const totalPages = Math.ceil(filteredStudents.length / pageSize);
 
   const handleApprove = async (student: Student) => {
-    // ... logic ...
+    const targetUid = student.userId || student.id;
+
+    if (!targetUid) {
+      toast.error("Target user ID not found.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Perspective: Account Access Approval
+      if (!student.isApproved) {
+        await updateDoc(doc(db, 'users', targetUid), {
+          isApproved: true,
+          approvedAt: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'audit_logs'), {
+          actor: appUser?.displayName || 'Admin',
+          action: 'USER_APPROVED',
+          detail: `Approved student access for ${student.name}`,
+          studentId: targetUid,
+          createdAt: serverTimestamp()
+        });
+        toast.success(`Access approved for ${student.name}`);
+      }
+      // 2. Perspective: Manual Compliance Clearance
+      else if (student.status !== 'CLEARED') {
+        const evalRef = collection(db, 'pof_evaluations');
+        const q = query(evalRef, where('userId', '==', targetUid));
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          await updateDoc(doc(db, 'pof_evaluations', snap.docs[0].id), {
+            status: 'CLEARED',
+            updatedAt: serverTimestamp()
+          });
+
+          await addDoc(collection(db, 'audit_logs'), {
+            actor: appUser?.displayName || 'Admin',
+            action: 'COMPLIANCE_CLEARED',
+            detail: `Manually cleared compliance for ${student.name}`,
+            studentId: targetUid,
+            createdAt: serverTimestamp()
+          });
+          toast.success(`Compliance cleared for ${student.name}`);
+        } else {
+          toast.error("No evaluation record found to clear.");
+        }
+      }
+
+      setSelectedStudent(null);
+    } catch (e: any) {
+      console.error('Approval error:', e);
+      toast.error(`Operation failed: ${e.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleProcessRequest = async (student: Student, action: 'APPROVE' | 'REJECT', valOverride?: number) => {
@@ -648,39 +774,61 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     if (!selectedStudent) return;
 
     showNotification({
-      title: "Archive Student?",
-      message: "This will move the student's account and all linked records to the Archive Vault for 7 days before permanent deletion. Access will be revoked immediately.",
+      title: "Purge Student Data?",
+      message: `Are you sure you want to permanently wipe ALL database records for ${selectedStudent.name}? This will remove their ledger, evaluations, and documents. The user will be revoked of access and moved to the Unauthenticated pool.`,
       type: "CONFIRM",
-      confirmText: "Archive & Disable",
+      confirmText: "Purge & Revoke Access",
       onConfirm: async () => {
         setIsSubmitting(true);
-        const t = toast.loading(`Archiving ${selectedStudent.name}...`);
+        const t = toast.loading(`Purging all records for ${selectedStudent.name}...`);
         try {
-          const res = await fetch('/api/v1/admin/users/archive', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: selectedStudent.userId,
-              evaluationId: selectedStudent.id
-            })
-          });
+          const uid = selectedStudent.userId || selectedStudent.id;
+          const batch = writeBatch(db);
 
-          if (!res.ok) throw new Error("Server failed to archive user");
+          // 1. Reset User Profile (Revoke Approval & Mark for Force Logout)
+          batch.set(doc(db, 'users', uid), {
+            isApproved: false,
+            hardDeleted: true, // Triggers forced logout in student app
+            updatedAt: serverTimestamp()
+          }, { merge: true });
 
-          // Audit Log
+          // 2. Find and Delete Evaluations
+          const evalQuery = await getDocs(query(collection(db, 'pof_evaluations'), where('userId', '==', uid)));
+          evalQuery.forEach(d => batch.delete(d.ref));
+
+          // 3. Find and Delete Financial Accounts
+          const accQuery = await getDocs(query(collection(db, 'financial_accounts'), where('userId', '==', uid)));
+          accQuery.forEach(d => batch.delete(d.ref));
+
+          // 4. Find and Delete Liquidity Requests
+          const reqQuery = await getDocs(query(collection(db, 'liquidity_requests'), where('userId', '==', uid)));
+          reqQuery.forEach(d => batch.delete(d.ref));
+
+          // 5. Find and Delete Notifications
+          const notifQuery = await getDocs(query(collection(db, 'notifications'), where('userId', '==', uid)));
+          notifQuery.forEach(d => batch.delete(d.ref));
+
+          // 6. Delete Submissions (Subcollection)
+          const subQuery = await getDocs(collection(db, 'users', uid, 'submitted_documents'));
+          subQuery.forEach(d => batch.delete(d.ref));
+
+          // Commit all deletions
+          await batch.commit();
+
+          // Final Audit Log (Actor remains, but subject is gone)
           await addDoc(collection(db, 'audit_logs'), {
-            actor: appUser?.email || 'Admin',
-            action: 'USER_ARCHIVED',
-            detail: `Moved ${selectedStudent.name} to 7-day Archive Vault.`,
-            studentId: selectedStudent.userId,
+            actor: appUser?.displayName || 'Admin',
+            action: 'USER_PURGED_TO_UNAUTHENTICATED',
+            detail: `Permanently purged all database records for ${selectedStudent.name} and revoked access.`,
+            studentId: uid,
             createdAt: serverTimestamp()
           });
 
-          toast.success('User moved to Archive Vault.', { id: t });
+          toast.success('Database purge complete. Access revoked.', { id: t });
           setSelectedStudent(null);
         } catch (e: any) {
-          console.error('Archive error:', e);
-          toast.error(`Archival failed: ${e.message}`, { id: t });
+          console.error('Purge error:', e);
+          toast.error(`Purge failed: ${e.message}`, { id: t });
         } finally {
           setIsSubmitting(false);
         }
@@ -701,15 +849,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans">
+    <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans text-main">
 
       {/* 1. Statistics (Clickable Filters) */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard
           label="Total Students"
           value={stats.total}
           icon={Users}
-          color="text-slate-300"
+          color="text-slate-600 dark:text-slate-300"
+          description="Authorized student profiles"
           onClick={() => setFilter('ALL')}
           isActive={filter === 'ALL'}
         />
@@ -717,7 +866,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           label="Cleared"
           value={stats.cleared}
           icon={CheckCircle2}
-          color="text-emerald-400"
+          color="text-emerald-600 dark:text-emerald-400"
+          description="Full POF maturity reached"
           onClick={() => setFilter('CLEARED')}
           isActive={filter === 'CLEARED'}
         />
@@ -725,7 +875,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           label="Top Up Required"
           value={stats.topUpRequired}
           icon={Zap}
-          color="text-amber-400"
+          color="text-amber-600 dark:text-amber-400"
+          description="Funding needed or pending"
           onClick={() => {
             setFilter('REQUESTS');
             setRequestTypeFilter('ALL');
@@ -736,29 +887,40 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           label="Almost Done"
           value={stats.nearMaturity}
           icon={Clock}
-          color="text-cyan-400"
+          color="text-cyan-600 dark:text-cyan-400"
+          description="Near 28-day maturity"
           onClick={() => setFilter('NEAR_MATURITY')}
           isActive={filter === 'NEAR_MATURITY'}
         />
         <StatCard
-          label="Unauthenticated"
+          label="Auth Failed"
           value={stats.unapproved}
           icon={ShieldAlert}
-          color="text-rose-400"
-          onClick={() => {
-            setFilter('UNAPPROVED');
-            setRequestTypeFilter('ALL');
-          }}
+          color="text-rose-600 dark:text-rose-500"
+          description="Verification failed or pending"
+          onClick={() => setFilter('UNAPPROVED')}
           isActive={filter === 'UNAPPROVED'}
         />
+        {stats.pendingOnboarding > 0 && (
+          <StatCard
+            label="Incomplete"
+            value={stats.pendingOnboarding}
+            icon={Loader2}
+            color="text-slate-600 dark:text-slate-400"
+            description="Awaiting setup completion"
+            onClick={() => setFilter('INCOMPLETE')}
+            isActive={filter === 'INCOMPLETE'}
+          />
+        )}
       </div>
 
-      {/* 2. List Header & Multi-Criteria Search Engine */}
+      {/* 2. Multi-Criteria Search Engine */}
       <div className="space-y-4 md:space-y-6">
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center px-2">
+           <h2 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">Student Governance Roster</h2>
            <button
              onClick={() => setIsAddUserOpen(true)}
-             className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+             className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg depth-btn-gold ${
                theme === 'dark' ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'
              }`}
            >
@@ -776,9 +938,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         />
 
         {/* 3. Student Table */}
-        <div className={`border rounded-2xl md:rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl transition-colors duration-500 ${
-          theme === 'dark' ? 'bg-slate-900/20 border-white/5' : 'bg-white border-slate-200'
-        }`}>
+        <div className="glass-card shadow-2xl transition-colors duration-500 !bg-surface-glass !border-surface-glass-border">
           <div className="overflow-x-auto">
             {filteredStudents.length === 0 ? (
               <div className="p-20 text-center flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
@@ -805,14 +965,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                   <tr className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest border-b transition-colors ${
                     theme === 'dark' ? 'bg-slate-950/40 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
-                    <th className="px-4 md:px-8 py-3 md:py-5">Student Name</th>
-                    <th className="px-4 md:px-8 py-3 md:py-5">Status</th>
-                    <th className="hidden sm:table-cell px-4 md:px-8 py-3 md:py-5">Request</th>
-                    <th className="px-4 md:px-8 py-3 md:py-5 text-right">View</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-slate-900 dark:text-slate-500 font-extrabold">Student Name</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-slate-900 dark:text-slate-500 font-extrabold">Status</th>
+                    <th className="hidden sm:table-cell px-4 md:px-8 py-3 md:py-5 text-slate-900 dark:text-slate-500 font-extrabold">Request</th>
+                    <th className="px-4 md:px-8 py-3 md:py-5 text-right text-slate-900 dark:text-slate-500 font-extrabold">View</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y transition-colors ${theme === 'dark' ? 'divide-white/5' : 'divide-slate-100'}`}>
-                  {filteredStudents.map((student) => (
+                  {paginatedStudents.map((student) => (
                     <tr
                       key={student.id}
                       onClick={() => setSelectedStudent(student)}
@@ -895,14 +1055,76 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
             )}
           </div>
         </div>
+
+        {/* 4. Pagination Controls */}
+        {filteredStudents.length > 0 && (
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-2 py-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Showing <span className="text-amber-500">{(currentPage - 1) * pageSize + 1}</span> to <span className="text-amber-500">{Math.min(currentPage * pageSize, filteredStudents.length)}</span> of <span className="text-amber-500">{filteredStudents.length}</span> students
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`p-2 rounded-xl border transition-all ${
+                  currentPage === 1
+                    ? 'opacity-30 cursor-not-allowed border-white/5 text-slate-600'
+                    : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white active:scale-95'
+                }`}
+              >
+                <ChevronRight className="w-4 h-4 rotate-180" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Logic to show a window of pages around current page
+                  let pageNum = i + 1;
+                  if (totalPages > 5) {
+                    if (currentPage > 3) {
+                      pageNum = currentPage - 3 + i + 1;
+                      if (pageNum > totalPages) pageNum = totalPages - 4 + i;
+                    }
+                  }
+
+                  if (pageNum <= 0 || pageNum > totalPages) return null;
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-9 h-9 rounded-xl border text-[10px] font-black transition-all ${
+                        currentPage === pageNum
+                          ? 'bg-amber-500 border-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                          : 'border-white/5 text-slate-500 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`p-2 rounded-xl border transition-all ${
+                  currentPage === totalPages
+                    ? 'opacity-30 cursor-not-allowed border-white/5 text-slate-600'
+                    : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white active:scale-95'
+                }`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedStudent && (
         <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-500" onClick={() => setSelectedStudent(null)}>
           <aside
-            className={`fixed right-0 top-0 bottom-0 h-screen w-full max-w-[420px] backdrop-blur-2xl border-l rounded-l-3xl shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-50 flex flex-col overflow-y-auto animate-in slide-in-from-right duration-500 ease-out transition-colors ${
-              theme === 'dark' ? 'bg-slate-900/75 border-white/15 text-slate-100' : 'bg-white/80 border-slate-200 text-slate-900'
-            }`}
+            className="fixed right-0 top-0 bottom-0 h-screen w-full max-w-[420px] glass-card rounded-r-none border-y-0 border-r-0 border-l border-white/15 z-50 flex flex-col overflow-y-auto animate-in slide-in-from-right duration-500 ease-out transition-colors"
             onClick={e => e.stopPropagation()}
           >
             <div className={`sticky top-0 p-6 border-b backdrop-blur-xl z-20 flex justify-between items-center transition-colors ${
@@ -943,7 +1165,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                       <p className="text-xs font-mono text-slate-500 mt-2 uppercase">{selectedStudent.email}</p>
                       <div className="mt-4 flex items-center gap-2">
                         <StatusBadge status={selectedStudent.status} isNew={selectedStudent.isNew} />
-                        {!selectedStudent.isApproved && <span className="px-2 py-1 rounded bg-rose-500 text-white text-[8px] font-black uppercase">UNAUTHENTICATED</span>}
+                        {!selectedStudent.isApproved && selectedStudent.status !== 'PENDING_ONBOARDING' && (
+                          <span className="px-2 py-1 rounded bg-rose-500 text-white text-[8px] font-black uppercase">Identity Unverified</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1045,7 +1269,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                     )}
 
                     <button
-                      onClick={() => setIsProfileDrawerOpen(true)}
+                      onClick={() => {
+                        if (onViewProfile) onViewProfile(selectedStudent);
+                      }}
                       className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
                         theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
                       }`}
@@ -1227,13 +1453,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         student={selectedStudent}
-      />
-
-      <AdminStudentProfileDrawer
-        isOpen={isProfileDrawerOpen}
-        onClose={() => setIsProfileDrawerOpen(false)}
-        student={selectedStudent}
-        onUpdate={() => {}}
       />
     </div>
   );

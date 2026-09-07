@@ -251,12 +251,10 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
     <div className={`h-full w-full flex overflow-hidden transition-colors duration-500`}>
 
       {/* Sidebar: Student Queue */}
-      <aside className={`w-80 border-r flex flex-col transition-colors duration-500 ${
-        theme === 'dark' ? 'bg-slate-950/20 border-white/5' : 'bg-slate-50 border-slate-200'
-      }`}>
-        <div className={`p-6 border-b space-y-4 ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+      <aside className={`w-80 border-r flex flex-col transition-colors duration-500 bg-app border-slate-200 dark:border-white/5`}>
+        <div className="p-6 border-b space-y-4 border-slate-200 dark:border-white/5">
           <div className="flex items-center justify-between">
-            <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Support Desk</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-900 dark:text-white">Support Desk</h3>
             <button
               onClick={() => setIsSearchingAll(!isSearchingAll)}
               className={`p-2 rounded-xl transition-all ${
@@ -387,23 +385,17 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
       </aside>
 
       {/* Main Workspace: Active Thread */}
-      <main className={`flex-1 flex flex-col min-w-0 transition-colors duration-500 ${
-        theme === 'dark' ? 'bg-slate-950/20' : 'bg-white'
-      }`}>
+      <main className={`flex-1 flex flex-col min-w-0 transition-colors duration-500 bg-white dark:bg-slate-950/20`}>
         {selectedStudentId ? (
           <>
-            <header className={`px-8 py-6 border-b backdrop-blur-md flex items-center justify-between transition-colors duration-500 ${
-              theme === 'dark' ? 'bg-slate-900/20 border-white/5' : 'bg-slate-50 border-slate-200'
-            }`}>
+            <header className={`px-8 py-6 border-b backdrop-blur-md flex items-center justify-between transition-colors duration-500 bg-white border-slate-200 dark:bg-slate-900/20 dark:border-white/5`}>
               <div className="flex items-center space-x-4">
-                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center font-black text-amber-500 transition-colors ${
-                  theme === 'dark' ? 'bg-slate-800 border-white/10' : 'bg-white border-slate-200 shadow-sm'
-                }`}>
+                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center font-black text-amber-500 transition-colors bg-white border-slate-200 shadow-sm dark:bg-slate-800 dark:border-white/10`}>
                   {selectedThread?.name.charAt(0)}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className={`text-sm font-black uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedThread?.name}</h4>
+                    <h4 className="text-sm font-extrabold uppercase text-slate-900 dark:text-white">{selectedThread?.name}</h4>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${
                       selectedThread?.role === 'COUNSELOR' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
                     }`}>

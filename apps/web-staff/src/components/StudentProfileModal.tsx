@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Globe, Briefcase, CreditCard, PieChart, ShieldCheck, Mail, Phone, Info } from 'lucide-react';
+import { X, Globe, Briefcase, CreditCard, PieChart, ShieldCheck, Mail, Phone, Edit3 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface StudentProfileModalProps {
@@ -32,8 +32,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
           className={`w-full max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-[2.5rem] border shadow-2xl relative ${
-            isDark ? 'bg-slate-900/90 border-white/15' : 'bg-white border-slate-200'
-          } backdrop-blur-xl`}
+            isDark ? 'bg-slate-900/60 border-white/15' : 'bg-white/60 border-slate-200'
+          } backdrop-blur-[75px]`}
         >
           {/* Close Button */}
           <button
@@ -180,8 +180,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 Close Profile
               </button>
               <button className="flex-1 py-4 rounded-2xl bg-amber-500 text-slate-950 text-xs font-black uppercase tracking-widest hover:bg-amber-400 shadow-xl shadow-amber-500/20 transition-all flex items-center justify-center gap-2">
-                <Info className="w-4 h-4" />
-                Request Info Update
+                <Edit3 className="w-4 h-4" />
+                Edit Profile
               </button>
             </div>
           </div>

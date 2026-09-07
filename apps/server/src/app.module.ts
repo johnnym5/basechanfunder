@@ -4,16 +4,34 @@ import { NotificationController } from './controllers/notification.controller';
 import { AdminController } from './controllers/admin.controller';
 import { TopUpController } from './controllers/topup.controller';
 import { AuthController } from './controllers/auth.controller';
+import { MandateController } from './controllers/mandate.controller';
+import { LedgerController } from './controllers/ledger.controller';
 import { NotificationService } from './services/notificationService';
 import { EmailService } from './services/emailService';
 import { MilestoneService } from './services/milestone.service';
-import { PurgeService } from './services/purge.service';
+import { PdfStampingService } from './services/pdfStampingService';
+import { PdfCompilerService } from './services/pdfCompilerService';
+import { MandateSyncService } from './services/mandateSync.service';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
   ],
-  controllers: [NotificationController, AdminController, TopUpController, AuthController],
-  providers: [NotificationService, EmailService, MilestoneService, PurgeService],
+  controllers: [
+    NotificationController,
+    AdminController,
+    TopUpController,
+    AuthController,
+    MandateController,
+    LedgerController
+  ],
+  providers: [
+    NotificationService,
+    EmailService,
+    MilestoneService,
+    PdfStampingService,
+    PdfCompilerService,
+    MandateSyncService
+  ],
 })
 export class AppModule {}

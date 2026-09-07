@@ -104,7 +104,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   </button>
 
                   {this.state.showDetails && (
-                    <div className="mt-4 custom-scrollbar overflow-auto max-h-60 whitespace-pre text-slate-500 border-t border-white/5 pt-4">
+                    <div className="mt-4 no-scrollbar overflow-auto max-h-60 whitespace-pre text-slate-500 border-t border-white/5 pt-4">
                       {this.state.error.stack}
                     </div>
                   )}

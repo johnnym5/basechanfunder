@@ -122,8 +122,8 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
   if (!isOpen || !student) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#0D111A] border border-white/10 w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+      <div className="glass-card w-full max-w-xl animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="p-8 border-b border-white/5 flex justify-between items-center">
@@ -182,7 +182,7 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
                   placeholder="Enter amount in Naira"
                   value={amount || ''}
                   onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-white/10 rounded-2xl px-6 py-4 text-xl font-black text-white focus:outline-none focus:border-amber-500 transition-all"
+                  className="w-full input-rounded px-6 py-4 text-xl font-black"
                 />
               </div>
             </div>

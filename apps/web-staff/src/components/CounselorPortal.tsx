@@ -189,7 +189,7 @@ export const CounselorPortal: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-3">
-             <div className="bg-slate-900/50 border border-white/5 rounded-xl md:rounded-2xl p-2.5 md:p-4 flex items-center space-x-3 md:space-x-4 backdrop-blur-md shadow-xl w-full sm:w-auto">
+             <div className="glass-card p-2.5 md:p-4 flex items-center space-x-3 md:space-x-4 w-full sm:w-auto">
                 <div className="text-right flex-1 sm:flex-none">
                   <p className="text-[8px] md:text-[10px] font-black text-slate-500 uppercase tracking-tighter">Pending Action</p>
                   <p className="text-base md:text-lg font-black text-amber-500">{requests.length}</p>
@@ -212,13 +212,13 @@ export const CounselorPortal: React.FC = () => {
               placeholder="Search incoming request stream..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-900/40 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-xs font-medium focus:outline-none focus:border-[#F5B651]/50 transition-all backdrop-blur-md"
+              className="w-full input-rounded pl-12 pr-6 py-4 text-xs font-medium"
             />
           </div>
         </div>
 
         {/* Requests Queue Table */}
-        <div className="bg-[#0D111A]/60 border border-white/5 rounded-2xl md:rounded-[2.5rem] overflow-hidden backdrop-blur-2xl shadow-2xl">
+        <div className="glass-card shadow-2xl transition-all">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>

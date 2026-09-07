@@ -261,28 +261,18 @@ const ArchiveVault: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const handlePermanentDelete = async (uid: string, name: string) => {
-    if (!window.confirm(`PERMANENTLY PURGE ${name}? This will delete all sub-ledgers and auth credentials immediately. THIS ACTION IS IRREVERSIBLE.`)) return;
+    if (!window.confirm(`PERMANENTLY DELETE ${name}? This will delete all sub-ledgers, documents, and auth credentials immediately. THIS ACTION IS IRREVERSIBLE.`)) return;
 
-    const t = toast.loading(`Purging ${name}...`);
+    const t = toast.loading(`Deleting ${name}...`);
     try {
-      // In a real app, we'd call a backend endpoint for this to ensure atomicity
-      const res = await fetch(`/api/v1/admin/auth/users/${uid}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error("Auth deletion failed");
-
-      // Cleanup Firestore
-      const collections = ['users', 'financial_accounts', 'pof_evaluations', 'liquidity_requests', 'support_messages', 'notifications'];
-      const batch = writeBatch(db);
-
-      for (const col of collections) {
-        const snap = await getDocs(query(collection(db, col), where('userId', '==', uid)));
-        snap.docs.forEach(d => batch.delete(d.ref));
+      // Use the cascading hard delete endpoint
+      const res = await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Deletion failed");
       }
 
-      // Also delete the user doc itself if not found by userId query (some might use doc ID)
-      batch.delete(doc(db, 'users', uid));
-
-      await batch.commit();
-      toast.success(`${name} purged from existence`, { id: t });
+      toast.success(`${name} deleted successfully`, { id: t });
     } catch (err: any) {
       toast.error(err.message, { id: t });
     }
@@ -311,7 +301,7 @@ const ArchiveVault: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar min-h-0 touch-pan-y">
+      <div className="flex-1 overflow-y-auto p-8 no-scrollbar min-h-0 touch-pan-y">
         {loading ? (
           <div className="py-40 flex justify-center"><Loader2 className="w-10 h-10 animate-spin text-amber-500" /></div>
         ) : archivedUsers.length === 0 ? (
@@ -532,7 +522,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
       const docRef = doc(db, activeCollection, selectedDocId);
       const { [fieldKey]: _, ...remainingData } = selectedDoc?.data || {};
       await setDoc(docRef, remainingData);
-      toast.success('Field purged from node');
+      toast.success('Field deleted from node');
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -612,7 +602,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
         fetchAuthUsersAsDocs();
       }
 
-      toast.success(`${selectedDocIds.length} items purged from system`);
+      toast.success(`${selectedDocIds.length} items deleted from system`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -800,22 +790,16 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
       {/* 1. COLLECTION SELECTION PAGE */}
       {viewMode === 'collections' && (
         <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-left-4 duration-500">
-          <header className="sticky top-0 z-10 p-6 border-b border-white/5 flex items-center justify-between bg-slate-950/80 backdrop-blur-md shrink-0">
-            <div>
-              <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                <Database className="w-6 h-6 text-amber-500" /> Database Collections
-              </h2>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Select a root directory to explore documents</p>
-            </div>
+          <header className="sticky top-0 z-10 p-6 border-b border-white/5 flex items-center justify-end bg-slate-950/80 backdrop-blur-md shrink-0">
             <button
               onClick={() => setViewMode('archive')}
-              className="flex items-center gap-2 px-6 py-3 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-slate-950 transition-all shadow-lg shadow-amber-500/10"
+              className="flex items-center gap-2 px-6 py-3 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-50 hover:text-slate-950 transition-all shadow-lg shadow-amber-500/10 depth-btn-glass"
             >
               <Archive className="w-4 h-4" /> Open Archive Vault
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 custom-scrollbar min-h-0 touch-pan-y">
+          <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 no-scrollbar min-h-0 touch-pan-y">
             {TOP_LEVEL_COLLECTIONS.map(col => {
               const isAuth = col === 'firebase_auth';
               return (
@@ -910,7 +894,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-8 space-y-2 custom-scrollbar bg-transparent pb-32 min-h-0 touch-pan-y">
+          <div className="flex-1 overflow-y-auto p-8 space-y-2 no-scrollbar bg-transparent pb-32 min-h-0 touch-pan-y">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-40 space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
@@ -1014,7 +998,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar pb-20 min-h-0 touch-pan-y">
+          <div className="flex-1 overflow-y-auto no-scrollbar pb-20 min-h-0 touch-pan-y">
             {/* Firebase Auth Metadata Section */}
             {activeCollection === 'users' && (
               <div className="mx-8 mt-6 p-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 space-y-4">

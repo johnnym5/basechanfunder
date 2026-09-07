@@ -53,53 +53,61 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
   // Pricing Config State
   const [pricing, setPricing] = useState({
     feePercentage: 2.5,
-    flatFee: 5000,
-    maxLimit: 15000000
+    maxLimit: 150000000 // Default to 150M as requested
   });
 
-  // Load student's specific pricing config
+  const [evaluation, setEvaluation] = useState<any>(null);
+  const [targetCurrency, setTargetCurrency] = useState({ code: 'GBP', symbol: '£' });
+
+  // Load student's specific pricing config and evaluation details
   useEffect(() => {
     if (isOpen && currentUser) {
-      const loadPricing = async () => {
+      const loadData = async () => {
+        // 1. Fetch User (Source of Destination Country)
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          const data = userDoc.data();
-          if (data.topUpPricingConfig) {
+           const userData = userDoc.data();
+           const dest = userData.onboardingProfile?.destinationCountry;
+
+           // Map destination to currency
+           if (dest?.includes('Canada')) setTargetCurrency({ code: 'CAD', symbol: '$' });
+           else if (dest?.includes('USA')) setTargetCurrency({ code: 'USD', symbol: '$' });
+           else if (dest?.includes('Germany')) setTargetCurrency({ code: 'EUR', symbol: '€' });
+           else setTargetCurrency({ code: 'GBP', symbol: '£' });
+        }
+
+        // 2. Fetch Evaluation (Source of Pricing and Target Currency)
+        const q = query(collection(db, 'pof_evaluations'), where('userId', '==', currentUser.uid));
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          const evalData = snap.docs[0].data();
+          setEvaluation({ id: snap.docs[0].id, ...evalData });
+
+          if (evalData.topUpPricingConfig) {
             setPricing({
-              feePercentage: data.topUpPricingConfig.topUpFeePercentage || 2.5,
-              flatFee: data.topUpPricingConfig.flatProcessingFeeNgn || 5000,
-              maxLimit: data.topUpPricingConfig.maxAllowedTopUpNgn || 15000000
+              feePercentage: evalData.topUpPricingConfig.topUpFeePercentage || 2.5,
+              maxLimit: evalData.topUpPricingConfig.maxAllowedTopUpNgn || 150000000
             });
-            // Use initialAmount if provided, else set to 25% of max
-            setAmount(initialAmount ?? Math.floor(data.topUpPricingConfig.maxAllowedTopUpNgn * 0.25));
+
+            // Set initial amount to 25% of their specific max limit if not provided
+            if (initialAmount === undefined) {
+               setAmount(Math.floor(evalData.topUpPricingConfig.maxAllowedTopUpNgn * 0.25));
+            }
           }
         }
+
+        if (initialAmount !== undefined) setAmount(initialAmount);
       };
-      loadPricing();
+      loadData();
     }
   }, [isOpen, currentUser, initialAmount]);
 
-  // Load student's specific pricing config
-  useEffect(() => {
-    if (isOpen && currentUser) {
-      const loadPricing = async () => {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          if (data.topUpPricingConfig) {
-            setPricing({
-              feePercentage: data.topUpPricingConfig.topUpFeePercentage || 2.5,
-              flatFee: data.topUpPricingConfig.flatProcessingFeeNgn || 5000,
-              maxLimit: data.topUpPricingConfig.maxAllowedTopUpNgn || 15000000
-            });
-            // Use initialAmount if provided, else set to 25% of max
-            setAmount(initialAmount ?? Math.floor(data.topUpPricingConfig.maxAllowedTopUpNgn * 0.25));
-          }
-        }
-      };
-      loadPricing();
-    }
-  }, [isOpen, currentUser, initialAmount]);
+  // Handle the international equivalent logic
+  const internationalEquivalent = useMemo(() => {
+    const rate = evaluation?.fxRate || 1945.50; // Use live rate from evaluation
+    return amount / rate;
+  }, [amount, evaluation]);
 
   const calculatedFee = useMemo(() => {
     return (amount * (pricing.feePercentage / 100));
@@ -139,7 +147,7 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
     setIsSubmitting(true);
     try {
       if (appUser?.role !== 'STUDENT') {
-        toast.warning('As an Administrator, please use Inspector Overrides.');
+        toast.warning('As an Administrator, please use Student Top-Up Settings.');
         onClose();
         return;
       }
@@ -160,6 +168,12 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
             status: 'PENDING_FEE_VERIFICATION'
           })
         });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Server returned ${response.status}: ${text || 'Empty response'}`);
+        }
+
         const result = await response.json();
         if (result.status === 'ERROR') throw new Error(result.message);
       } else {
@@ -194,13 +208,13 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#0D111A] border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+      <div className="glass-card w-full max-w-lg max-h-[95vh] animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
+        <div className="p-5 sm:p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20 shrink-0">
           <div>
-            <h3 className="text-2xl font-black text-white uppercase tracking-tight">System Request</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">System Request</h3>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Submit adjustment for review</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
@@ -209,24 +223,24 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
         </div>
 
         {/* Mode Switcher */}
-        <div className="px-8 pt-6">
-          <div className="flex items-center space-x-2 bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
+        <div className="px-5 sm:px-8 pt-4 sm:pt-6 shrink-0">
+          <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5">
             <button
               onClick={() => setRequestType('TOP_UP')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'TOP_UP' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'TOP_UP' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <Zap className="w-3.5 h-3.5" /> Top-Up
+              <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Top-Up
             </button>
             <button
               onClick={() => setRequestType('EXTENSION')}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'EXTENSION' ? 'bg-amber-50 text-slate-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'EXTENSION' ? 'bg-amber-50 text-slate-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <Calendar className="w-3.5 h-3.5" /> Extension
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Extension
             </button>
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-8 no-scrollbar">
           {isSuccess ? (
             <div className="py-10 text-center space-y-4 animate-in zoom-in duration-500">
               <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-500">
@@ -264,8 +278,11 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                       </div>
                       <div className="text-right">
                         <span className="text-2xl font-black text-white font-mono leading-none">₦{amount.toLocaleString()}</span>
+                        <p className="text-[10px] font-bold text-blue-400">
+                          ≈ {targetCurrency.symbol}{internationalEquivalent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {targetCurrency.code}
+                        </p>
                         {sliderMode === 'PERCENT' && (
-                           <p className="text-[10px] font-bold text-blue-400">({Math.round((amount / pricing.maxLimit) * 100)}%)</p>
+                           <p className="text-[10px] font-bold text-slate-500">({Math.round((amount / pricing.maxLimit) * 100)}%)</p>
                         )}
                       </div>
                     </div>
@@ -312,24 +329,33 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(Math.min(Number(e.target.value), pricing.maxLimit))}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm text-white focus:outline-none focus:border-blue-500 transition-all font-bold"
+                        className="w-full input-rounded pl-12 pr-6 py-4 text-sm font-bold"
                         placeholder="Or enter custom amount..."
                       />
                     </div>
                   </div>
 
                   {/* Pricing Breakdown Card */}
-                  <div className="bg-blue-600/5 border border-blue-500/20 rounded-3xl p-6 space-y-4">
+                  <div className="glass-subcard p-6 space-y-4 bg-blue-600/5">
                     <div className="flex items-center gap-3 border-b border-white/5 pb-3">
                       <ShieldCheck className="w-5 h-5 text-blue-400" />
                       <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Service Fee Breakdown</h4>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex justify-between text-xs font-bold">
-                        <span className="text-slate-500 uppercase tracking-tighter">Top-Up Capital</span>
-                        <span className="text-white">₦{amount.toLocaleString()}</span>
+                      <div className="flex justify-between items-end">
+                        <div className="space-y-1">
+                           <span className="text-slate-500 text-[10px] uppercase tracking-tighter">Top-Up Capital</span>
+                           <p className="text-white text-xs font-bold">₦{amount.toLocaleString()}</p>
+                        </div>
+                        <div className="text-right space-y-1">
+                           <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">Intl Equivalent</span>
+                           <p className="text-blue-400 text-lg font-black font-mono">
+                             {targetCurrency.symbol}{internationalEquivalent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                           </p>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs font-bold">
+
+                      <div className="flex justify-between text-xs font-bold pt-2 border-t border-white/5">
                         <span className="text-slate-500 uppercase tracking-tighter">Admin Service Fee ({pricing.feePercentage}%)</span>
                         <span className="text-blue-400">₦{calculatedFee.toLocaleString()}</span>
                       </div>
@@ -354,7 +380,7 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                       required
                       value={paymentRef}
                       onChange={(e) => setPaymentReference(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-blue-500 transition-all font-bold"
+                      className="w-full input-rounded px-6 py-4 text-sm font-bold"
                       placeholder="Enter transfer reference..."
                     />
                   </div>
@@ -370,7 +396,7 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                         required
                         value={days}
                         onChange={(e) => setDays(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm text-white focus:outline-none focus:border-amber-500 transition-all font-bold"
+                        className="w-full input-rounded pl-12 pr-6 py-4 text-sm font-bold"
                         placeholder="e.g. 7"
                       />
                     </div>
@@ -380,7 +406,7 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                     <textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-blue-500 transition-all min-h-[100px] resize-none"
+                      className="w-full input-rounded px-6 py-4 text-sm min-h-[100px] resize-none"
                       placeholder="Provide context for this request..."
                     />
                   </div>

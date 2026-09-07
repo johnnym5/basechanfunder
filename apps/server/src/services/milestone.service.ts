@@ -6,7 +6,10 @@ import { EmailService } from './emailService';
 @Injectable()
 export class MilestoneService {
   private readonly logger = new Logger(MilestoneService.name);
-  private readonly db = admin.firestore();
+
+  private get db() {
+    return admin.firestore();
+  }
 
   constructor(private readonly emailService: EmailService) {}
 

@@ -2,22 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  High-Intensity Global Scrollbar Suppression
+  Ensures absolute invisibility across all browsers and elements.
+*/
+
+/* 1. Target the root and all elements for scrollbar-width (Firefox/Standard) */
+html, body, * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* 2. Target all pseudo-elements for Webkit (Chrome/Safari/Edge/Opera) */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 3. Redundant but safe utility classes */
+.no-scrollbar, .custom-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.no-scrollbar::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+:root {
+  /* Light Mode Tokens */
+  --bg-app: #f8fafc;
+  --surface-glass: rgba(255, 255, 255, 0.9);
+  --surface-glass-border: rgba(15, 23, 42, 0.12);
+  --surface-hero: #0f172a;
+
+  --text-main: #0f172a;      /* Deep Slate - 100% visible on light bg */
+  --text-muted: #475569;     /* Slate 600 - High legibility secondary */
+  --text-subtle: #64748b;    /* Slate 500 */
+  --accent-gold: #b45309;    /* Darker Amber for light mode contrast */
+  --accent-blue: #0284c7;    /* Deep sky blue */
+}
+
+.dark {
+  /* Dark Mode Tokens */
+  --bg-app: #030712;
+  --surface-glass: rgba(15, 23, 42, 0.8);
+  --surface-glass-border: rgba(255, 255, 255, 0.12);
+  --surface-hero: rgba(15, 23, 42, 0.9);
+
+  --text-main: #ffffff;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --accent-gold: #f59e0b;
+  --accent-blue: #38bdf8;
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow-x: hidden;
   width: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .dark body {
-  background-color: #030712;
-  color: #f8fafc;
-}
-
-.light body {
-  background-color: #f8fafc;
-  color: #030712;
+  background-color: var(--bg-app);
+  color: var(--text-main);
 }
 
 /* 75px Blur Glass Utility */
@@ -28,13 +94,24 @@ body {
 @layer components {
   /* Global Glass Card Base */
   .glass-card {
-    @apply rounded-3xl bg-slate-900/60 backdrop-blur-2xl border border-white/10 overflow-hidden shadow-2xl;
+    @apply rounded-3xl backdrop-blur-2xl overflow-hidden shadow-2xl;
+    background-color: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .glass-card {
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   }
 
   /* Sub-Ledgers & Sub-Cards */
   .glass-subcard {
-    @apply rounded-2xl bg-white/5 border border-white/10 overflow-hidden;
+    @apply rounded-2xl bg-white/5 overflow-hidden;
+    border: 1px solid var(--surface-glass-border);
+  }
+
+  .light .glass-subcard {
+    @apply bg-white/40 border-slate-200/60 shadow-sm;
   }
 
   /* Interactive Pill Buttons */
@@ -44,37 +121,16 @@ body {
 
   /* Rounded Form Inputs */
   .input-rounded {
-    @apply rounded-xl bg-slate-900/60 border border-white/10 px-4 py-2.5 text-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all;
+    @apply rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-amber-400 focus:outline-none transition-all;
+    background-color: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    color: var(--text-main);
   }
 }
 
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
-}
-
-/* Custom Scrollbar for Database Explorer */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 14px;
-  height: 14px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #F5B651;
-  border-radius: 12px;
-  border: 4px solid transparent;
-  background-clip: padding-box;
-  box-shadow: inset 0 0 0 10px #F5B651;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #ffc977;
-  box-shadow: inset 0 0 0 10px #ffc977;
 }
 
 /* System-Wide Multi-Layer Depth Shadows */

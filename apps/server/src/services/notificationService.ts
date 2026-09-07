@@ -1,11 +1,6 @@
 import * as admin from 'firebase-admin';
 import { Injectable, Logger } from '@nestjs/common';
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
 export interface NotificationPayload {
   title: string;
   body: string;
@@ -15,7 +10,10 @@ export interface NotificationPayload {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly db = admin.firestore();
+
+  private get db() {
+    return admin.firestore();
+  }
 
   /**
    * Device Token Management Service
@@ -119,5 +117,49 @@ export class NotificationService {
       this.logger.error(`FCM dispatch error: ${error.message}`);
       return { status: 'ERROR', message: error.message };
     }
+  }
+
+  /**
+   * Governance-Aware Notification Dispatcher
+   * Records notifications with metadata to support multi-perspective rendering.
+   */
+  async sendGovernanceAlert(params: {
+    userId: string;
+    studentName: string;
+    type: string;
+    message: string;
+    amount?: string;
+    data?: any;
+  }) {
+    const { userId, studentName, type, message, amount, data } = params;
+    this.logger.log(`Dispatching governance alert: ${type} for student ${studentName}`);
+
+    // 1. Save to global notifications pool for Admin/Staff dashboard
+    const record = {
+      userId,
+      studentName,
+      type,
+      message,
+      amount: amount || null,
+      data: data || {},
+      isRead: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const notifRef = await this.db.collection('notifications').add(record);
+
+    // 2. Dispatch FCM for real-time mobile/web-push alerts
+    await this.sendInteractiveNotification(userId, {
+      title: type.replace(/_/g, ' '),
+      body: message,
+      data: {
+        ...data,
+        type,
+        notificationId: notifRef.id,
+        studentName
+      }
+    });
+
+    return { status: 'SUCCESS', id: notifRef.id };
   }
 }

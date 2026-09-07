@@ -11,14 +11,15 @@ import {
   UserCheck,
   ChevronUp,
   User,
-  LayoutGrid
+  LayoutGrid,
+  CheckSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export interface FilterCriteria {
   searchTerm: string;
   statuses: string[];
-  assignedCounselorId: string | 'ALL' | 'UNASSIGNED';
+  assignedCounselorIds: string[]; // Changed from assignedCounselorId: string
   financialState: 'ALL' | 'DEFICIT' | 'FULLY_CLEARED' | 'CAPITAL_BREACHED' | 'PENDING_TOPUP_FEE';
   timerStatus: 'ALL' | 'ACTIVE_COUNTDOWN' | 'NEAR_EXPIRATION' | 'EXPIRED' | 'PAUSED';
   destinationCountry: 'ALL' | string;
@@ -41,6 +42,19 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
   isDark
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCounselorMenuOpen, setIsCounselorMenuOpen] = useState(false);
+  const counselorMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (counselorMenuRef.current && !counselorMenuRef.current.contains(e.target as Node)) {
+        setIsCounselorMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const updateFilter = (updates: Partial<FilterCriteria>) => {
     onFilterChange({ ...filters, ...updates });
@@ -53,10 +67,17 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
     updateFilter({ statuses: newStatuses });
   };
 
+  const toggleCounselor = (id: string) => {
+    const newIds = filters.assignedCounselorIds.includes(id)
+      ? filters.assignedCounselorIds.filter(i => i !== id)
+      : [...filters.assignedCounselorIds, id];
+    updateFilter({ assignedCounselorIds: newIds });
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.statuses.length > 0) count++;
-    if (filters.assignedCounselorId !== 'ALL') count++;
+    if (filters.assignedCounselorIds.length > 0) count++;
     if (filters.financialState !== 'ALL') count++;
     if (filters.timerStatus !== 'ALL') count++;
     if (filters.destinationCountry !== 'ALL') count++;
@@ -86,11 +107,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
          Unified High-Density Search & Filter Bar
          "Everything is inside the bar"
       */}
-      <div className={`relative flex items-center p-1.5 rounded-2xl border transition-all duration-500 backdrop-blur-2xl ${
-        isDark
-          ? 'bg-slate-900/60 border-white/10 focus-within:border-amber-500/50 shadow-2xl shadow-black/40'
-          : 'bg-white border-slate-200 focus-within:border-blue-500 shadow-lg shadow-slate-200/50'
-      }`}>
+      <div className="relative flex items-center p-1.5 glass-card border focus-within:border-amber-500/50 transition-all duration-500">
 
         {/* Left: Search Identity */}
         <div className="flex-1 flex items-center min-w-[180px]">
@@ -110,23 +127,80 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
         {/* Integrated Filter Controls (Inside the bar) */}
         <div className="flex items-center gap-1.5 pr-1">
 
-          {/* Counselor Selector - Embedded */}
-          <div className="relative group shrink-0 hidden lg:block">
-             <User className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${filters.assignedCounselorId !== 'ALL' ? 'text-blue-400' : 'text-slate-500'}`} />
-             <select
-               value={filters.assignedCounselorId}
-               onChange={(e) => updateFilter({ assignedCounselorId: e.target.value })}
-               className={`pl-8 pr-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight bg-transparent border-none hover:bg-white/5 transition-all appearance-none cursor-pointer focus:outline-none ${
-                 filters.assignedCounselorId !== 'ALL' ? 'text-blue-400' : 'text-slate-400'
+          {/* Counselor Multi-Selector */}
+          <div className="relative shrink-0 hidden lg:block" ref={counselorMenuRef}>
+             <button
+               onClick={() => setIsCounselorMenuOpen(!isCounselorMenuOpen)}
+               className={`flex items-center gap-2 pl-3 pr-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all hover:bg-white/5 border border-transparent ${
+                 filters.assignedCounselorIds.length > 0 ? 'text-blue-400' : 'text-slate-400'
                }`}
              >
-               <option value="ALL" className={isDark ? 'bg-slate-900' : 'bg-white'}>Any Counselor</option>
-               <option value="UNASSIGNED" className={isDark ? 'bg-slate-900' : 'bg-white'}>Unassigned</option>
-               {counselors.map(c => (
-                 <option key={c.uid} value={c.uid} className={isDark ? 'bg-slate-900' : 'bg-white'}>{c.displayName}</option>
-               ))}
-             </select>
-             <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+               <User className={`w-3.5 h-3.5 ${filters.assignedCounselorIds.length > 0 ? 'text-blue-400' : 'text-slate-500'}`} />
+               <span>
+                 {filters.assignedCounselorIds.length === 0 ? 'Any Counselor' :
+                  filters.assignedCounselorIds.length === 1 ? (counselors.find(c => c.uid === filters.assignedCounselorIds[0])?.displayName || 'Unassigned') :
+                  `${filters.assignedCounselorIds.length} Selected`}
+               </span>
+               <ChevronDown className={`w-3 h-3 absolute right-2 transition-transform duration-300 ${isCounselorMenuOpen ? 'rotate-180' : ''}`} />
+             </button>
+
+             <AnimatePresence>
+               {isCounselorMenuOpen && (
+                 <motion.div
+                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                   className="absolute top-full right-0 mt-2 w-64 glass-card p-2 space-y-1 animate-in fade-in zoom-in-95 duration-200 origin-top-right border-blue-500/30"
+                 >
+                   <div className="flex justify-between items-center px-3 py-2 border-b border-white/5 mb-1">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Select Counselors</span>
+                      <button
+                        onClick={() => updateFilter({ assignedCounselorIds: [] })}
+                        className="text-[8px] font-black text-amber-500 uppercase hover:underline"
+                      >
+                        Clear All
+                      </button>
+                   </div>
+
+                   <div className="max-h-60 overflow-y-auto no-scrollbar space-y-1">
+                     <button
+                       onClick={() => toggleCounselor('UNASSIGNED')}
+                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
+                         filters.assignedCounselorIds.includes('UNASSIGNED')
+                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                           : 'hover:bg-white/5 text-slate-400'
+                       }`}
+                     >
+                       <div className="flex items-center gap-2">
+                          <UserCheck className={`w-3.5 h-3.5 ${filters.assignedCounselorIds.includes('UNASSIGNED') ? 'text-white' : 'text-slate-500'}`} />
+                          <span className="text-[10px] font-bold uppercase">Unassigned</span>
+                       </div>
+                       {filters.assignedCounselorIds.includes('UNASSIGNED') && <CheckSquare className="w-3.5 h-3.5" />}
+                     </button>
+
+                     {counselors.map(c => (
+                       <button
+                         key={c.uid}
+                         onClick={() => toggleCounselor(c.uid)}
+                         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
+                           filters.assignedCounselorIds.includes(c.uid)
+                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                             : 'hover:bg-white/5 text-slate-400'
+                         }`}
+                       >
+                         <div className="flex items-center gap-2 text-left">
+                            <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[8px] font-black">
+                               {c.displayName.charAt(0)}
+                            </div>
+                            <span className="text-[10px] font-bold uppercase truncate max-w-[140px]">{c.displayName}</span>
+                         </div>
+                         {filters.assignedCounselorIds.includes(c.uid) && <CheckSquare className="w-3.5 h-3.5" />}
+                       </button>
+                     ))}
+                   </div>
+                 </motion.div>
+               )}
+             </AnimatePresence>
           </div>
 
           {/* Status Dropdown - Embedded */}
@@ -188,9 +262,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
             exit={{ height: 0, opacity: 0, y: -10 }}
             className="overflow-hidden"
           >
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 rounded-3xl border ${
-              isDark ? 'bg-slate-950/40 border-white/5 shadow-2xl' : 'bg-white border-slate-200 shadow-xl'
-            }`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 glass-card shadow-xl border-white/5">
 
               {/* Financial State */}
               <div className="space-y-3">
@@ -200,9 +272,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
                 <select
                   value={filters.financialState}
                   onChange={(e) => updateFilter({ financialState: e.target.value as any })}
-                  className={`w-full rounded-xl px-4 py-3 text-xs font-bold focus:outline-none transition-all appearance-none border ${
-                    isDark ? 'bg-slate-900 border-white/10 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-                  }`}
+                  className="w-full input-rounded px-4 py-3 text-xs font-bold"
                 >
                   <option value="ALL">All Balance States</option>
                   <option value="DEFICIT">Deficit (Low Funds)</option>
@@ -220,9 +290,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
                 <select
                   value={filters.timerStatus}
                   onChange={(e) => updateFilter({ timerStatus: e.target.value as any })}
-                  className={`w-full rounded-xl px-4 py-3 text-xs font-bold focus:outline-none transition-all appearance-none border ${
-                    isDark ? 'bg-slate-900 border-white/10 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-                  }`}
+                  className="w-full input-rounded px-4 py-3 text-xs font-bold"
                 >
                   <option value="ALL">All Timer States</option>
                   <option value="ACTIVE_COUNTDOWN">Active Countdown</option>
@@ -238,9 +306,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
                 <select
                   value={filters.destinationCountry}
                   onChange={(e) => updateFilter({ destinationCountry: e.target.value })}
-                  className={`w-full rounded-xl px-4 py-3 text-xs font-bold focus:outline-none transition-all appearance-none border ${
-                    isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200'
-                  }`}
+                  className="w-full input-rounded px-4 py-3 text-xs font-bold"
                 >
                   <option value="ALL">All Jurisdictions</option>
                   {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -253,9 +319,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
                 <select
                   value={filters.ingestionChannel}
                   onChange={(e) => updateFilter({ ingestionChannel: e.target.value as any })}
-                  className={`w-full rounded-xl px-4 py-3 text-xs font-bold focus:outline-none transition-all appearance-none border ${
-                    isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-slate-50 border-slate-200'
-                  }`}
+                  className="w-full input-rounded px-4 py-3 text-xs font-bold"
                 >
                   <option value="ALL">All Channels</option>
                   <option value="AUTOMATED">Automated (SMS/Gmail)</option>

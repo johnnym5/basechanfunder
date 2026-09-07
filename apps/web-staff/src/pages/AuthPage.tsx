@@ -8,6 +8,8 @@ import {
   updateProfile,
   sendEmailVerification,
   AuthError,
+  GoogleAuthProvider,
+  signInWithCredential
 } from 'firebase/auth';
 import {
   doc,
@@ -35,6 +37,8 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
+
+import { getPlatformType } from '../utils/deviceDetection';
 
 type AuthMode = 'login' | 'signup';
 
@@ -88,8 +92,41 @@ export const AuthPage: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const platform = getPlatformType();
+  const isNative = platform === 'NATIVE_ANDROID';
+
   // ── Detect environment
   const isWebView = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !(window as any).chrome;
+
+  // ── Handle Native Google Login Callbacks
+  React.useEffect(() => {
+    if (isNative) {
+      (window as any).onNativeGoogleLoginSuccess = async (idToken: string) => {
+        console.log("Native Google Login Success. Processing with Firebase.");
+        setGoogleLoading(true);
+        try {
+          const credential = GoogleAuthProvider.credential(idToken);
+          const cred = await signInWithCredential(auth, credential);
+          await handlePostAuth(cred.user);
+        } catch (err) {
+          setError(friendly(err as AuthError));
+        } finally {
+          setGoogleLoading(false);
+        }
+      };
+
+      (window as any).onNativeGoogleLoginError = (error: string) => {
+        console.error("Native Google Login Error:", error);
+        setError(`Google sign-in failed (Native): ${error}`);
+        setGoogleLoading(false);
+      };
+    }
+
+    return () => {
+      delete (window as any).onNativeGoogleLoginSuccess;
+      delete (window as any).onNativeGoogleLoginError;
+    };
+  }, [isNative]);
 
   // ── Handle Redirect Result
   React.useEffect(() => {
@@ -280,12 +317,40 @@ export const AuthPage: React.FC = () => {
     setSuccess('');
     setGoogleLoading(true);
     try {
-      const cred = await signInWithPopup(auth, googleProvider);
-      await handlePostAuth(cred.user);
-    } catch (err) {
-      setError(friendly(err as AuthError));
+      // For Native Android WebView, use the bridge to trigger native picker
+      // This bypasses 400 errors and disallowed user agent blocks.
+      if (isNative && (window as any).AndroidBridge?.triggerNativeGoogleLogin) {
+        (window as any).AndroidBridge.triggerNativeGoogleLogin();
+        return;
+      }
+
+      if (isNative) {
+        const cred = await signInWithPopup(auth, googleProvider);
+        await handlePostAuth(cred.user);
+      } else {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+          await signInWithRedirect(auth, googleProvider);
+        } else {
+          const cred = await signInWithPopup(auth, googleProvider);
+          await handlePostAuth(cred.user);
+        }
+      }
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+      // If popup is blocked or fails due to COOP, fallback to redirect
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request' || err.message?.includes('Cross-Origin-Opener-Policy')) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirErr) {
+          setError(friendly(redirErr as AuthError));
+        }
+      } else {
+        setError(friendly(err as AuthError));
+      }
     } finally {
-      setGoogleLoading(false);
+      // Small delay to prevent UI flicker before redirect starts
+      setTimeout(() => setGoogleLoading(false), 2000);
     }
   };
 
@@ -293,10 +358,16 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-500 ${
+      className={`min-h-screen flex flex-col items-center justify-center font-sans p-4 relative overflow-hidden transition-colors duration-500 ${
         isDark ? 'bg-[#090D16] text-white' : 'bg-slate-50 text-slate-900'
       }`}
     >
+      {/* ── Native Status Bar Spacer ── */}
+      {isNative && (
+        <div className={`fixed top-0 left-0 right-0 h-8 flex-shrink-0 z-[200] border-b transition-colors duration-500 ${
+          isDark ? 'bg-slate-950 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+        }`} />
+      )}
       {/* ── Animated Flying Plane Background (Positioned bottom-left, slow fade-in, slow zoom, slow drift from left to right) ── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -340,15 +411,9 @@ export const AuthPage: React.FC = () => {
           }`}
         >
           {isDark ? (
-            <>
-              <Sun className="w-4 h-4 text-amber-400" />
-              <span>Light Mode</span>
-            </>
+            <Sun className="w-5 h-5 text-amber-400" />
           ) : (
-            <>
-              <Moon className="w-4 h-4 text-blue-600" />
-              <span>Dark Mode</span>
-            </>
+            <Moon className="w-5 h-5 text-blue-600" />
           )}
         </button>
       </div>
@@ -365,20 +430,20 @@ export const AuthPage: React.FC = () => {
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo + Brand */}
-        <div className="text-center mb-8 space-y-3">
+        <div className="text-center mb-6 sm:mb-8 space-y-2 sm:space-y-3">
           <div className="flex justify-center">
             <img
               src={isDark ? '/logo_white.png' : '/logo.png'}
               alt="Basechan Funder Logo"
-              className="h-16 sm:h-20 object-contain drop-shadow-xl"
+              className="h-12 sm:h-20 object-contain drop-shadow-xl"
             />
           </div>
-          <p className="text-xs text-slate-400 font-mono">Proof of Funds Compliance & Verification Platform</p>
+          <p className="text-[10px] sm:text-xs text-slate-400 font-mono">Proof of Funds Compliance & Verification Platform</p>
         </div>
 
         {/* Card */}
         <div
-          className={`rounded-2xl border p-8 space-y-6 shadow-2xl transition-all ${
+          className={`rounded-2xl border p-6 sm:p-8 space-y-4 sm:space-y-6 shadow-2xl transition-all ${
             isDark ? 'border-white/10 bg-slate-900/80' : 'border-slate-200/80 bg-white/85'
           }`}
           style={{ backdropFilter: 'blur(24px)' }}

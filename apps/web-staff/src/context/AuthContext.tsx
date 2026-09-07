@@ -1,6 +1,6 @@
 // Auth Context — provides currentUser, userRole, and loading state app-wide
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
   doc, getDoc, setDoc, serverTimestamp, updateDoc, arrayUnion, onSnapshot
 } from 'firebase/firestore';
@@ -28,6 +28,8 @@ export interface AppUser {
   photoURL: string;
   role: UserRole;
   isApproved: boolean;
+  onboardingComplete?: boolean;
+  mandateStatus?: 'NOT_STARTED' | 'DRAFT_GENERATED' | 'MANDATE_SUBMITTED_AWAITING_APPROVAL' | 'MANDATE_APPROVED' | 'MANDATE_REJECTED';
   createdAt?: unknown;
 }
 
@@ -36,6 +38,7 @@ interface AuthContextValue {
   appUser: AppUser | null;
   loading: boolean;
   role: UserRole | null;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -43,6 +46,7 @@ const AuthContext = createContext<AuthContextValue>({
   appUser: null,
   loading: true,
   role: null,
+  refreshProfile: async () => {},
 });
 
 // Determine role from email domain
@@ -97,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             photoURL: firebaseUser.photoURL ?? '',
             role,
             isApproved,
+            onboardingComplete: false, // Default for new sign-ins
           };
 
           // 1. Set initial local state immediately to avoid flicker/blank screens
@@ -114,21 +119,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           profileUnsub = onSnapshot(userRef, async (snap) => {
             if (snap.exists()) {
-              const data = snap.data() as AppUser;
+              const data = snap.data() as any;
+
+              // KILL-SWITCH: If user is marked for hard delete, force logout immediately
+              if (data.hardDeleted === true) {
+                console.warn("Account has been deleted by Admin. Logging out...");
+                await signOut(auth);
+                return;
+              }
+
               // If we find a profile, merge it with our local resolved user
               setAppUser(prev => ({ ...resolvedAppUser, ...prev, ...data }));
             } else {
-              // Create user profile in Firestore if it doesn't exist
-              await setDoc(userRef, {
-                ...resolvedAppUser,
-                createdAt: serverTimestamp(),
-              }).catch((e) => {
-                console.warn('Firestore user profile creation deferred:', e.message);
-              });
+              // OPTIONAL: If the doc is missing and we aren't in the middle of a deletion,
+              // we can create it, but let's be more careful to avoid the "ghost" user loop.
+              // For now, only create if we just logged in.
             }
           }, (err) => {
             console.error("Firestore Profile Listener Error:", err);
           });
+
+          // Create user profile in Firestore if it doesn't exist (Only once on login)
+          const profileSnap = await getDoc(userRef);
+          if (!profileSnap.exists()) {
+            await setDoc(userRef, {
+              ...resolvedAppUser,
+              createdAt: serverTimestamp(),
+            }).catch((e) => {
+              console.warn('Firestore user profile creation deferred:', e.message);
+            });
+          }
 
           // 3. Handle FCM (Async, non-blocking)
           try {
@@ -168,8 +188,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const refreshProfile = async () => {
+    if (!currentUser) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const data = snap.data() as AppUser;
+        setAppUser(prev => ({ ...prev, ...data } as AppUser));
+      }
+    } catch (err) {
+      console.error("Manual Profile Refresh Error:", err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, appUser, loading, role: appUser?.role ?? null }}>
+    <AuthContext.Provider value={{ currentUser, appUser, loading, role: appUser?.role ?? null, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

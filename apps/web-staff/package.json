@@ -9,15 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "dexie": "^4.0.8",
     "dexie-react-hooks": "^1.1.7",
     "firebase": "^12.18.0",
     "framer-motion": "^13.2.0",
-    "lucide-react": "^0.344.0",
+    "lucide-react": "^1.42.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.18.3",
     "sonner": "^2.0.8",
+    "vite-plugin-mkcert": "^2.1.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

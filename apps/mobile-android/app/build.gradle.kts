@@ -83,6 +83,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.webkit)
+  implementation(libs.google.auth)
 
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)

@@ -41,7 +41,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
-  const [overrideTab, setModalTab] = useState<'balance' | 'days' | 'add_bank'>('balance');
+  const [overrideTab, setModalTab] = useState<'balance' | 'days' | 'pricing'>('balance');
 
   // Form States
   const [balanceAdjust, setBalanceAdjust] = useState('');
@@ -49,7 +49,12 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [targetGbpInput, setTargetGbpInput] = useState('');
   const [localCurrency, setLocalCurrency] = useState('NGN');
   const [timerStartInput, setTimerStartInput] = useState('');
-  const [bankForm, setBankForm] = useState({ name: '', number: '', balance: '', orgCapital: '' });
+
+  // Pricing States
+  const [pricingForm, setPricingForm] = useState({
+    feePercentage: 2.5,
+    maxLimit: 150000000
+  });
 
   useEffect(() => {
     if (!studentId) return;
@@ -63,6 +68,12 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
         if (data.targetGBP) setTargetGbpInput(data.targetGBP.toString());
         if (data.localCurrency) setLocalCurrency(data.localCurrency);
         if (data.startDate) setTimerStartInput(data.startDate);
+        if (data.topUpPricingConfig) {
+          setPricingForm({
+            feePercentage: data.topUpPricingConfig.topUpFeePercentage || 2.5,
+            maxLimit: data.topUpPricingConfig.maxAllowedTopUpNgn || 150000000
+          });
+        }
       }
       setLoading(false);
     });
@@ -136,35 +147,35 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
     setHoldingDays('');
   };
 
-  const handleAddBank = async () => {
+  const handleUpdatePricing = async () => {
     if (!student) return;
-    const balance = parseFloat(bankForm.balance) || 0;
-    const orgCapital = parseFloat(bankForm.orgCapital) || 0;
 
-    await addDoc(collection(db, 'financial_accounts'), {
-      userId: student.userId || studentId,
-      userEmail: student.userEmail || '',
-      bankName: bankForm.name,
-      accountNumberMasked: `•••• ${bankForm.number.slice(-4)}`,
-      accountType: 'SAVINGS',
-      balanceNgn: balance,
-      balanceGbp: balance / 1945.50,
-      orgTopUpCapitalNgn: orgCapital,
-      connectionMethod: 'MANUAL_DEPOSIT',
-      status: 'VERIFIED',
-      lastSyncedAt: serverTimestamp(),
+    await updateDoc(doc(db, 'pof_evaluations', studentId), {
+      topUpPricingConfig: {
+        topUpFeePercentage: Number(pricingForm.feePercentage),
+        maxAllowedTopUpNgn: Number(pricingForm.maxLimit),
+        updatedAt: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
+    });
+
+    await addDoc(collection(db, 'audit_logs'), {
+      actor: 'Staff Inspector',
+      action: 'PRICING_CONFIG_UPDATE',
+      detail: `Updated pricing for ${student.userName}: ${pricingForm.feePercentage}% fee, ₦${pricingForm.maxLimit.toLocaleString()} limit`,
+      studentId: studentId,
       createdAt: serverTimestamp()
     });
 
     setIsOverrideModalOpen(false);
-    setBankForm({ name: '', number: '', balance: '', orgCapital: '' });
+    toast.success('Top-Up pricing strategy updated');
   };
 
   if (loading) {
     return (
       <div className="h-screen bg-[#030712] flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
-        <p className="text-xs font-black text-amber-500 uppercase tracking-widest">Entering Inspector View...</p>
+        <p className="text-xs font-black text-amber-500 uppercase tracking-widest">Syncing Student Settings...</p>
       </div>
     );
   }
@@ -184,12 +195,12 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
 
       {/* 3. Global Override Modal */}
       {isOverrideModalOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-           <div className="bg-[#0D111A] border border-amber-500/20 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={() => setIsOverrideModalOpen(false)}>
+           <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 border-b border-white/5 flex justify-between items-center bg-amber-500/5">
                  <div>
-                    <h3 className="text-xl font-black text-amber-500 uppercase tracking-tight">Inspector Overrides</h3>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Manual ledger adjustment protocol</p>
+                    <h3 className="text-xl font-black text-amber-500 uppercase tracking-tight">Student Top-Up Settings</h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure pricing and limits for this profile</p>
                  </div>
                  <button onClick={() => setIsOverrideModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
                     <X className="w-6 h-6 text-slate-500" />
@@ -201,7 +212,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                     {[
                       { id: 'balance', label: 'Balance' },
                       { id: 'days', label: 'Setup Window' },
-                      { id: 'add_bank', label: 'Add Bank' }
+                      { id: 'pricing', label: 'Top-Up Pricing' }
                     ].map((t) => (
                       <button
                         key={t.id}
@@ -246,7 +257,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                             placeholder="e.g. 13340"
                             value={targetGbpInput}
                             onChange={e => setTargetGbpInput(e.target.value)}
-                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                            className="w-full input-rounded px-5 py-4 text-xs font-bold"
                           />
                         </div>
 
@@ -255,7 +266,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                           <select
                             value={localCurrency}
                             onChange={e => setLocalCurrency(e.target.value)}
-                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                            className="w-full input-rounded px-5 py-4 text-xs font-bold"
                           >
                             {MAJOR_CURRENCIES.map(curr => (
                               <option key={curr.code} value={curr.code}>
@@ -296,41 +307,54 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                    </div>
                  )}
 
-                 {overrideTab === 'add_bank' && (
-                   <div className="space-y-4">
-                      <input
-                        placeholder="Bank Name"
-                        value={bankForm.name}
-                        onChange={e => setBankForm({...bankForm, name: e.target.value})}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
-                      />
-                      <input
-                        placeholder="Account Number"
-                        value={bankForm.number}
-                        onChange={e => setBankForm({...bankForm, number: e.target.value})}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
-                      />
-                      <div className="grid grid-cols-2 gap-4">
-                        <input
-                          type="number"
-                          placeholder="Current Balance (₦)"
-                          value={bankForm.balance}
-                          onChange={e => setBankForm({...bankForm, balance: e.target.value})}
-                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Org Capital (₦)"
-                          value={bankForm.orgCapital}
-                          onChange={e => setBankForm({...bankForm, orgCapital: e.target.value})}
-                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-blue-400 focus:outline-none focus:border-blue-500"
-                        />
+                 {overrideTab === 'pricing' && (
+                   <div className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Service Fee (%)</label>
+                          <span className="text-sm font-black text-blue-500">{pricingForm.feePercentage}%</span>
+                        </div>
+                        <div className="flex gap-4 items-center">
+                          <input
+                            type="range" min="0.5" max="15" step="0.1"
+                            value={pricingForm.feePercentage}
+                            onChange={(e) => setPricingForm(prev => ({ ...prev, feePercentage: parseFloat(e.target.value) }))}
+                            className="flex-1 accent-blue-500 bg-slate-800 rounded-lg h-1.5 appearance-none cursor-pointer"
+                          />
+                          <input
+                            type="number"
+                            value={pricingForm.feePercentage}
+                            onChange={(e) => setPricingForm(prev => ({ ...prev, feePercentage: parseFloat(e.target.value) }))}
+                            className="w-20 bg-slate-950/50 border border-white/10 rounded-lg px-3 py-2 text-xs font-bold text-center text-white focus:outline-none"
+                          />
+                        </div>
                       </div>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Max Allocation (₦)</label>
+                          <input
+                            type="number"
+                            value={pricingForm.maxLimit}
+                            onChange={(e) => setPricingForm(prev => ({ ...prev, maxLimit: parseInt(e.target.value) }))}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-white/5 space-y-2">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pricing Preview (e.g. ₦1,000,000)</p>
+                        <div className="flex justify-between items-center text-xs font-bold">
+                          <span className="text-slate-400 uppercase tracking-tighter">Admin Service Fee</span>
+                          <span className="text-blue-400">₦{((1000000 * (pricingForm.feePercentage / 100))).toLocaleString()}</span>
+                        </div>
+                      </div>
+
                       <button
-                        onClick={handleAddBank}
+                        onClick={handleUpdatePricing}
                         className="w-full py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
                       >
-                         Force Link Account
+                         Apply Pricing Strategy
                       </button>
                    </div>
                  )}

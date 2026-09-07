@@ -2,31 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-/* System-Wide Multi-Layer Depth Shadows */
-.depth-card-lg {
-  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.6);
-  @apply border-t border-white/20;
+/*
+  High-Intensity Global Scrollbar Suppression
+  Ensures absolute invisibility across all browsers and elements.
+*/
+
+/* 1. Target the root and all elements for scrollbar-width (Firefox/Standard) */
+html, body, * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-.depth-card-gold {
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(245, 158, 11, 0.15);
-  @apply border-t border-amber-500/30;
+/* 2. Target all pseudo-elements for Webkit (Chrome/Safari/Edge/Opera) */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
-.depth-btn-gold {
-  box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.39), inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
-  @apply transition-all duration-200 active:translate-y-0.5 active:shadow-inner;
+::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
 }
 
-.depth-btn-glass {
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-  @apply transition-all duration-200 active:translate-y-0.5;
+::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
 }
 
-.text-depth-header {
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+/* 3. Redundant but safe utility classes */
+.no-scrollbar, .custom-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.no-scrollbar::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
-.text-depth-gold {
-  text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+:root {
+  /* Light Mode Tokens */
+  --bg-app: #f4f6f9;
+  --surface-glass: rgba(255, 255, 255, 0.85);
+  --surface-glass-border: rgba(15, 23, 42, 0.12);
+  --surface-hero: #0f172a; /* Keep primary account card rich dark navy for maximum contrast */
+
+  --text-main: #0f172a;      /* Deep Slate - 100% visible on light bg */
+  --text-muted: #475569;     /* Slate 600 - High legibility secondary */
+  --text-subtle: #64748b;    /* Slate 500 */
+  --accent-gold: #b45309;    /* Darker Amber for light mode contrast */
+  --accent-blue: #0284c7;    /* Deep sky blue */
+}
+
+.dark {
+  /* Dark Mode Tokens */
+  --bg-app: #0b132b;
+  --surface-glass: rgba(15, 23, 42, 0.8);
+  --surface-glass-border: rgba(255, 255, 255, 0.12);
+  --surface-hero: rgba(15, 23, 42, 0.9);
+
+  --text-main: #ffffff;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --accent-gold: #f59e0b;
+  --accent-blue: #38bdf8;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@layer components {
+  /* Global Glass Card Base */
+  .glass-card {
+    @apply rounded-3xl backdrop-blur-2xl overflow-hidden shadow-2xl;
+    background-color: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .glass-card {
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  }
 }

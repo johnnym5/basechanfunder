@@ -81,7 +81,7 @@ export const ApprovedTopUpCard: React.FC<ApprovedTopUpCardProps> = ({
   }, [evaluation.expirationDate]);
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur-xl border border-amber-500/30 rounded-[2.5rem] p-8 relative overflow-hidden transition-all hover:border-amber-500/50 depth-card-gold">
+    <div className="glass-card p-8 relative border-amber-500/30 transition-all hover:border-amber-500/50 depth-card-gold">
       {/* Decorative Glow */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 

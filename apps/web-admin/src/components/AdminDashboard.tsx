@@ -412,41 +412,66 @@ export const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col bg-[#07090e] text-slate-100 font-sans selection:bg-amber-500/30 overflow-hidden">
+    <div className={`min-h-screen w-full flex flex-col font-sans selection:bg-amber-500/30 overflow-y-auto custom-scrollbar transition-colors duration-500 relative ${
+      isDark ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
+    }`}>
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/5 rounded-full blur-[120px]" />
       </div>
 
       <div className="relative z-10 flex flex-col h-full">
-        <header className="h-16 flex-shrink-0 flex items-center justify-between px-6 md:px-8 border-b border-slate-800 bg-slate-950/50 backdrop-blur-md">
+        <header className={`h-16 flex-shrink-0 flex items-center justify-between px-6 md:px-8 border-b transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] ${
+          isDark ? 'bg-slate-950/40 border-white/5 shadow-2xl' : 'bg-white/70 border-slate-200 shadow-sm'
+        }`}>
           <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 uppercase">
-                Basechanfunder
-              </h1>
-            </div>
+            <h1 className={`text-base md:text-xl font-black uppercase tracking-tighter text-depth-header ${
+              isDark ? 'text-white' : 'text-slate-900'
+            }`}>
+              HELLO ADMIN
+            </h1>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Network Synced</span>
-            </div>
+          <div className="flex items-center space-x-3 md:space-x-4 shrink-0 relative" ref={profileMenuRef}>
+             <div className="flex items-center gap-2 md:gap-4">
+                {/* Standalone Bell Icon */}
+                <button
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:scale-105 active:scale-95 shadow-sm backdrop-blur-md depth-btn-glass ${
+                    isDark
+                      ? 'bg-slate-900/80 border-white/10 text-slate-300 hover:text-white hover:bg-slate-800'
+                      : 'bg-white/80 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Notifications"
+                >
+                  <Bell className="w-5 h-5 text-slate-300" />
+                </button>
 
-            <div className="relative" ref={profileMenuRef}>
+                {/* Theme Toggle */}
+                <button
+                  onClick={() => setIsDark(!isDark)}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:scale-105 active:scale-95 shadow-sm backdrop-blur-md depth-btn-glass ${
+                    isDark
+                      ? 'bg-slate-900/80 border-white/10 text-amber-300 hover:bg-slate-800'
+                      : 'bg-white/80 border-slate-200 text-blue-600 hover:bg-slate-100'
+                  }`}
+                  title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+             </div>
+
+             <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-105 active:scale-95 flex items-center justify-center ${
+                className={`w-10 h-10 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-lg ${
                   isDark
-                    ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-[#0B1222]'
-                    : 'border-blue-600 shadow-md shadow-blue-500/20 bg-white'
+                    ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
+                    : 'border-blue-600 shadow-blue-600/10 bg-white'
                 }`}
               >
-                <span className="text-[10px] font-black text-blue-600 uppercase">A</span>
+                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
+                   <span className="text-xs font-black text-blue-400 uppercase">A</span>
+                </div>
               </button>
 
               {/* Collapsible Profile Popover Menu */}
@@ -564,13 +589,6 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="bg-slate-900/20 border border-slate-800 rounded-2xl md:rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl">
                   <div className="p-4 md:p-8 border-b border-slate-800 space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h2 className="text-sm md:text-xl font-black uppercase tracking-tight">Global Student Roster</h2>
-                        <p className="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 md:mt-1">Multi-Criteria Search & Filter Engine</p>
-                      </div>
-                    </div>
-
                     <StudentTableFilters
                       filters={advancedFilters}
                       onFilterChange={setAdvancedFilters}

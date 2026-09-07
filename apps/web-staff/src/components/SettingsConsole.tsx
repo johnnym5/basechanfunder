@@ -18,19 +18,22 @@ import {
   TrendingUp,
   Plus,
   X,
-  Edit3
+  Edit3,
+  FileText,
+  Trash2
 } from 'lucide-react';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FirestoreDatabaseExplorer } from './FirestoreDatabaseExplorer';
+import { toast } from 'sonner';
 
 import { MAJOR_CURRENCIES } from '../constants';
 
 // --- Types ---
 
-type SettingTab = 'risk' | 'destinations' | 'api' | 'security' | 'database';
+type SettingTab = 'risk' | 'destinations' | 'document_requirements' | 'api' | 'security' | 'database';
 
 interface RiskConfig {
   fxBuffer: number;
@@ -65,11 +68,22 @@ interface DestinationRule {
   rule: string;
 }
 
+interface RequirementItem {
+  id: string;
+  label: string;
+  type: 'TEXT' | 'IMAGE' | 'DOC' | 'PDF';
+  description: string;
+  isRequired: boolean;
+  stage: number;
+  templateUrl?: string;
+}
+
 // --- Main Component ---
 
 export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initialTab }) => {
   const { theme } = useTheme();
   const { role } = useAuth();
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<SettingTab>(initialTab || 'risk');
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -111,6 +125,10 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
   ]);
 
   const [editingDestination, setEditingDestination] = useState<DestinationRule | null>(null);
+
+  const [globalRequirements, setGlobalRequirements] = useState<RequirementItem[]>([]);
+  const [isRequirementModalOpen, setIsRequirementModalOpen] = useState(false);
+  const [editingRequirement, setEditingRequirement] = useState<RequirementItem | null>(null);
 
   const [defaultCurrency, setDefaultCurrency] = useState('NGN');
 
@@ -157,6 +175,17 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
     return unsub;
   }, []);
 
+  // 1b. Listen for Document Requirements
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system_config', 'document_requirements'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setGlobalRequirements(data.globalRequirements || []);
+      }
+    });
+    return unsub;
+  }, []);
+
   const handleAddBank = () => {
     if (!newBankForm.bankName || !newBankForm.keyValue) return;
 
@@ -185,6 +214,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Save global config
       await setDoc(doc(db, 'system_config', 'global'), {
         ...risk,
         ...api,
@@ -195,35 +225,50 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // Success feedback
+      // Save document requirements
+      await setDoc(doc(db, 'system_config', 'document_requirements'), {
+        globalRequirements,
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success('System configuration synchronized globally');
       setTimeout(() => setIsSaving(false), 800);
     } catch (e) {
       console.error('Save settings error:', e);
+      toast.error('Failed to sync global configuration');
       setIsSaving(false);
     }
   };
 
+  const handleAddRequirement = (req: RequirementItem) => {
+    setGlobalRequirements(prev => [...prev, req]);
+  };
+
+  const handleUpdateRequirement = (req: RequirementItem) => {
+    setGlobalRequirements(prev => prev.map(item => item.id === req.id ? req : item));
+  };
+
+  const handleDeleteRequirement = (id: string) => {
+    setGlobalRequirements(prev => prev.filter(item => item.id !== id));
+  };
+
   return (
-    <div className={`animate-in fade-in duration-500 font-sans flex flex-col h-full min-h-0 pb-4 ${activeTab === 'database' ? 'space-y-4' : 'space-y-8'}`}>
+    <div className="h-full min-h-0 flex flex-col">
+      <div className={`animate-in fade-in duration-500 font-sans flex flex-col h-full min-h-0 pb-4 bg-app text-main ${activeTab === 'database' ? 'space-y-4' : 'space-y-8'}`}>
 
-      {/* Header Section */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className={`text-2xl font-black tracking-tight uppercase ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>System Settings</h2>
-          <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mt-1">Global Governance & Parameter Management</p>
-        </div>
-
+      {/* Quick Save Header */}
+      <header className="flex justify-end">
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="group flex items-center space-x-3 px-6 py-4 bg-gradient-to-tr from-amber-400 to-amber-600 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50"
+          className="group flex items-center space-x-3 px-6 py-4 bg-gradient-to-tr from-amber-400 to-amber-600 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 depth-btn-gold"
         >
           {isSaving ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
           ) : (
             <Save className="w-4 h-4" />
           )}
-          <span>Save System Settings</span>
+          <span>Save Changes</span>
         </button>
       </header>
 
@@ -235,6 +280,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
           { id: 'risk', label: 'Risk & FX Buffers', icon: Sliders },
           { id: 'database', label: 'Database Explorer', icon: Database },
           { id: 'destinations', label: 'Destination Rules', icon: Globe },
+          { id: 'document_requirements', label: 'Document Requirements', icon: FileText },
           { id: 'api', label: 'API & Banking Keys', icon: Key },
           { id: 'security', label: 'Security & Alerts', icon: ShieldCheck },
         ].map((tab) => (
@@ -253,9 +299,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
         ))}
       </div>
 
-      <div className={`flex-1 min-h-0 overflow-hidden ${activeTab === 'database' ? 'flex flex-col h-full' : 'border p-8 rounded-[2.5rem] backdrop-blur-md shadow-2xl transition-colors duration-500 overflow-y-auto custom-scrollbar'} ${
-        theme === 'dark' ? (activeTab === 'database' ? '' : 'bg-slate-900/20 border-white/5') : (activeTab === 'database' ? '' : 'bg-white border-slate-200')
-      }`}>
+      <div className={`flex-1 min-h-0 overflow-hidden ${activeTab === 'database' ? 'flex flex-col h-full' : 'glass-card p-8 border border-white/5'} overflow-y-auto no-scrollbar`}>
 
         {activeTab === 'risk' && (
           <div className="space-y-10">
@@ -264,7 +308,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <TrendingUp className="w-5 h-5 text-blue-500" />
-                    <h4 className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Live FX Exchange Protocol</h4>
+                <h4 className="text-sm font-extrabold uppercase text-slate-900 dark:text-white tracking-tight">Live FX Exchange Protocol</h4>
                   </div>
                   <span className="text-[10px] font-mono text-blue-500 font-bold uppercase">Manual Master Override</span>
                </div>
@@ -288,7 +332,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-8">
               <div className="space-y-4">
-                <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Default Local Currency</label>
+                <label className="text-xs font-extrabold uppercase text-slate-900 dark:text-white tracking-wider">Default Local Currency</label>
                 <div className="grid grid-cols-3 gap-2">
                   {MAJOR_CURRENCIES.slice(0, 15).map((curr) => (
                     <button
@@ -309,7 +353,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>FX Volatility Buffer (%)</label>
+                  <label className="text-xs font-extrabold uppercase text-slate-900 dark:text-white tracking-wider">FX Volatility Buffer (%)</label>
                   <span className="text-sm font-black text-amber-500 font-mono">{risk.fxBuffer}%</span>
                 </div>
                 <input
@@ -323,7 +367,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Min. Holding Period (Days)</label>
+                  <label className="text-xs font-extrabold uppercase text-slate-900 dark:text-white tracking-wider">Min. Holding Period (Days)</label>
                   <span className="text-sm font-black text-amber-500 font-mono">{risk.holdingDays} Days</span>
                 </div>
                 <input
@@ -339,7 +383,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Anomaly Threshold (R-Ratio)</label>
+                  <label className="text-xs font-extrabold uppercase text-slate-900 dark:text-white tracking-wider">Anomaly Threshold (R-Ratio)</label>
                   <span className="text-sm font-black text-rose-500 font-mono">{risk.anomalyThreshold}</span>
                 </div>
                 <input
@@ -353,7 +397,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Grace Period (Hours)</label>
+                  <label className="text-xs font-extrabold uppercase text-slate-900 dark:text-white tracking-wider">Grace Period (Hours)</label>
                   <span className="text-sm font-black text-cyan-500 font-mono">{risk.gracePeriodHours}h</span>
                 </div>
                 <input
@@ -372,9 +416,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
         {activeTab === 'destinations' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             {destinations.map((d) => (
-              <div key={d.code} className={`border p-6 rounded-3xl space-y-4 relative ${
-                theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
-              }`}>
+              <div key={d.code} className="glass-subcard p-6 space-y-4 relative">
                 <div className="flex justify-between items-start">
                   <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-amber-500 ${
                     theme === 'dark' ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200 shadow-sm'
@@ -398,6 +440,74 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
           </div>
         )}
 
+        {activeTab === 'document_requirements' && (
+          <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className={`text-lg font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Global Document Requirements</h4>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Configure master checklist for all student evaluations</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setEditingRequirement(null); setIsRequirementModalOpen(true); }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-500 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Required Item</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {globalRequirements.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-6 glass-subcard transition-all hover:bg-white/[0.07]">
+                  <div className="flex items-center gap-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${
+                      req.type === 'PDF' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' :
+                      req.type === 'IMAGE' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                      req.type === 'DOC' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
+                      'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                    }`}>
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h5 className={`text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{req.label}</h5>
+                        {req.isRequired && (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[7px] font-black uppercase">Mandatory</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{req.type} • {req.description || 'No instructions provided'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => { setEditingRequirement(req); setIsRequirementModalOpen(true); }}
+                      className="p-3 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-blue-400 transition-all"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRequirement(req.id)}
+                      className="p-3 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-600 hover:text-white transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {globalRequirements.length === 0 && (
+                <div className="py-20 text-center opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem]">
+                  <FileText className="w-12 h-12 mx-auto mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">No Global Requirements Configured</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'api' && (
           <div className="max-w-4xl space-y-8 animate-in fade-in duration-300">
             <div className="flex justify-between items-center">
@@ -417,7 +527,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
             </div>
 
             {isAddingBank && (
-              <div className={`p-8 rounded-[2rem] border animate-in zoom-in-95 duration-300 ${theme === 'dark' ? 'bg-slate-950/40 border-blue-500/20' : 'bg-slate-50 border-blue-200'}`}>
+              <div className="glass-subcard p-8 animate-in zoom-in-95 duration-300">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bank / Provider Name</label>
@@ -466,9 +576,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
 
             <div className="grid grid-cols-1 gap-4">
               {api.bankKeys.map((bank) => (
-                <div key={bank.id} className={`flex items-center justify-between p-6 rounded-3xl border transition-all ${
-                  theme === 'dark' ? 'bg-slate-900/20 border-white/5' : 'bg-white border-slate-100 shadow-sm'
-                }`}>
+                <div key={bank.id} className="flex items-center justify-between p-6 glass-subcard transition-all">
                   <div className="flex items-center gap-6">
                     <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
                       <Database className="w-6 h-6" />
@@ -514,50 +622,24 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
 
         {activeTab === 'security' && (
           <div className="max-w-2xl space-y-6">
-            <div className={`flex items-center justify-between p-6 border rounded-3xl ${
-              theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
-            }`}>
-              <div>
-                <h4 className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Email Balance Alerts</h4>
-                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">Notify students instantly if a daily closing balance drop occurs.</p>
+            {[
+              { label: 'Email Balance Alerts', desc: 'Notify students instantly if a daily closing balance drop occurs.', key: 'emailAlerts' },
+              { label: 'SMS Grace Triggers', desc: 'Send priority SMS for student-initiated top-up requests.', key: 'smsGraceTrigger' },
+              { label: 'Error Audit Log', desc: 'Enable forensic tracking of UI/API reference errors.', key: 'errorAuditLog' }
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between p-6 glass-subcard transition-all hover:bg-white/[0.07]">
+                <div>
+                  <h4 className={`text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.label}</h4>
+                  <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">{item.desc}</p>
+                </div>
+                <button
+                  onClick={() => setSecurity({...security, [item.key]: !security[item.key as keyof SecurityConfig]})}
+                  className={`w-12 h-6 rounded-full transition-all relative ${security[item.key as keyof SecurityConfig] ? 'bg-emerald-500' : 'bg-slate-800'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security[item.key as keyof SecurityConfig] ? 'left-7' : 'left-1'}`} />
+                </button>
               </div>
-              <button
-                onClick={() => setSecurity({...security, emailAlerts: !security.emailAlerts})}
-                className={`w-12 h-6 rounded-full transition-all relative ${security.emailAlerts ? 'bg-emerald-500' : 'bg-slate-800'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security.emailAlerts ? 'left-7' : 'left-1'}`} />
-              </button>
-            </div>
-
-            <div className={`flex items-center justify-between p-6 border rounded-3xl ${
-              theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
-            }`}>
-              <div>
-                <h4 className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>SMS Grace Triggers</h4>
-                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">Send priority SMS for student-initiated top-up requests.</p>
-              </div>
-              <button
-                onClick={() => setSecurity({...security, smsGraceTrigger: !security.smsGraceTrigger})}
-                className={`w-12 h-6 rounded-full transition-all relative ${security.smsGraceTrigger ? 'bg-emerald-500' : 'bg-slate-800'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security.smsGraceTrigger ? 'left-7' : 'left-1'}`} />
-              </button>
-            </div>
-
-            <div className={`flex items-center justify-between p-6 border rounded-3xl ${
-              theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200 shadow-sm'
-            }`}>
-              <div>
-                <h4 className={`text-sm font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Error Audit Log</h4>
-                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">Enable forensic tracking of UI/API reference errors.</p>
-              </div>
-              <button
-                onClick={() => setSecurity({...security, errorAuditLog: !security.errorAuditLog})}
-                className={`w-12 h-6 rounded-full transition-all relative ${security.errorAuditLog ? 'bg-emerald-500' : 'bg-slate-800'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${security.errorAuditLog ? 'left-7' : 'left-1'}`} />
-              </button>
-            </div>
+            ))}
           </div>
         )}
 
@@ -567,16 +649,144 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
           </div>
         )}
       </div>
+    </div>
 
-      <ManualEditDestinationModal
-        isOpen={!!editingDestination}
-        onClose={() => setEditingDestination(null)}
-        destination={editingDestination}
-        onSave={(updated) => {
-          setDestinations(prev => prev.map(d => d.code === updated.code ? updated : d));
-          setEditingDestination(null);
-        }}
-      />
+    <RequirementItemModal
+      isOpen={isRequirementModalOpen}
+      onClose={() => setIsRequirementModalOpen(false)}
+      requirement={editingRequirement}
+      onSave={(req) => {
+        if (editingRequirement) handleUpdateRequirement(req);
+        else handleAddRequirement(req);
+        setIsRequirementModalOpen(false);
+      }}
+    />
+
+    <ManualEditDestinationModal
+      isOpen={!!editingDestination}
+      onClose={() => setEditingDestination(null)}
+      destination={editingDestination}
+      onSave={(updated) => {
+        setDestinations(prev => prev.map(d => d.code === updated.code ? updated : d));
+        setEditingDestination(null);
+      }}
+    />
+    </div>
+  );
+};
+
+const RequirementItemModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  requirement: RequirementItem | null;
+  onSave: (req: RequirementItem) => void;
+}> = ({ isOpen, onClose, requirement, onSave }) => {
+  const [form, setForm] = useState<RequirementItem>({
+    id: '',
+    label: '',
+    type: 'PDF',
+    description: '',
+    isRequired: true,
+    stage: 1,
+    templateUrl: ''
+  });
+
+  useEffect(() => {
+    if (requirement) setForm({ ...requirement, templateUrl: requirement.templateUrl || '' });
+    else setForm({ id: Math.random().toString(36).substr(2, 9), label: '', type: 'PDF', description: '', isRequired: true, stage: 1, templateUrl: '' });
+  }, [requirement, isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
+      <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
+          <div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Document Requirement</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure structural check item</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+        </div>
+        <div className="p-8 space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Label</label>
+              <input
+                value={form.label}
+                onChange={e => setForm({...form, label: e.target.value})}
+                placeholder="e.g. International Passport Data Page"
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Input Type</label>
+              <select
+                value={form.type}
+                onChange={e => setForm({...form, type: e.target.value as any})}
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
+              >
+                <option value="TEXT">Text Input / Response</option>
+                <option value="IMAGE">Image (.jpg, .png)</option>
+                <option value="DOC">Word Document (.doc, .docx)</option>
+                <option value="PDF">PDF File (.pdf)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Workflow Stage</label>
+              <select
+                value={form.stage}
+                onChange={e => setForm({...form, stage: parseInt(e.target.value)})}
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
+              >
+                <option value={1}>Stage 1: Profile & Professional</option>
+                <option value={2}>Stage 2: Identity Proofs</option>
+                <option value={3}>Stage 3: Financial & Tax</option>
+                <option value={4}>Stage 4: Mandate & References</option>
+                <option value={5}>Stage 5: Final Submission</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Instruction / Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => setForm({...form, description: e.target.value})}
+                placeholder="Instructions for the student..."
+                rows={3}
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Template Download URL (Optional)</label>
+              <input
+                value={form.templateUrl}
+                onChange={e => setForm({...form, templateUrl: e.target.value})}
+                placeholder="e.g. /downloads/template.pdf"
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+            <div className="flex items-center justify-between p-4 glass-subcard">
+              <div>
+                <p className="text-[10px] font-black text-white uppercase tracking-widest">Mandatory Requirement</p>
+                <p className="text-[8px] text-slate-500 uppercase font-bold mt-0.5">Blocking if not submitted</p>
+              </div>
+              <button
+                onClick={() => setForm({...form, isRequired: !form.isRequired})}
+                className={`w-12 h-6 rounded-full transition-all relative ${form.isRequired ? 'bg-emerald-500' : 'bg-slate-800'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${form.isRequired ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={() => onSave(form)}
+            disabled={!form.label}
+            className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {requirement ? 'Commit Requirement Change' : 'Save Settings'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -596,8 +806,8 @@ const ManualEditDestinationModal: React.FC<{
   if (!isOpen || !destination) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#0D111A] border border-white/10 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md" onClick={onClose}>
+      <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
           <div>
             <h3 className="text-xl font-black text-white uppercase tracking-tight">Edit Rule: {destination.code}</h3>

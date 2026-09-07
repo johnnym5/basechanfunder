@@ -162,8 +162,8 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#0D111A] border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+      <div className="glass-card w-full max-w-lg animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
 
         {/* Modal Header */}
         <div className="p-8 border-b border-white/5 flex justify-between items-center">
@@ -205,7 +205,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full bg-slate-950 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-xs font-medium focus:outline-none focus:border-amber-500/50 transition-all"
+                  className="w-full input-rounded pl-12 pr-4 py-4 text-xs font-medium"
                 />
                 <button
                   onClick={handleSearch}

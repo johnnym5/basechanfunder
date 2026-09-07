@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Req, UnauthorizedException, Get } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 
 interface TopUpRequestDto {
@@ -14,7 +14,9 @@ interface TopUpRequestDto {
 
 @Controller('api/v1/topup')
 export class TopUpController {
-  private readonly db = admin.firestore();
+  private get db() {
+    return admin.firestore();
+  }
 
   @Post('request')
   @HttpCode(HttpStatus.CREATED)

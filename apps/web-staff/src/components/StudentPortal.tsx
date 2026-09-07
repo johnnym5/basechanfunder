@@ -95,7 +95,7 @@ export const StudentPortal: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0A0D14] text-slate-100 font-sans selection:bg-[#F5B651] selection:text-slate-950">
       {/* 1. TOP HEADER & APPLICANT CONTEXT BAR */}
-      <header className="sticky top-0 z-50 bg-[#0D111A]/90 backdrop-blur-xl border-b border-white/10 px-8 py-4 flex items-center justify-between shadow-2xl">
+      <header className="sticky top-0 z-50 glass-card rounded-t-none rounded-b-3xl border-x-0 border-t-0 px-8 py-4 flex items-center justify-between shadow-2xl">
         <div className="flex items-center space-x-4">
           <div className="w-11 h-11 rounded-full border-2 border-[#E5A635] p-0.5 overflow-hidden shadow-lg shadow-amber-500/10 flex items-center justify-center bg-slate-800 font-black text-amber-500">
             {appUser?.displayName?.[0] || 'U'}
@@ -104,7 +104,7 @@ export const StudentPortal: React.FC = () => {
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Active Session:</span>
-              <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/10 text-[#F5B651] border border-amber-500/20 uppercase">
+              <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-[#F5B651] border border-amber-500/20 uppercase">
                 STUDENT PORTAL
               </span>
             </div>
@@ -122,7 +122,7 @@ export const StudentPortal: React.FC = () => {
             <span className="text-[11px] text-slate-400 font-sans mt-0.5 uppercase tracking-tighter opacity-60">System Verified ID: {currentUser?.uid.substring(0, 8)}</span>
           </div>
 
-          <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#003822] border border-[#00E676]/40 text-[#00E676] font-mono text-xs font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]">
+          <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#003822] border border-[#00E676]/40 text-[#00E676] font-mono text-xs font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]">
             <CheckCircle2 className="w-4 h-4" />
             <span className="uppercase tracking-tight">NOMINAL STATUS</span>
           </div>
@@ -158,7 +158,7 @@ export const StudentPortal: React.FC = () => {
       <main className="max-w-6xl mx-auto p-8 space-y-8">
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="p-8 rounded-3xl bg-[#101522] border border-white/10 shadow-2xl text-center space-y-6 relative overflow-hidden">
+            <div className="p-8 glass-card text-center space-y-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full -mr-16 -mt-16" />
 
               <span className="text-xs font-bold font-mono tracking-[0.2em] text-slate-400 uppercase">
@@ -211,7 +211,7 @@ export const StudentPortal: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-8 rounded-3xl bg-[#101522] border border-white/10 space-y-6">
+            <div className="p-8 glass-card space-y-6">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-slate-500" />
@@ -280,7 +280,7 @@ export const StudentPortal: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {accounts.map((acc) => (
-                <div key={acc.id} className="p-8 rounded-3xl bg-[#101522] border border-white/10 space-y-6 hover:border-amber-500/30 transition-all group">
+                <div key={acc.id} className="p-8 glass-card space-y-6 hover:border-amber-500/30 transition-all group">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center space-x-4">
                       <div className="p-4 rounded-2xl bg-[#182032] text-amber-500 border border-white/5">

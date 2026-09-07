@@ -537,17 +537,16 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm ${isDark
+            className={`p-2 rounded-full border transition-all shadow-sm ${isDark
                 ? 'bg-slate-900/90 border-white/10 text-amber-300 hover:bg-slate-800'
-                : 'bg-white/90 border-slate-200 text-slate-700 hover:bg-slate-100'
+                : 'bg-white/90 border border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
           >
             {isDark ? (
-              <Sun className="w-4 h-4 text-amber-400" />
+              <Sun className="w-5 h-5 text-amber-400" />
             ) : (
-              <Moon className="w-4 h-4 text-blue-600" />
+              <Moon className="w-5 h-5 text-blue-600" />
             )}
-            <span className="hidden sm:inline">{isDark ? 'Light' : 'Dark'}</span>
           </button>
         </div>
       </header>
@@ -634,7 +633,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75 ml-1">
                     State / Region
                   </label>
                   <input
@@ -642,15 +641,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeState}
                     onChange={e => updateProfile('homeState', e.target.value)}
                     placeholder="e.g. Lagos, Abuja, Rivers"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
-                        ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
-                        : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                      }`}
+                    className="w-full text-lg md:text-xl font-bold input-rounded px-5 py-4"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
+                  <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75 ml-1">
                     Home Country
                   </label>
                   <input
@@ -658,10 +654,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     value={profile.homeCountry}
                     onChange={e => updateProfile('homeCountry', e.target.value)}
                     placeholder="e.g. Nigeria"
-                    className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
-                        ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
-                        : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                      }`}
+                    className="w-full text-lg md:text-xl font-bold input-rounded px-5 py-4"
                   />
                 </div>
               </div>
@@ -698,7 +691,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
               </div>
 
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
+                <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75 ml-1">
                   Mobile Number
                 </label>
                 <input
@@ -706,10 +699,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                   value={profile.phoneNumber}
                   onChange={e => updateProfile('phoneNumber', e.target.value.replace(/[^\d+]/g, ''))}
                   placeholder="e.g. +234 800 000 0000"
-                  className={`w-full text-lg md:text-xl font-bold px-5 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
-                      ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/30 focus:border-blue-500'
-                      : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                    }`}
+                  className="w-full text-lg md:text-xl font-bold input-rounded px-5 py-4"
                 />
               </div>
 
@@ -1001,7 +991,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                 ) : (
                   <>
                     <div className="relative">
-                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75">
+                      <label className="block text-xs font-black uppercase tracking-wider mb-2 opacity-75 ml-1">
                         Bank Name
                       </label>
 
@@ -1019,10 +1009,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                             if (!isBankDropdownOpen) setIsBankDropdownOpen(true);
                           }}
                           placeholder="Search your bank..."
-                          className={`w-full text-base font-bold pl-11 pr-10 py-4 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 shadow-sm ${isDark
-                              ? 'bg-slate-900/90 border-white/10 text-white placeholder-white/40 focus:border-blue-500'
-                              : 'bg-white/95 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600'
-                            }`}
+                          className="w-full text-base font-bold pl-11 pr-10 py-4 input-rounded"
                         />
                         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" />
                         <button
@@ -1241,12 +1228,12 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
 
               <div className="w-full space-y-4">
                 <a
-                  href="/downloads/basechan-funder.apk"
+                  href="https://github.com/johnnym5/basechanfunder/raw/main/apps/mobile-android/app/build/outputs/apk/debug/app-debug.apk"
                   download
                   className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 shadow-xl shadow-amber-500/30 transition-all"
                 >
                   <Phone className="w-5 h-5" />
-                  <span>📲 Download Android APK</span>
+                  <span>Download Android APK</span>
                 </a>
 
                 <button
@@ -1256,20 +1243,6 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                 >
                   Already Downloaded? Skip to Dashboard
                 </button>
-              </div>
-
-              <div className="flex gap-2">
-                {['Direct Sync', 'Real-time Alerts', 'Native Security'].map(badge => (
-                  <span
-                    key={badge}
-                    className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${isDark
-                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                        : 'bg-amber-50 border-amber-200 text-amber-700'
-                      }`}
-                  >
-                    {badge}
-                  </span>
-                ))}
               </div>
             </motion.div>
           )}

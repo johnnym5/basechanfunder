@@ -120,10 +120,8 @@ export const UssdFallbackModal: React.FC<UssdFallbackModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className={`w-full max-w-md rounded-[2.5rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${
-        isDark ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'
-      }`}>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+      <div className="w-full max-w-md glass-card overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className={`p-8 border-b flex justify-between items-center ${isDark ? 'border-white/5 bg-slate-950/20' : 'border-slate-100 bg-slate-50'}`}>
@@ -204,9 +202,7 @@ export const UssdFallbackModal: React.FC<UssdFallbackModalProps> = ({
                       disabled={!selectedBank}
                       value={manualBalance}
                       onChange={(e) => setManualBalance(e.target.value)}
-                      className={`w-full border rounded-2xl pl-12 pr-6 py-4 text-sm font-bold focus:outline-none transition-all ${
-                        isDark ? 'bg-slate-950 border-white/10 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600'
-                      } ${!selectedBank ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className="w-full input-rounded pl-12 pr-6 py-4 text-sm font-bold"
                       placeholder={selectedBank ? "Enter amount from USSD screen" : "Select a bank first"}
                     />
                   </div>

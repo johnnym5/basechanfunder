@@ -80,33 +80,34 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
 
   const handleDelete = async () => {
     setIsSubmitting(true);
+    const t = toast.loading(`Deleting records for ${student.name}...`);
     try {
-      // 1. Delete Evaluation
-      await deleteDoc(doc(db, 'pof_evaluations', student.id));
+      const uid = student.userId;
 
-      // 2. Delete User Profile (if userId exists)
-      if (student.userId) {
-        await deleteDoc(doc(db, 'users', student.userId));
+      // 1. Call Backend Hard Delete
+      const res = await fetch(`/api/v1/admin/users/${uid}`, {
+        method: 'DELETE'
+      });
 
-        // 3. Delete Auth User via Backend
-        await fetch(`/api/v1/admin/auth/users/${student.userId}`, { method: 'DELETE' })
-          .catch(err => console.error("Auth deletion sync failed:", err));
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Server failed to delete user');
       }
 
-      toast.success('Student records and authentication purged.');
+      toast.success('Student records successfully deleted', { id: t });
       onSuccess();
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Delete error:', e);
-      toast.error('Purge failed.');
+      toast.error(`Delete failed: ${e.message}`, { id: t });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#0D111A] border border-white/10 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+      <div className="glass-card w-full max-w-lg animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
@@ -144,7 +145,7 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:outline-none focus:border-amber-500"
+                    className="w-full input-rounded px-4 py-3 text-xs"
                   />
                 </div>
                 <div className="space-y-2">
@@ -153,7 +154,7 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
                     type="number"
                     value={formData.balanceGbp}
                     onChange={(e) => setFormData({...formData, balanceGbp: parseFloat(e.target.value)})}
-                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs text-emerald-400 font-bold focus:outline-none focus:border-amber-500"
+                    className="w-full input-rounded px-4 py-3 text-xs text-emerald-400 font-bold"
                   />
                 </div>
                 <div className="space-y-2">

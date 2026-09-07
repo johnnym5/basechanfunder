@@ -18,7 +18,17 @@ export default {
           600: '#0369a1',
           700: '#075985',
           900: '#0c4a6e',
-        }
+        },
+        // Semantic Tokens
+        app: 'var(--bg-app)',
+        main: 'var(--text-main)',
+        muted: 'var(--text-muted)',
+        subtle: 'var(--text-subtle)',
+        'accent-gold': 'var(--accent-gold)',
+        'accent-blue': 'var(--accent-blue)',
+        'surface-glass': 'var(--surface-glass)',
+        'surface-glass-border': 'var(--surface-glass-border)',
+        'surface-hero': 'var(--surface-hero)',
       }
     },
   },

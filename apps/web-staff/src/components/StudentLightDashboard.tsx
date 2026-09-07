@@ -43,7 +43,9 @@ import {
   Phone,
   ShieldAlert,
   FileText,
-  User
+  User,
+  Upload,
+  Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -51,7 +53,9 @@ import { TopUpRequestModal } from './TopUpRequestModal';
 import { UssdFallbackModal } from './UssdFallbackModal';
 import { BankStatementView } from './BankStatementView';
 import { StudentProfileModal } from './StudentProfileModal';
+import { StudentDocumentUploadWizard } from './StudentDocumentUploadWizard';
 import { ApprovedTopUpCard } from './ApprovedTopUpCard';
+import { useUserBalance } from '../hooks/useUserBalance';
 import { SmsIngestionService } from '../services/SmsIngestionService';
 import { toast } from 'sonner';
 
@@ -67,6 +71,8 @@ type UnlinkStatus = 'ACTIVE' | 'UNLINK_REQUESTED' | 'UNLINK_APPROVED' | 'UNLINK_
 interface LinkedBankAccount {
   id: string;
   bankName: string;
+  accountName?: string;
+  accountNumber?: string;
   accountNumberMasked: string;
   accountType: AccountType;
   balanceNgn: number;
@@ -83,17 +89,7 @@ interface LinkedBankAccount {
   unlinkStatus: UnlinkStatus;
   isSystemTopUp: boolean;
   unlinkReason?: string;
-}
-
-interface TransactionRecord {
-  id: string;
-  bankAccountId: string;
-  type: 'CREDIT' | 'DEBIT' | 'TOPUP_ALLOCATION';
-  amountNgn: number;
-  description: string;
-  date: string;
-  runningBalanceNgn: number;
-  category: 'PERSONAL_EQUITY' | 'ORG_CAPITAL';
+  verificationStatus?: string;
 }
 
 const LIVE_FX_RATE = 1945.50;
@@ -120,17 +116,81 @@ export const StudentLightDashboard: React.FC<{
   const activeUserId = propUserId || currentUser?.uid;
   const activeEvalId = propEvalId;
 
+  const { balance: liveBalance, accounts: liveAccounts, evaluation: liveEvaluation, loading: balanceLoading } = useUserBalance(activeUserId);
+
   // State
-  const [accounts, setAccounts] = useState<LinkedBankAccount[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [evaluation, setEvaluation] = useState<any>(null);
+
+  useEffect(() => {
+    if (liveEvaluation) setEvaluation(liveEvaluation);
+  }, [liveEvaluation]);
+
+  // Sync selected accounts
+  useEffect(() => {
+    if (liveAccounts.length > 0 && selectedAccountIds.length === 0) {
+      setSelectedAccountIds(liveAccounts.map(a => a.id));
+    }
+  }, [liveAccounts, selectedAccountIds]);
+
+  // Use liveAccounts as primary data source
+  const accounts = useMemo(() => {
+    return liveAccounts.map(item => ({
+      id: item.id,
+      bankName: item.bankName || 'Unknown Bank',
+      accountNumberMasked: item.accountNumberMasked || item.accountMask || '•••• ****',
+      accountType: item.accountType || item.type || 'SAVINGS',
+      balanceNgn: item.accountBalanceNgn || item.balanceNgn || item.balanceNGN || 0,
+      balanceGbp: item.balanceGbp || item.balanceGBP || 0,
+      orgTopUpCapitalNgn: item.orgTopUpCapitalNgn || 0,
+      isCapitalBreached: (item.accountBalanceNgn || item.balanceNgn || 0) < (item.orgTopUpCapitalNgn || 0),
+      isVerified: item.isVerified || false,
+      isDedicatedParallex: item.isDedicatedParallex || item.bankName?.includes('Parallex'),
+      lastTransactionAt: item.lastTransactionAt || (item.lastSyncedAt?.seconds ? new Date(item.lastSyncedAt.seconds * 1000).toISOString() : null),
+      isSystemTopUp: item.isSystemTopUp || false,
+      unlinkStatus: item.unlinkStatus || 'ACTIVE',
+      connectionMethod: item.connectionMethod || item.provider || 'MANUAL_DEPOSIT',
+      lastSyncedAt: item.lastSyncedAt?.seconds
+        ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Just now',
+      status: item.status || 'VERIFIED'
+    } as LinkedBankAccount));
+  }, [liveAccounts]);
+
+  // High-level totals
+  const totals = useMemo(() => {
+    const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
+    const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + (Number(acc.balanceNgn) || 0), 0);
+    const ngn = liveBalance.consolidatedBalanceNgn > 0 ? liveBalance.consolidatedBalanceNgn : accountsNgn;
+    const gbp = liveBalance.gbpEquivalent > 0 ? liveBalance.gbpEquivalent : ngn / LIVE_FX_RATE;
+    return { ngn, gbp, accountsNgn, evaluationNgn: 0 };
+  }, [accounts, selectedAccountIds, liveBalance]);
+
+  const targetGBP = evaluation?.targetGBP || 0;
+  const localCurrencyCode = evaluation?.localCurrency || 'NGN';
+  const currency = (typeof MAJOR_CURRENCIES !== 'undefined' ? MAJOR_CURRENCIES.find(c => c.code === localCurrencyCode) : null) || { code: 'NGN', symbol: '₦' };
+
+  const isTargetMet = targetGBP > 0 && totals.gbp >= targetGBP;
+  const progressPercent = targetGBP > 0 ? Math.min(Math.round((totals.gbp / targetGBP) * 100), 100) : 0;
+
+  const expiryInfo = useMemo(() => {
+    if (!evaluation?.isTimerActive || !evaluation?.expirationDate) return { isExpired: false, isNearExpiry: false, daysLeft: 0 };
+    const now = new Date();
+    const expiry = new Date(evaluation.expirationDate);
+    expiry.setHours(23, 59, 59, 999);
+    const diffTime = expiry.getTime() - now.getTime();
+    const daysLeft = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 0);
+    return { isExpired: diffTime <= 0, isNearExpiry: daysLeft >= 0 && daysLeft <= 7, daysLeft };
+  }, [evaluation]);
+
   const [loading, setLoading] = useState(true);
-  const [activeMetricCard, setActiveMetricCard] = useState(0); // 0 = Balance, 1 = Timer
+  const [activeMetricCard, setActiveMetricCard] = useState(0);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isUssdModalOpen, setIsUssdModalOpen] = useState(false);
   const [isUnlinkModalOpen, setIsUnlinkModalOpen] = useState(false);
+  const [isDocumentWizardOpen, setIsDocumentWizardOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUnlinkAccount, setSelectedUnlinkAccount] = useState<LinkedBankAccount | null>(null);
   const [unlinkReason, setUnlinkReason] = useState('');
@@ -142,14 +202,12 @@ export const StudentLightDashboard: React.FC<{
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [prepopulatedTopUpAmount, setPrepopulatedTopUpAmount] = useState<number | undefined>();
 
-  // Modal State
   const [accountNumberInput, setAccountNumberInput] = useState('');
   const [bankSearchQuery, setBankSearchQuery] = useState('');
   const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
   const [selectedBank, setSelectedBank] = useState('');
   const [selectedAccountType, setSelectedAccountType] = useState<AccountType>('SAVINGS');
   const [realAmountInput, setRealAmountInput] = useState('');
-  const [manualForm, setManualForm] = useState({ name: '', accountName: '', number: '', balance: '' });
 
   const isDark = theme === 'dark';
 
@@ -158,194 +216,26 @@ export const StudentLightDashboard: React.FC<{
     return NIGERIAN_BANKS.filter(b => b.toLowerCase().includes(bankSearchQuery.toLowerCase()));
   }, [bankSearchQuery]);
 
-  // Native SMS Listener Bridge
-  useEffect(() => {
-    (window as any).onSmsBalanceUpdate = async (balance: number, mask: string, timestamp: number) => {
-      console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
-
-      // 1. Find matching account in state
-      let matchedAccId: string | null = null;
-      setAccounts(prev => prev.map(acc => {
-        const isMatch = SmsIngestionService.verifyMatch(mask, acc.accountNumberMasked.slice(-4));
-        if (isMatch || mask === 'XXXX') {
-          matchedAccId = acc.id;
-          return {
-            ...acc,
-            balanceNgn: balance,
-            balanceGbp: balance / LIVE_FX_RATE,
-            lastSyncedAt: new Date(timestamp).toLocaleString(),
-            status: 'VERIFIED',
-            isVerified: isMatch && mask !== 'XXXX'
-          };
-        }
-        return acc;
-      }));
-
-      // 2. Update Firestore if matched
-      if (matchedAccId) {
-        await updateDoc(doc(db, 'financial_accounts', matchedAccId), {
-          balanceNgn: balance,
-          balanceGbp: balance / LIVE_FX_RATE,
-          lastSyncedAt: serverTimestamp(),
-          status: 'VERIFIED',
-          isVerified: mask !== 'XXXX', // Only verify if we have a real mask
-          updatedAt: serverTimestamp()
-        });
-      }
-
-      setIsConnectModalOpen(false);
-      setIsSavingAndSyncing(false);
-      setSyncError(null);
-      setPendingAccountId(null);
-    };
-
-    (window as any).onSmsSyncFailed = (mask: string) => {
-      console.warn(`SMS Sync Failed for mask: ${mask}`);
-      setSyncError(`We couldn't find a matching alert for account ending in ${mask}.`);
-      setIsSavingAndSyncing(false);
-    };
-
-    return () => {
-      (window as any).onSmsBalanceUpdate = null;
-      (window as any).onSmsSyncFailed = null;
-    };
-  }, []);
-
-  // 1. Fetch Real Data
-  useEffect(() => {
-    if (!activeUserId) return;
-
-    const accQ = query(collection(db, 'financial_accounts'), where('userId', '==', activeUserId));
-    const unsubAcc = onSnapshot(accQ, (snap) => {
-      const data = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          bankName: data.bankName || 'Unknown Bank',
-          accountNumberMasked: data.accountNumberMasked || data.accountMask || '•••• ****',
-          accountType: data.accountType || data.type || 'SAVINGS',
-          balanceNgn: data.balanceNgn || data.balanceNGN || 0,
-          balanceGbp: data.balanceGbp || data.balanceGBP || 0,
-          orgTopUpCapitalNgn: data.orgTopUpCapitalNgn || 0,
-          isCapitalBreached: (data.balanceNgn || 0) < (data.orgTopUpCapitalNgn || 0),
-          isVerified: data.isVerified || false,
-          isDedicatedParallex: data.isDedicatedParallex || data.bankName.includes('Parallex'),
-          lastTransactionAt: data.lastTransactionAt || data.lastSyncedAt?.seconds ? new Date(data.lastSyncedAt.seconds * 1000).toISOString() : null,
-          connectionMethod: data.connectionMethod || data.provider || 'MANUAL_DEPOSIT',
-          lastSyncedAt: data.lastSyncedAt?.seconds
-            ? new Date(data.lastSyncedAt.seconds * 1000).toLocaleString()
-            : (data.updatedAt?.seconds ? new Date(data.updatedAt.seconds * 1000).toLocaleString() : 'Never'),
-          connectedAt: data.connectedAt?.seconds
-            ? new Date(data.connectedAt.seconds * 1000).toISOString()
-            : (data.createdAt?.seconds ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString()),
-          status: data.status || 'VERIFIED',
-          unlinkStatus: data.unlinkStatus || 'ACTIVE',
-          isSystemTopUp: data.isSystemTopUp || false,
-          unlinkReason: data.unlinkReason || ''
-        } as LinkedBankAccount;
-      });
-      setAccounts(data);
-      // Logic: Only auto-select ALL on the very first time accounts are loaded
-      setSelectedAccountIds(prev => prev.length === 0 ? data.map(a => a.id) : prev);
-    });
-
-    // 1b. Listen to Evaluation
-    let unsubEval: () => void;
-    if (activeEvalId) {
-       // Direct Doc ID (Most reliable for staff view)
-       unsubEval = onSnapshot(doc(db, 'pof_evaluations', activeEvalId), (snap) => {
-          if (snap.exists()) setEvaluation(snap.data());
-          setLoading(false);
-       });
-    } else {
-       // Query by userId (For student view)
-       const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', activeUserId));
-       unsubEval = onSnapshot(evalQ, (snap) => {
-         if (!snap.empty) setEvaluation(snap.docs[0].data());
-         setLoading(false);
-       });
-    }
-
-    return () => { unsubAcc(); unsubEval(); };
-  }, [activeUserId, activeEvalId, isStaff]);
-
-  // 2. Calculations
-  const totals = useMemo(() => {
-    const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
-    const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + (Number(acc.balanceNgn) || 0), 0);
-    const evaluationNgn = Number(evaluation?.currentBalanceNgn) || 0;
-    const ngn = accountsNgn + evaluationNgn;
-    const gbp = ngn / LIVE_FX_RATE;
-    return { ngn, gbp, accountsNgn, evaluationNgn };
-  }, [accounts, selectedAccountIds, evaluation]);
-
-  const daysElapsed = useMemo(() => {
-    // STRICT CHECK: If startDate is missing or empty, do not show badge.
-    if (!evaluation?.startDate || evaluation.startDate === "" || evaluation.startDate === "null" || evaluation.startDate === "undefined") {
-      return null;
-    }
-
-    const start = new Date(evaluation.startDate).getTime();
-    if (isNaN(start)) return null;
-
-    const now = Date.now();
-    const diffDays = Math.floor((now - start) / 86400000);
-
-    // Only show if Admin set a date in the past
-    if (diffDays < 0) return null;
-
-    return Math.min(diffDays + 1, 28);
-  }, [evaluation]);
-
-  // Expiration Logic
-  const expiryInfo = useMemo(() => {
-    if (!evaluation?.isTimerActive || !evaluation?.expirationDate) return { isExpired: false, isNearExpiry: false, daysLeft: null };
-
-    const now = new Date();
-    const expiry = new Date(evaluation.expirationDate);
-    expiry.setHours(23, 59, 59, 999);
-
-    const diffTime = expiry.getTime() - now.getTime();
-    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    return {
-      isExpired: diffTime <= 0,
-      isNearExpiry: daysLeft >= 0 && daysLeft <= 7,
-      daysLeft
-    };
-  }, [evaluation]);
-
-  useEffect(() => {
-    if (expiryInfo.isExpired) setIsExpiredModalOpen(true);
-  }, [expiryInfo.isExpired]);
-
-  // 3. Handlers
+  // Handlers
   const handleSyncAccount = async (id: string) => {
     const acc = accounts.find(a => a.id === id);
     if (!acc) return;
-
     setSyncingId(id);
 
-    // If it's a System Top Up, re-query the status endpoint
     if (acc.isSystemTopUp) {
       try {
         await fetch('/api/v1/topup/status');
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(r => setTimeout(r, 1000));
         toast.success('System liquidity pulse verified.');
-      } catch (e) {
-        // Fallback
       } finally {
         setSyncingId(null);
         return;
       }
     }
 
-    // If it's a UBA account, try Native SMS Sync
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
-       const mask = acc.accountNumberMasked.slice(-4);
        if ((window as any).AndroidBridge) {
-         console.log(`Triggering Native SMS Sync for mask: ${mask}`);
-         (window as any).AndroidBridge.triggerSmsSync(mask);
+         (window as any).AndroidBridge.triggerSmsSync(acc.accountNumberMasked.slice(-4));
          return;
        } else {
          toast.error("SMS Sync is only available in the Basechan Funder Android App.");
@@ -355,52 +245,43 @@ export const StudentLightDashboard: React.FC<{
     }
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await updateDoc(doc(db, 'financial_accounts', id), {
-        lastSyncedAt: serverTimestamp(),
-        status: 'VERIFIED'
-      });
+      await new Promise(r => setTimeout(r, 1500));
+      await updateDoc(doc(db, 'financial_accounts', id), { lastSyncedAt: serverTimestamp(), status: 'VERIFIED' });
     } finally {
       setSyncingId(null);
     }
   };
 
   const handleAdminUnlink = async (accountId: string) => {
-    if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics.')) {
+    if (window.confirm('Accept and unlink this account immediately?')) {
       await deleteDoc(doc(db, 'financial_accounts', accountId));
-      toast.success('Account unlinked by Administrator.');
+      toast.success('Account unlinked.');
     }
   };
 
   const handleRequestUnlink = async () => {
     if (!selectedUnlinkAccount || !unlinkReason.trim()) return;
-
     await updateDoc(doc(db, 'financial_accounts', selectedUnlinkAccount.id), {
       unlinkStatus: 'UNLINK_REQUESTED',
       unlinkReason: unlinkReason.trim(),
       updatedAt: serverTimestamp()
     });
-
     setIsUnlinkModalOpen(false);
     setSelectedUnlinkAccount(null);
     setUnlinkReason('');
-    toast.success('Unlink request submitted to Admin for approval.');
+    toast.success('Unlink request submitted.');
   };
 
   const handleConnectBank = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeUserId || !selectedBank || !accountNumberInput) return;
-
     setIsSavingAndSyncing(true);
-    setSyncError(null);
     try {
       const balance = parseFloat(realAmountInput) || 0;
       const mask = `•••• ${accountNumberInput.slice(-4)}`;
-
-      // 1. Save metadata to Firestore
       const docRef = await addDoc(collection(db, 'financial_accounts'), {
         userId: activeUserId,
-        userEmail: isStaff ? evaluation?.userEmail || '' : currentUser?.email,
+        userEmail: isStaff ? liveEvaluation?.userEmail || '' : currentUser?.email,
         bankName: selectedBank,
         accountName: name,
         accountNumberMasked: mask,
@@ -408,66 +289,18 @@ export const StudentLightDashboard: React.FC<{
         balanceNgn: Math.round(balance),
         balanceGbp: Math.round((balance / LIVE_FX_RATE) * 100) / 100,
         connectionMethod: 'MANUAL_DEPOSIT',
-        status: 'SYNCING',
-        isVerified: false,
-        lastSyncedAt: serverTimestamp(),
+        status: 'VERIFIED',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-
-      setPendingAccountId(docRef.id);
-
-      // 2. Trigger SMS Sync via Bridge
-      if ((window as any).AndroidBridge) {
-        (window as any).AndroidBridge.triggerSmsSync(accountNumberInput.slice(-4));
-      } else {
-        // Fallback simulation for web dev
-        setTimeout(async () => {
-          await updateDoc(doc(db, 'financial_accounts', docRef.id), {
-            status: 'VERIFIED',
-            updatedAt: serverTimestamp()
-          });
-          setIsConnectModalOpen(false);
-          setIsSavingAndSyncing(false);
-        }, 1500);
-      }
-    } catch (err) {
-      console.error(err);
-      setIsSavingAndSyncing(false);
-    }
-  };
-
-  const handleRetrySync = () => {
-    if (!accountNumberInput || !(window as any).AndroidBridge) return;
-    setIsSavingAndSyncing(true);
-    setSyncError(null);
-    (window as any).AndroidBridge.triggerSmsSync(accountNumberInput.slice(-4));
-  };
-
-  const handleContinueManual = async () => {
-    if (!pendingAccountId) return;
-    setIsSavingAndSyncing(true);
-    try {
-      await updateDoc(doc(db, 'financial_accounts', pendingAccountId), {
-        status: 'VERIFIED',
-        isVerified: false,
-        updatedAt: serverTimestamp()
-      });
       setIsConnectModalOpen(false);
-      setSyncError(null);
-      setPendingAccountId(null);
     } finally {
       setIsSavingAndSyncing(false);
     }
   };
 
-  const handleCancelConnect = async () => {
-    if (pendingAccountId) {
-      await deleteDoc(doc(db, 'financial_accounts', pendingAccountId));
-    }
+  const handleCancelConnect = () => {
     setIsConnectModalOpen(false);
-    setSyncError(null);
-    setPendingAccountId(null);
     setSelectedBank('');
     setBankSearchQuery('');
     setAccountNumberInput('');
@@ -475,22 +308,11 @@ export const StudentLightDashboard: React.FC<{
 
   const handleAdditionalTopUp = () => {
     const deficitGbp = targetGBP - totals.gbp;
-    if (deficitGbp > 0) {
-      setPrepopulatedTopUpAmount(Math.round(deficitGbp * LIVE_FX_RATE));
-    } else {
-      setPrepopulatedTopUpAmount(undefined);
-    }
+    if (deficitGbp > 0) setPrepopulatedTopUpAmount(Math.round(deficitGbp * LIVE_FX_RATE));
     setIsTopUpModalOpen(true);
   };
 
-  const targetGBP = evaluation?.targetGBP || 0;
-  const localCurrencyCode = evaluation?.localCurrency || 'NGN';
-  const currency = (typeof MAJOR_CURRENCIES !== 'undefined' ? MAJOR_CURRENCIES.find(c => c.code === localCurrencyCode) : null) || { code: 'NGN', symbol: '₦' };
-
-  const isTargetMet = targetGBP > 0 && totals.gbp >= targetGBP;
-  const progressPercent = targetGBP > 0 ? Math.min(Math.round((totals.gbp / targetGBP) * 100), 100) : 0;
-
-  if (loading && accounts.length === 0) {
+  if (balanceLoading && accounts.length === 0) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0a0f1e]' : 'bg-slate-50'}`}>
         <Loader2 className={`w-8 h-8 animate-spin ${isDark ? 'text-amber-500' : 'text-blue-600'}`} />
@@ -499,9 +321,9 @@ export const StudentLightDashboard: React.FC<{
   }
 
   return (
-    <div className={`min-h-screen font-sans p-6 md:p-10 animate-in fade-in duration-700 transition-all duration-500 relative ${
-      isDark ? 'bg-[#030712] text-slate-100' : 'bg-slate-50 text-slate-900'
-    } ${expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''}`}>
+    <div className={`min-h-screen font-sans transition-all duration-500 relative bg-app text-main ${
+      expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''
+    }`}>
 
       {/* Expiry Warning Banner */}
       {expiryInfo.isNearExpiry && !expiryInfo.isExpired && (
@@ -525,23 +347,13 @@ export const StudentLightDashboard: React.FC<{
         </div>
       )}
 
-      {/* Top Bar */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
-        <div>
-          <h1 className={`text-4xl font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-950'}`}>Hello, {name}</h1>
-          <p className={`text-base font-medium mt-1 uppercase tracking-tight ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-            Welcome to your <span className="font-bold text-blue-600">BASECHAN FUNDER</span> dashboard.
-          </p>
-        </div>
-      </header>
-
       {/* Hero Metric Card Section */}
       <section className="mb-12 relative group">
         <div className="relative overflow-hidden rounded-[2.5rem] min-h-[340px] flex items-stretch">
 
           {/* CARD 1: Total Liquid Converted Balance */}
           <div className={`w-full flex-shrink-0 transition-all duration-700 transform ${activeMetricCard === 0 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
-            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0B172A] border border-white/5 flex flex-col justify-between depth-card-lg`}>
+            <div className="h-full glass-card p-10 md:p-14 text-white relative flex flex-col justify-between overflow-hidden !bg-slate-900 !border-white/10 shadow-2xl">
               <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
               <div className="relative z-10 space-y-8">
@@ -595,7 +407,7 @@ export const StudentLightDashboard: React.FC<{
 
           {/* CARD 2: Statutory Holding & Expiration Timer */}
           <div className={`w-full flex-shrink-0 transition-all duration-700 transform ${activeMetricCard === 1 ? 'translate-x-0 opacity-100 relative' : '-translate-x-full opacity-0 absolute'}`}>
-            <div className={`h-full rounded-[2.5rem] p-10 md:p-14 text-white relative overflow-hidden shadow-2xl transition-colors duration-500 bg-[#0F172A] border border-white/5 flex flex-col justify-between depth-card-lg`}>
+            <div className="h-full glass-card p-10 md:p-14 text-white relative flex flex-col justify-between overflow-hidden !bg-slate-900 !border-white/10 shadow-2xl">
               <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
 
               <div className="relative z-10 space-y-8">
@@ -699,12 +511,52 @@ export const StudentLightDashboard: React.FC<{
         </div>
       </section>
 
+      {/* Compliance Checklist */}
+      <section className="mb-12">
+        <div className="px-2 mb-8">
+          <h3 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white">Compliance Documents</h3>
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] mt-1">Required files for proof of funds verification</p>
+        </div>
+
+        <div className="p-8 rounded-[2.5rem] border backdrop-blur-md flex items-center justify-between transition-all bg-white border-slate-200 shadow-md dark:bg-slate-900/80 dark:border-white/10 hover:border-blue-500/30">
+           <div className="flex items-center gap-6">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border shadow-sm ${
+                appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
+              }`}>
+                 {appUser?.mandateStatus === 'MANDATE_APPROVED' ? <CheckCircle2 className="w-8 h-8" /> : <ShieldCheck className="w-8 h-8" />}
+              </div>
+              <div>
+                 <h4 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                   {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Compliance Verification Cleared' :
+                    appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Package Awaiting Verification' :
+                    'Awaiting Compliance Verification'}
+                 </h4>
+                 <p className="text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mt-1">
+                   {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Your regulatory account mandate has been fully verified and approved.' :
+                    appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Your document package has been received and is under professional review.' :
+                    'Submit your international passport and supporting financial documents for review.'}
+                 </p>
+              </div>
+           </div>
+           <button
+             onClick={() => setIsDocumentWizardOpen(true)}
+             className={`px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+               appUser?.mandateStatus === 'MANDATE_APPROVED'
+                 ? 'bg-emerald-500 text-white shadow-emerald-500/20'
+                 : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-500'
+             }`}
+           >
+             {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'View Submissions' : 'Manage Submissions'}
+           </button>
+        </div>
+      </section>
+
       {/* Bank Accounts Ledger */}
       <section className="space-y-8">
         <div className="flex justify-between items-end px-2">
           <div>
-            <h3 className={`text-xl font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-950'}`}>Bank Accounts Ledger</h3>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Select accounts to include in total asset calculation</p>
+            <h3 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white">Bank Accounts Ledger</h3>
+            <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em] mt-1">Select accounts to include in total asset calculation</p>
           </div>
           <div className="flex items-center space-x-3">
              <button
@@ -723,9 +575,7 @@ export const StudentLightDashboard: React.FC<{
              </button>
              <button
                onClick={() => setIsConnectModalOpen(true)}
-               className={`flex items-center space-x-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all px-4 py-2 rounded-xl ${
-                 isDark ? 'bg-amber-500 text-slate-950' : 'bg-blue-600 text-white shadow-lg'
-               }`}
+               className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest transition-all px-6 py-2.5 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-95"
              >
                <Plus className="w-3.5 h-3.5" />
                <span>Connect Source</span>
@@ -751,10 +601,6 @@ export const StudentLightDashboard: React.FC<{
             {accounts.filter(a => !a.isSystemTopUp).map((acc) => {
               const isSelected = selectedAccountIds.includes(acc.id);
 
-              const colorClasses = isDark
-                ? (isSelected ? 'bg-amber-500/5 border-amber-500/50 shadow-lg' : 'bg-slate-900/40 border-white/5 hover:border-amber-500/40')
-                : (isSelected ? 'bg-blue-50/50 border-blue-600 shadow-lg' : 'bg-white border-slate-200/80 hover:border-blue-500/40');
-
               return (
                 <div
                   key={acc.id}
@@ -763,7 +609,9 @@ export const StudentLightDashboard: React.FC<{
                       prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
                     );
                   }}
-                  className={`border p-8 rounded-[2rem] flex flex-col transition-all group shadow-sm hover:-translate-y-1 cursor-pointer relative ${colorClasses}`}
+                  className={`glass-subcard p-8 flex flex-col transition-all group shadow-sm hover:-translate-y-1 cursor-pointer relative ${
+                    isSelected ? (isDark ? 'border-amber-500/50 bg-amber-500/5' : 'bg-blue-50/50 border-blue-600 shadow-lg') : ''
+                  }`}
                 >
                   {/* Checkbox Overlay */}
                   <div className={`absolute top-4 right-4 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
@@ -781,24 +629,27 @@ export const StudentLightDashboard: React.FC<{
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className={`text-base font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>{acc.bankName}</h4>
+                          <h4 className="text-base font-black tracking-tight uppercase text-slate-900 dark:text-white">
+                            {acc.accountName || acc.bankName}
+                          </h4>
+                          {acc.id === 'parallex_dedicated' && <span className="text-[10px] font-black text-accent-gold dark:text-amber-500 uppercase tracking-tighter">(Mandate)</span>}
                           {acc.isVerified && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                            <span className="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
                               <ShieldCheck className="w-2.5 h-2.5" />
                               Verified
                             </span>
                           )}
                           {acc.isDedicatedParallex && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
                               <Building2 className="w-2.5 h-2.5" />
                               Dedicated POF Account
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{acc.accountNumberMasked} • {acc.accountType}</p>
-                          <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-blue-500/10 text-blue-500`}>
-                            <Lock className="w-2 h-2" />
+                          <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">{acc.accountNumberMasked} • {acc.accountType}</p>
+                          <span className="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-sky-100 text-sky-900 border border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800">
+                            <Lock className="w-2" />
                             Read-Only
                           </span>
                         </div>
@@ -806,11 +657,13 @@ export const StudentLightDashboard: React.FC<{
                     </div>
                     <div className="text-right pr-6">
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
-                        acc.status === 'VERIFIED'
-                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        acc.verificationStatus === 'MANDATE_PENDING_REVIEW'
+                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          : acc.status === 'VERIFIED'
+                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                       }`}>
-                        {acc.status}
+                        {acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? '🟡 Mandate Pending Review' : acc.status}
                       </span>
                       <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
                     </div>
@@ -833,7 +686,7 @@ export const StudentLightDashboard: React.FC<{
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-slate-400">YOUR PERSONAL EQUITY</span>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">YOUR PERSONAL EQUITY</span>
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
                             acc.isCapitalBreached
                               ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
@@ -843,7 +696,7 @@ export const StudentLightDashboard: React.FC<{
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-slate-400">ORG TOP-UP CAPITAL</span>
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">ORG TOP-UP CAPITAL</span>
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 bg-blue-500/10 text-blue-500 border-blue-500/20`}>
                             <Lock className="w-2.5 h-2.5" />
                             {currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}
@@ -941,8 +794,8 @@ export const StudentLightDashboard: React.FC<{
 
       {/* Connect Modal */}
       {isConnectModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className={`w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.85)] animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#0D111A]' : 'bg-white'}`}>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={handleCancelConnect}>
+          <div className="w-full max-w-lg glass-card overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1131,6 +984,11 @@ export const StudentLightDashboard: React.FC<{
         onClose={() => setIsUssdModalOpen(false)}
         onSuccess={() => {}}
         linkedBanks={accounts.map(a => a.bankName)}
+      />
+
+      <StudentDocumentUploadWizard
+        isOpen={isDocumentWizardOpen}
+        onClose={() => setIsDocumentWizardOpen(false)}
       />
 
       <BankStatementView

@@ -95,9 +95,7 @@ export const AdminCounselorRoster: React.FC = () => {
         {counselors.map((staff) => (
           <div
             key={staff.email}
-            className={`p-6 rounded-[2.5rem] border backdrop-blur-md transition-all hover:-translate-y-1 ${
-              isDark ? 'bg-slate-900/40 border-white/5 hover:border-amber-500/30' : 'bg-white border-slate-200 shadow-sm'
-            }`}
+            className="p-6 glass-card transition-all hover:-translate-y-1 hover:border-amber-500/30"
           >
             <div className="flex justify-between items-start mb-6">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${

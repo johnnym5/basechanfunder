@@ -30,11 +30,11 @@ import { StudentActionModal } from './StudentActionModal';
 import { AdvancedFilterModal } from './AdvancedFilterModal';
 import { useTheme } from '../context/ThemeContext';
 
-// --- Types ---
-type ComplianceStatus = 'CLEARED' | 'NEEDS_TOPUP' | 'NEAR_MATURITY' | 'AT_RISK' | 'PENDING';
+import { resolveUserStatus, ComplianceStatus } from '../services/userStatusService';
 
 interface Student {
   id: string;
+  userId: string;
   name: string;
   email: string;
   status: ComplianceStatus;
@@ -43,6 +43,8 @@ interface Student {
   targetGbp: number;
   visaRoute: string;
   lastUpdate: string;
+  onboardingComplete?: boolean;
+  isApproved?: boolean;
 }
 
 const StatusBadge: React.FC<{ status: ComplianceStatus }> = ({ status }) => {
@@ -53,11 +55,20 @@ const StatusBadge: React.FC<{ status: ComplianceStatus }> = ({ status }) => {
     NEAR_MATURITY: theme === 'dark' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200',
     AT_RISK: theme === 'dark' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-600 border-rose-200',
     PENDING: theme === 'dark' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-50 text-slate-500 border-slate-200',
+    PENDING_ONBOARDING: theme === 'dark' ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200',
+    AWAITING_VERIFICATION: theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200',
+    UNAUTHENTICATED: theme === 'dark' ? 'bg-rose-600/20 text-rose-500 border-rose-600/30 shadow-lg shadow-rose-900/10' : 'bg-rose-50 text-rose-700 border-rose-200 shadow-sm',
+  };
+
+  const labels: Record<string, string> = {
+    PENDING_ONBOARDING: 'INCOMPLETE ONBOARDING',
+    AWAITING_VERIFICATION: 'PENDING VERIFICATION',
+    UNAUTHENTICATED: 'IDENTIFICATION FAILED',
   };
 
   return (
     <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-tighter shadow-sm ${styles[status] || styles.PENDING}`}>
-      {status.replace('_', ' ')}
+      {labels[status] || status.replace('_', ' ')}
     </span>
   );
 };
@@ -97,11 +108,20 @@ export const StaffQueue: React.FC<StaffQueueProps> = ({ onInspect }) => {
         const start = d.startDate ? new Date(d.startDate).getTime() : Date.now();
         const days = Math.min(Math.max(Math.floor((Date.now() - start) / 86400000) + 1, 1), 28);
 
+        const status = resolveUserStatus({
+          isApproved: d.isApproved ?? false,
+          onboardingComplete: !!(d.onboardingComplete || d.setupCompleted), // Check both for robustness
+          status: d.status || 'PENDING',
+          consecutiveDays: days,
+          verificationFailed: d.verificationFailed
+        });
+
         return {
           id: docSnap.id,
+          userId: d.userId,
           name: d.userName || 'Unknown Student',
           email: d.userEmail || '',
-          status: d.status || 'PENDING',
+          status,
           consecutiveDays: days,
           balanceGbp: d.currentBalanceGBP || 0,
           targetGbp: d.targetGBP || 0,

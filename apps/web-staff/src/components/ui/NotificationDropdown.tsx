@@ -16,11 +16,14 @@ import {
 import {
   collection,
   query,
+  where,
   orderBy,
   limit,
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface SystemNotification {
   id: string;
@@ -31,41 +34,97 @@ interface SystemNotification {
 }
 
 export const NotificationDropdown: React.FC = () => {
+  const { theme } = useTheme();
+  const { currentUser } = useAuth();
+  const isDark = theme === 'dark';
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [page, setPage] = useState(1);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch real activity from audit_logs
+  // Fetch real activity - Dual Stream: Personal Notifications + Subject Audit Logs
   useEffect(() => {
-    const q = query(
-      collection(db, 'audit_logs'),
+    if (!currentUser) return;
+
+    // 1. Fetch direct personal notifications
+    const qNotif = query(
+      collection(db, 'notifications'),
+      where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
-      limit(20)
+      limit(15)
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      const logs = snap.docs.map(doc => {
+    const unsubNotif = onSnapshot(qNotif, (snap) => {
+      const personal = snap.docs.map(doc => {
         const data = doc.data();
-        const timestamp = data.createdAt?.seconds
-          ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : 'Just now';
-
         return {
           id: doc.id,
-          type: data.action || 'INFO',
-          message: `${data.actor || 'System'}: ${data.detail || data.action}`,
-          time: timestamp,
-          isRead: false // Real audit logs don't have isRead, we can treat them as unread or just simple logs
+          type: data.type || 'INFO',
+          message: data.message || data.body || data.title || 'New notification',
+          time: data.createdAt?.seconds
+            ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Just now',
+          isRead: data.isRead || false,
+          createdAt: data.createdAt?.seconds || 0
         };
       });
-      setNotifications(logs);
+
+      // 2. Fetch subject audit logs (Actions taken by staff on this student)
+      const qAudit = query(
+        collection(db, 'audit_logs'),
+        where('studentId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc'),
+        limit(15)
+      );
+
+      const unsubAudit = onSnapshot(qAudit, (auditSnap) => {
+        const audits = auditSnap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            type: data.action || 'AUDIT',
+            message: data.detail || `System Action: ${data.action}`,
+            time: data.createdAt?.seconds
+              ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Just now',
+            isRead: true, // Audit logs are informational/history
+            createdAt: data.createdAt?.seconds || 0
+          };
+        });
+
+        // Merge and sort
+        const merged = [...personal, ...audits].sort((a, b) => b.createdAt - a.createdAt);
+        setNotifications(merged as any);
+      }, (err: any) => {
+        console.warn('Audit stream error:', err);
+
+        // If the error is a missing index, we show a helpful Toast with the link
+        if (err.message?.includes('index')) {
+          const indexUrl = err.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0];
+          if (indexUrl) {
+            toast.error("Database Index Required", {
+              description: "Click to generate the required index for your notifications.",
+              action: {
+                label: "Create Index",
+                onClick: () => window.open(indexUrl, '_blank')
+              },
+              duration: 10000
+            });
+          }
+        }
+
+        // Fallback to just personal notifications to keep the app working
+        const sortedPersonal = personal.sort((a, b) => b.createdAt - a.createdAt);
+        setNotifications(sortedPersonal as any);
+      });
+
+      return unsubAudit;
     }, (err) => {
       console.warn('Notification stream error:', err);
     });
 
-    return unsub;
-  }, []);
+    return unsubNotif;
+  }, [currentUser]);
 
   const pageSize = 5;
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
@@ -117,110 +176,106 @@ export const NotificationDropdown: React.FC = () => {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2.5 rounded-xl border backdrop-blur-md transition-all relative ${
+        className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all depth-btn-glass relative ${
           isOpen
             ? 'bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-            : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white hover:bg-slate-800'
+            : 'bg-white/5 border-white/5 text-slate-300 hover:text-white'
         }`}
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center rounded-full shadow-lg ring-2 ring-[#07090e]">
-            {unreadCount}
+          <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
           </span>
         )}
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Window (Positioned under Bell) */}
       {isOpen && (
-        <div className="absolute right-0 mt-4 w-96 bg-[#0D111A]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl z-[150] overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-
+        <div className="absolute right-0 mt-3 w-80 bg-white border-slate-200 dark:bg-slate-900 dark:border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[500] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
           {/* Header */}
-          <div className="p-6 border-b border-white/5 flex items-center justify-between bg-slate-950/20">
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest">Activity Feed</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter mt-1">System Events & Logs</p>
+          <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-accent-gold" />
+              <div>
+                <h3 className="text-[11px] font-black uppercase tracking-widest text-main">Notifications</h3>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={handleMarkAllRead}
                 title="Mark all as read"
-                className="p-1.5 rounded-lg bg-white/5 text-slate-500 hover:text-amber-500 hover:bg-amber-500/10 transition-all"
+                className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-amber-500 transition-all"
               >
                 <CheckCheck className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleClearAll}
-                title="Clear all notifications"
-                className="p-1.5 rounded-lg bg-white/5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
+              <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500">
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* List Area */}
-          <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+          {/* List Area - Reduced Height & Spacing */}
+          <div className="max-h-[350px] overflow-y-auto no-scrollbar p-2 space-y-1.5">
             {notifications.length > 0 ? (
-              <div className="divide-y divide-white/5">
-                {paginatedNotifications.map((notif) => (
-                  <div key={notif.id} className={`p-5 flex items-start space-x-4 transition-colors group relative ${!notif.isRead ? 'bg-amber-500/[0.03]' : 'hover:bg-white/[0.02]'}`}>
-                    {!notif.isRead && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
-                    )}
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-white/5 flex-shrink-0">
-                      {getIcon(notif.type)}
-                    </div>
-                    <div className="flex-1 min-w-0 pr-6">
-                      <p className={`text-xs leading-relaxed ${notif.isRead ? 'text-slate-400' : 'text-slate-100 font-bold'}`}>
-                        {notif.message}
-                      </p>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <Clock className="w-3 h-3 text-slate-600" />
-                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{notif.time}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => dismissNotification(notif.id)}
-                      className="absolute right-4 top-5 opacity-0 group-hover:opacity-100 p-1 rounded-lg bg-slate-800 text-slate-500 hover:text-white transition-all"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+              paginatedNotifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  className={`p-3 rounded-xl border transition-all group relative flex gap-3 ${
+                    !notif.isRead
+                      ? (isDark ? 'bg-amber-500/5 border-amber-500/10' : 'bg-amber-50 border-amber-200')
+                      : (isDark ? 'bg-white/5 border-white/5 opacity-80' : 'bg-slate-50 border-slate-100')
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-slate-950' : 'bg-white shadow-sm'}`}>
+                    {getIcon(notif.type)}
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[11px] leading-tight ${!notif.isRead ? 'font-bold' : 'font-medium text-slate-400'}`}>
+                      {notif.message}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Clock className="w-2.5 h-2.5 text-slate-500" />
+                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{notif.time}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissNotification(notif.id)}
+                    className="p-1.5 h-fit rounded-lg bg-rose-500/10 text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
             ) : (
-              <div className="py-20 text-center opacity-30">
-                <Bell className="w-12 h-12 mx-auto mb-4 text-slate-500" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em]">No New Activity</p>
+              <div className="py-12 text-center opacity-20 flex flex-col items-center">
+                <Bell className="w-10 h-10 mb-2" />
+                <p className="text-[9px] font-black uppercase tracking-[0.3em]">Clear</p>
               </div>
             )}
           </div>
 
-          {/* Footer: Pagination */}
-          {notifications.length > pageSize && (
-            <div className="p-4 border-t border-white/5 bg-slate-950/20 flex items-center justify-between px-6">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex items-center space-x-2">
-                <button
-                  disabled={page === 1}
-                  onClick={() => setPage(page - 1)}
-                  className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white disabled:opacity-20 transition-all"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  disabled={page === totalPages}
-                  onClick={() => setPage(page + 1)}
-                  className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white disabled:opacity-20 transition-all"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+          {/* Footer: Compact Pagination */}
+          <div className={`p-3 border-t flex items-center justify-between px-4 ${isDark ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pg {page} of {totalPages || 1}</span>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-white/5 bg-white/5 text-slate-400 disabled:opacity-10 transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                disabled={page === totalPages || totalPages === 0}
+                onClick={() => setPage(page + 1)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-white/5 bg-white/5 text-slate-400 disabled:opacity-10 transition-all"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

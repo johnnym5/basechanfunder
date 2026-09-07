@@ -20,14 +20,20 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 import android.content.Intent
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import java.util.regex.Pattern
 
 class MainActivity : ComponentActivity() {
     companion object {
         var instance: MainActivity? = null
+        private const val GOOGLE_SIGN_IN_RC = 9001
     }
 
     private lateinit var webView: WebView
+    private lateinit var googleSignInClient: GoogleSignInClient
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,6 +41,13 @@ class MainActivity : ComponentActivity() {
         instance = this
         enableEdgeToEdge()
         
+        // Configure Google Sign In
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("1053228569213-gmqs7gromujm3esbd190klhd9rbm1grb.apps.googleusercontent.com")
+            .requestEmail()
+            .build()
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
+
         // Enable remote debugging for development
         WebView.setWebContentsDebuggingEnabled(true)
 
@@ -55,17 +68,102 @@ class MainActivity : ComponentActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
                 if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
-                    if (!url.startsWith("https://appassets.androidplatform.net")) {
+                    // Allow navigation within the app assets or to Firebase Auth
+                    if (url.startsWith("https://appassets.androidplatform.net") || 
+                        url.contains("firebaseapp.com") || 
+                        url.contains("google.com/accounts")) {
                         return false 
+                    }
+                    // For other URLs, open in external browser
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        view?.context?.startActivity(intent)
+                        return true
+                    } catch (e: Exception) {
+                        return false
                     }
                 }
                 return super.shouldOverrideUrlLoading(view, request)
+            }
+        }
+
+        webView.webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                val newWebView = WebView(this@MainActivity)
+                val newSettings = newWebView.settings
+                newSettings.javaScriptEnabled = true
+                newSettings.supportMultipleWindows()
+                newSettings.javaScriptCanOpenWindowsAutomatically = true
+                newSettings.domStorageEnabled = true
+                newSettings.databaseEnabled = true
+                newSettings.setSupportMultipleWindows(true)
+                
+                // Set a custom User Agent to avoid "disallowed_useragent" errors
+                val chromeUserAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                newSettings.userAgentString = chromeUserAgent
+
+                // Allow cookies for the popup
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                cookieManager.setAcceptThirdPartyCookies(newWebView, true)
+
+                // Show the popup webview in a full-screen dialog
+                val dialog = android.app.Dialog(this@MainActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+                dialog.setContentView(newWebView)
+                
+                // Allow the dialog to be dismissed by back button
+                dialog.setCancelable(true)
+                dialog.show()
+
+                val transport = resultMsg?.obj as WebView.WebViewTransport
+                transport.webView = newWebView
+                resultMsg.sendToTarget()
+
+                newWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        val url = request?.url?.toString() ?: ""
+                        // If it's the Firebase Auth handler, keep it in the popup
+                        if (url.contains("firebaseapp.com/__/auth/handler")) {
+                            return false
+                        }
+                        return false
+                    }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        // If the popup reaches the final "close" state or handler finishes
+                        if (url != null && url.contains("close_after_login")) {
+                            dialog.dismiss()
+                        }
+                    }
+                }
+                
+                // Handle window.close()
+                newWebView.webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onCloseWindow(window: WebView?) {
+                        dialog.dismiss()
+                    }
+                }
+
+                return true
             }
         }
         
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.setSupportMultipleWindows(true) // Required for some auth flows
+        
+        // Allow cookies and third-party cookies for Firebase Auth
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
         settings.allowFileAccess = true
@@ -98,7 +196,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == GOOGLE_SIGN_IN_RC) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val idToken = account?.idToken
+                if (idToken != null) {
+                    Log.d("MainActivity", "Native Google Login Success. Passing ID Token to Web.")
+                    webView.post {
+                        webView.evaluateJavascript("window.onNativeGoogleLoginSuccess?.('$idToken')", null)
+                    }
+                } else {
+                    Log.e("MainActivity", "Google ID Token is null")
+                    webView.post {
+                        webView.evaluateJavascript("window.onNativeGoogleLoginError?.('ID_TOKEN_NULL')", null)
+                    }
+                }
+            } catch (e: ApiException) {
+                Log.e("MainActivity", "Google sign in failed", e)
+                webView.post {
+                    webView.evaluateJavascript("window.onNativeGoogleLoginError?.('${e.statusCode}')", null)
+                }
+            }
+        }
+    }
+
     inner class AndroidInterface {
+        @JavascriptInterface
+        fun triggerNativeGoogleLogin() {
+            Log.d("MainActivity", "triggerNativeGoogleLogin called")
+            val signInIntent = googleSignInClient.signInIntent
+            startActivityForResult(signInIntent, GOOGLE_SIGN_IN_RC)
+        }
+
         @JavascriptInterface
         fun getVersionCode(): Int {
             return try {

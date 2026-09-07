@@ -30,8 +30,11 @@ import {
   Bell,
   X,
   Database,
-  Briefcase
+  Briefcase,
+  User,
+  RefreshCw
 } from 'lucide-react';
+import { resolveUserStatus } from '../services/userStatusService';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
 import { AdminNotificationPopover } from './ui/AdminNotificationPopover';
@@ -50,12 +53,16 @@ import { StudentOnboardingWizard } from './StudentOnboardingWizard';
 import { AppUpdateModal } from './AppUpdateModal';
 import { AdminCounselorRoster } from './AdminCounselorRoster';
 import { AdminStudentProfileDrawer } from './AdminStudentProfileDrawer';
+import { StudentProfileModal } from './StudentProfileModal';
+import { useUserBalance } from '../hooks/useUserBalance';
+import { PushNotificationService } from '../services/pushNotificationService';
 import { getPlatformType } from '../utils/deviceDetection';
 import { toast } from 'sonner';
 
 export const MasterAppPortal: React.FC = () => {
-  const { appUser, role, currentUser, loading: authLoading } = useAuth();
+  const { appUser, role, currentUser, loading: authLoading, refreshProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { balance, accounts: balanceAccounts, loading: balanceLoading } = useUserBalance(currentUser?.uid);
   const navigate = useNavigate();
 
   // Navigation State
@@ -64,6 +71,7 @@ export const MasterAppPortal: React.FC = () => {
   const [isAdminSupportOpen, setIsAdminSupportOpen] = useState(false);
   const [supportInitialStudentId, setSupportInitialStudentId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [inspectingStudentId, setInspectingStudentId] = useState<string | null>(null);
 
   // Profile Drawer State (Accessible globally in portal)
@@ -87,27 +95,53 @@ export const MasterAppPortal: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Onboarding state
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-
+  // --- Push Notification & Deep-Link Initialization ---
   useEffect(() => {
-    if (!appUser || !currentUser || onboardingChecked) return;
-    if (role !== 'STUDENT') { setOnboardingChecked(true); return; }
+    if (!currentUser?.uid) return;
 
-    getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const completed = data?.onboardingComplete === true;
-        setShowOnboarding(!completed);
+    const pushService = PushNotificationService.getInstance();
+    const platform = getPlatformType();
+
+    // 1. Initialize based on platform
+    if (platform === 'WEB' || platform === 'PWA') {
+      pushService.initWebPush(currentUser.uid);
+    } else {
+      pushService.initNativePush(currentUser.uid, (data) => {
+        if (data.studentId) {
+          navigateStudent(data.studentId, data.actionType || 'profile');
+        }
+      });
+    }
+
+    // 2. Navigation Helper
+    const navigateStudent = async (studentId: string, tab: string = 'profile') => {
+      setDrawerTab(tab as any);
+      const userSnap = await getDoc(doc(db, 'users', studentId));
+      if (userSnap.exists()) {
+        setSelectedStudentForDrawer({ id: studentId, ...userSnap.data() });
+        setIsProfileDrawerOpen(true);
       }
-      setOnboardingChecked(true);
-    }).catch(() => {
-      setOnboardingChecked(true);
-    });
-  }, [appUser, currentUser, role, onboardingChecked]);
+    };
 
-  if (authLoading || !appUser || !currentUser || (role === 'STUDENT' && !onboardingChecked)) {
+    // 3. Listen for global navigation events (from FCM foreground toasts)
+    const handleNavEvent = (e: any) => {
+      const { studentId, action } = e.detail;
+      if (studentId) navigateStudent(studentId, action);
+    };
+
+    window.addEventListener('app:navigate:student' as any, handleNavEvent);
+    return () => window.removeEventListener('app:navigate:student' as any, handleNavEvent);
+  }, [currentUser?.uid]);
+
+  // Determine user status for routing
+  const userStatus = appUser ? resolveUserStatus({
+    isApproved: appUser.isApproved,
+    onboardingComplete: !!appUser.onboardingComplete,
+    status: (appUser as any).status,
+    verificationFailed: (appUser as any).verificationFailed
+  }) : null;
+
+  if (authLoading || !appUser || !currentUser) {
     return (
       <div className="min-h-screen bg-[#090D16] flex items-center justify-center">
         <ProfessionalSpinner message="Verifying session..." />
@@ -115,10 +149,13 @@ export const MasterAppPortal: React.FC = () => {
     );
   }
 
-  if (showOnboarding && role === 'STUDENT') {
+  // Gated: Onboarding Wizard for new students
+  if (userStatus === 'PENDING_ONBOARDING' && role === 'STUDENT') {
     return (
       <StudentOnboardingWizard
-        onComplete={() => setShowOnboarding(false)}
+        onComplete={async () => {
+          await refreshProfile();
+        }}
       />
     );
   }
@@ -199,114 +236,157 @@ export const MasterAppPortal: React.FC = () => {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 relative z-10 overflow-hidden">
-        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
 
-          {/* Restructured Top Header - Optimized for Desktop & Mobile */}
-          <header className={`h-16 sm:h-20 flex-shrink-0 px-6 sm:px-10 md:px-12 border-b transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] ${
-            theme === 'dark' ? 'bg-slate-950/40 border-white/5 shadow-2xl' : 'bg-white/70 border-slate-200 shadow-sm'
-          }`}>
-            <div className="h-full flex items-center justify-between">
-              <div className="flex items-center space-x-4 min-w-0">
-                {inspectingStudentId ? (
-                  <button
-                    onClick={() => setInspectingStudentId(null)}
-                    className="flex items-center gap-2 bg-slate-900 border border-white/10 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="hidden sm:inline">Exit Inspector</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 truncate">
-                    <h1 className={`text-sm sm:text-lg md:text-2xl font-black uppercase tracking-tighter text-depth-header whitespace-nowrap`}>
-                      <span className={isDark ? 'text-slate-400' : 'text-blue-950'}>HI </span>
-                      <span className="text-amber-500">{appUser?.displayName?.split(' ')[0]?.toUpperCase() || 'ADMIN'}</span>
-                    </h1>
-                  </div>
-                )}
-              </div>
+          {/* Restructured Top Header - High Density Utility Cluster */}
+          <header className={`h-16 flex-shrink-0 px-4 sm:px-6 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] bg-surface-glass border-surface-glass-border shadow-2xl`}>
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              {inspectingStudentId ? (
+                <button
+                  onClick={() => setInspectingStudentId(null)}
+                  className="flex items-center gap-1.5 bg-slate-900 border border-white/10 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
+                >
+                  <ArrowLeft className="w-2.5 h-2.5" />
+                  <span className="hidden xs:inline">Exit</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 truncate">
+                  <h1 className="text-xs sm:text-lg md:text-xl font-black uppercase tracking-tight text-depth-header whitespace-nowrap overflow-hidden">
+                    <span className="text-slate-600 dark:text-slate-400">HI </span>
+                    <span className="text-accent-gold dark:text-amber-500">{appUser?.displayName?.split(' ')[0]?.toUpperCase() || 'ADMIN'}</span>
+                  </h1>
+                </div>
+              )}
+            </div>
 
-              <div className="flex items-center space-x-3 sm:space-x-6 shrink-0 relative" ref={profileMenuRef}>
-                 {/* Right Utility Cluster */}
-                 <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Notification Bell */}
-                    {isStaffOrAdmin ? (
-                      <AdminNotificationPopover
-                        onViewStudent={async (userId, eventId) => {
-                          setDrawerTab('activity');
-                          setHighlightEventId(eventId || null);
-                          const userSnap = await getDoc(doc(db, 'users', userId));
-                          if (userSnap.exists()) {
-                            setSelectedStudentForDrawer({ id: userId, ...userSnap.data() });
-                            setIsProfileDrawerOpen(true);
-                          } else {
-                            toast.error("Could not find student profile.");
-                          }
-                        }}
-                      />
+            <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 relative" ref={profileMenuRef}>
+               {/* Global Action Cluster */}
+               <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Notification Bell */}
+                  {isStaffOrAdmin ? (
+                    <AdminNotificationPopover
+                      onViewStudent={async (userId, eventId) => {
+                        setDrawerTab('activity');
+                        setHighlightEventId(eventId || null);
+                        const userSnap = await getDoc(doc(db, 'users', userId));
+                        if (userSnap.exists()) {
+                          setSelectedStudentForDrawer({ id: userId, ...userSnap.data() });
+                          setIsProfileDrawerOpen(true);
+                        } else {
+                          toast.error("Could not find student profile.");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <NotificationDropdown />
+                  )}
+               </div>
+
+               {/* Profile FAB Button */}
+               <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                    isDark
+                      ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
+                      : 'border-blue-600 shadow-blue-600/10 bg-white'
+                  }`}
+               >
+                  <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
+                    {appUser.photoURL ? (
+                      <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <NotificationDropdown />
+                      <span className="text-[10px] sm:text-sm font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'A'}</span>
                     )}
+                  </div>
+               </button>
 
-                    {/* Light / Dark Mode Toggle */}
-                    <button
-                      onClick={toggleTheme}
-                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all depth-btn-glass ${
-                        isDark ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-amber-500/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    </button>
-                 </div>
-
-                 {/* Profile FAB Button */}
-                 <button
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
-                      isDark
-                        ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
-                        : 'border-blue-600 shadow-blue-600/10 bg-white'
-                    }`}
-                 >
-                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
-                      {appUser.photoURL ? (
-                        <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-sm sm:text-lg font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'A'}</span>
-                      )}
-                    </div>
-                 </button>
-
-               {/* DROPDOWN MENU - Further Trimmed */}
+               {/* DROPDOWN MENU - Comprehensive Governance & Support */}
                {isProfileOpen && (
-                 <div className={`absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl z-[150] p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right border ${
+                 <div className={`absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-2xl z-[150] p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right border ${
                    isDark
-                     ? 'bg-slate-900/60 backdrop-blur-[75px] border-white/10 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
-                     : 'bg-white/60 backdrop-blur-[75px] border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.1)]'
+                     ? 'bg-slate-900 backdrop-blur-[75px] border-white/10 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
+                     : 'bg-white border-slate-200 text-slate-900 shadow-[0_20px_60px_rgba(0,0,0,0.15)]'
                  }`}>
+                   <div className="p-3 border-b border-white/5 mb-1">
+                      <p className="text-[10px] font-black uppercase text-amber-500 tracking-widest">{appUser?.role?.replace('_', ' ')}</p>
+                      <p className="text-xs font-bold truncate mt-0.5">{appUser?.displayName}</p>
+                   </div>
+
                    <div className="space-y-0.5">
-                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-3 my-1 opacity-50">Governance</p>
-                      {navItems.map((item) => (
+                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-3 my-1 opacity-50">Account & Theme</p>
+
+                      {/* Theme Toggle Inside Dropdown */}
+                      <button
+                        onClick={toggleTheme}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
+                          isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                           {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
+                           <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                        </div>
+                        <span className="text-[8px] opacity-40 font-mono">Theme</span>
+                      </button>
+
+                      {/* Profile Settings */}
+                      <button
+                        onClick={() => {
+                          setIsProfileModalOpen(true);
+                          setIsProfileOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
+                          isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5 text-blue-400" />
+                        <span>My Profile</span>
+                      </button>
+
+                      {/* Support Button (Student Only) */}
+                      {role === 'STUDENT' && (
                         <button
-                          key={item.id}
                           onClick={() => {
-                            if (item.id === 'support') setIsAdminSupportOpen(true);
-                            else if (item.id === 'params' || item.id === 'database') {
-                              setActiveTab(item.id);
-                              setIsSettingsOpen(true);
-                            }
-                            else setActiveTab(item.id);
+                            setIsSupportOpen(true);
                             setIsProfileOpen(false);
                           }}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
-                            activeTab === item.id
-                              ? 'bg-amber-500 text-slate-950 shadow-md'
-                              : isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
+                            isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
                           }`}
                         >
-                          <item.icon className={`w-3 h-3 ${activeTab === item.id ? 'text-slate-950' : 'text-slate-500'}`} />
-                          <span>{item.label}</span>
+                          <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Talk to Support</span>
                         </button>
-                      ))}
+                      )}
+
+                      {navItems.length > 0 && (
+                        <>
+                          <div className="h-px bg-white/5 mx-2 my-1" />
+                          <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest ml-3 my-1 opacity-50">Governance</p>
+                          {navItems.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                if (item.id === 'support') setIsAdminSupportOpen(true);
+                                else if (item.id === 'params' || item.id === 'database') {
+                                  setActiveTab(item.id);
+                                  setIsSettingsOpen(true);
+                                }
+                                else setActiveTab(item.id);
+                                setIsProfileOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
+                                activeTab === item.id
+                                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                                  : isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              <item.icon className={`w-3 h-3 ${activeTab === item.id ? 'text-slate-950' : 'text-slate-500'}`} />
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
                    </div>
 
                    <div className={`pt-1 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
@@ -321,11 +401,10 @@ export const MasterAppPortal: React.FC = () => {
                   </div>
                 )}
               </div>
-            </div>
           </header>
 
-          <div className={`p-4 md:p-10 ${role === 'STUDENT' ? 'p-0' : ''}`}>
-            <div className={role === 'STUDENT' ? 'w-full' : 'max-w-7xl mx-auto'}>
+          <div className="w-full flex-1 flex flex-col px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-10">
+            <div className="w-full h-full flex flex-col">
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
               ) : !appUser.isApproved && role === 'STUDENT' ? (
@@ -339,9 +418,20 @@ export const MasterAppPortal: React.FC = () => {
                       Please wait for admin to approve your account.
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 scale-90 sm:scale-100">
-                    <Loader2 className="w-2.5 h-2.5 text-amber-500 animate-spin" />
-                    <span className="text-[7px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest">Awaiting Clearance...</span>
+                  <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/5 scale-90 sm:scale-100">
+                    <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
+                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Awaiting Clearance...</span>
+                    <button
+                      onClick={async () => {
+                        const t = toast.loading('Re-verifying approval...');
+                        await refreshProfile();
+                        toast.success('Check complete.', { id: t });
+                      }}
+                      className="ml-2 p-1.5 rounded-lg bg-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-all"
+                      title="Refresh Approval Status"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -446,6 +536,12 @@ export const MasterAppPortal: React.FC = () => {
       />
 
       {getPlatformType() === 'NATIVE_ANDROID' && <AppUpdateModal />}
+
+      <StudentProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userData={appUser}
+      />
     </div>
   );
 };
