@@ -30,7 +30,9 @@ class BankSmsReceiver : BroadcastReceiver() {
 
     private fun identifyBank(sender: String): String? {
         return when {
-            sender.contains("UBA", true) || sender.contains("UBAGroup", true) -> "United Bank for Africa (UBA)"
+            sender.contains("UBA", true) || sender.contains("UBALERT", true) || 
+            sender.contains("UBA-ALERT", true) || sender.contains("UBADIRECT", true) ||
+            sender.contains("UBAGroup", true) -> "United Bank for Africa (UBA)"
             sender.contains("GTBank", true) || sender.contains("GTB", true) -> "Guaranty Trust Bank (GTB)"
             sender.contains("Access", true) -> "Access Bank"
             sender.contains("Zenith", true) -> "Zenith Bank"
@@ -42,10 +44,10 @@ class BankSmsReceiver : BroadcastReceiver() {
     }
 
     private fun parseBankBalance(bankName: String, body: String, timestamp: Long) {
-        // Broad pattern to capture balance NGN 1,234.56 - Removed 'Amt' to prevent capturing charge amount as balance
-        val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance)\\s*[:\\s]*(?:NGN|₦)?\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
+        // Updated broad pattern for UBA and others
+        val balancePattern = Pattern.compile("(?:Bal|Balance|Avail\\s+Bal|Ledger\\s+Bal)(?:\\s*:|\\s+is|\\s*-)?\\s*(?:NGN|₦)?\\s*([0-9,]+\\.[0-9]{2})", Pattern.CASE_INSENSITIVE)
         // Broad pattern to capture account mask (last 4 digits)
-        val acctPattern = Pattern.compile("(?:Acct|Ac|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
+        val acctPattern = Pattern.compile("(?:Acct|Ac|Acc|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
         
         val balMatcher = balancePattern.matcher(body)
         val acctMatcher = acctPattern.matcher(body)

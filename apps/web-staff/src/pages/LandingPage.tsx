@@ -18,6 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { Link } from 'react-router-dom';
 
 interface LandingPageProps {
   onNavigateToLogin?: () => void;
@@ -263,10 +264,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, isI
       )}
 
       {/* Footer */}
-      <footer className={`py-12 px-8 border-t text-center transition-colors ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
-        <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-          &copy; 2026 Basechanfunder &bull; Proof of Funds Compliance
-        </p>
+      <footer className={`py-12 px-8 border-t transition-colors ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="text-left space-y-2">
+            <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              &copy; 2026 Basechan International Limited &bull; RC-1234567
+            </p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed max-w-xs">
+              Registered Office: Plot 102, Trans-Amadi Industrial Layout, Port Harcourt, Rivers State, Nigeria.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-8">
+            <Link to="/legal/terms" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-500 transition-colors">Terms of Service</Link>
+            <Link to="/legal/privacy" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-500 transition-colors">Privacy Policy</Link>
+            <Link to="/legal/cookies" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-500 transition-colors">Cookie Policy</Link>
+            <a href="mailto:support@basechaninternational.com" className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-400 transition-colors underline decoration-blue-500/20 underline-offset-4">Support Engine</a>
+          </div>
+        </div>
       </footer>
 
     </div>

@@ -19,53 +19,58 @@ export class TopUpController {
   }
 
   @Post('request')
-  @HttpCode(HttpStatus.CREATED)
-  async requestTopUp(@Body() body: TopUpRequestDto) {
+  @HttpCode(HttpStatus.OK)
+  async requestTopUp(@Body() body: any) {
     try {
-      // 1. Create a request record in Firestore
-      const requestRef = await this.db.collection('liquidity_requests').add({
-        ...body,
-        status: 'PENDING_PAYMENT_VERIFICATION',
-        type: 'TOP_UP',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
+      const { userId, topUpAmountNgn, serviceFeeNgn, paymentReference, accountNumber } = body;
 
-      // 2. Update student's evaluation status
-      const evalSnap = await this.db.collection('pof_evaluations')
-        .where('userId', '==', body.userId)
-        .limit(1)
-        .get();
-
-      if (!evalSnap.empty) {
-        const evalDoc = evalSnap.docs[0];
-        await evalDoc.ref.update({
-          status: 'NEEDS_TOPUP',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+      if (!userId || !topUpAmountNgn || !paymentReference) {
+        return { success: false, error: 'Missing required top-up request fields' };
       }
 
-      // 3. Create a system notification for admins
-      await this.db.collection('admin_notifications').add({
-        title: 'New Top-Up Request',
-        body: `${body.userName} has requested a top-up of ₦${body.requestedCapitalNgn.toLocaleString()}.`,
-        userId: body.userId,
-        requestId: requestRef.id,
-        type: 'TOP_UP_PENDING',
+      const requestId = `TOPUP_${Date.now()}`;
+
+      // 1. Record Top-Up Request in Firestore
+      await this.db.collection('topup_requests').doc(requestId).set({
+        requestId,
+        userId,
+        topUpAmountNgn: Number(topUpAmountNgn),
+        serviceFeeNgn: Number(serviceFeeNgn),
+        paymentReference,
+        accountNumber: accountNumber || '',
+        status: 'PENDING_ADMIN_VERIFICATION',
+        createdAt: new Date().toISOString(),
+      });
+
+      // 2. Update Root Student Record
+      await this.db.collection('users').doc(userId).update({
+        topUpStatus: 'REQUEST_PENDING',
+        activeTopUpRequestId: requestId,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // 3. Trigger Admin Notification
+      await this.db.collection('notifications').add({
+        recipientRole: 'ADMIN',
+        targetUserId: userId,
+        title: 'Top-Up Request Submitted',
+        message: `User submitted a top-up request of ₦${Number(topUpAmountNgn).toLocaleString()} with reference: "${paymentReference}".`,
+        type: 'TOPUP_REQUEST',
+        requestId,
         isRead: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: new Date().toISOString(),
       });
 
       return {
-        status: 'SUCCESS',
-        requestId: requestRef.id,
-        message: 'Top-up request submitted for verification.'
+        success: true,
+        message: 'Top-up request submitted successfully',
+        requestId,
       };
     } catch (error: any) {
       console.error('Top-up request error:', error);
       return {
-        status: 'ERROR',
-        message: 'Failed to process top-up request: ' + error.message
+        success: false,
+        error: error.message
       };
     }
   }

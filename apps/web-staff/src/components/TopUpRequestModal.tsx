@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { submitTopUpPaymentClaim } from '../services/topUpService';
 import { toast } from 'sonner';
 
 interface TopUpRequestModalProps {
@@ -153,29 +154,15 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
       }
 
       if (requestType === 'TOP_UP') {
-        const response = await fetch('/api/v1/topup/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser.uid,
-            userName: appUser?.displayName || 'Student',
-            userEmail: currentUser.email,
-            requestedCapitalNgn: amount,
-            calculatedFeeNgn: calculatedFee,
-            totalPayableNgn: totalPayable,
-            reason: reason,
-            paymentReference: paymentRef,
-            status: 'PENDING_FEE_VERIFICATION'
-          })
+        const result = await submitTopUpPaymentClaim({
+          userId: currentUser.uid,
+          topUpAmountNgn: amount,
+          serviceFeeNgn: calculatedFee,
+          paymentReference: paymentRef,
+          accountNumber: evaluation?.accountNumber || ''
         });
 
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`Server returned ${response.status}: ${text || 'Empty response'}`);
-        }
-
-        const result = await response.json();
-        if (result.status === 'ERROR') throw new Error(result.message);
+        if (result.success === false) throw new Error(result.error);
       } else {
         await addDoc(collection(db, 'liquidity_requests'), {
           userId: currentUser.uid,
@@ -201,7 +188,12 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
         setPaymentReference('');
       }, 2000);
     } catch (err: any) {
-      toast.error('Failed: ' + err.message);
+      console.error('Top-Up Error:', err);
+      if (err.message?.includes('404')) {
+        toast.error('Unable to connect to server. Please check route endpoints');
+      } else {
+        toast.error('Failed: ' + err.message);
+      }
     } finally {
       setIsSubmitting(false);
     }

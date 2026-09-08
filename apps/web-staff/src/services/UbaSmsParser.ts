@@ -13,14 +13,14 @@ export interface ExtractedAlert {
 }
 
 export class UbaSmsParser {
-  private static SENDER_REGEX = /UBA|UBAGroup|UBAMobile/i;
+  private static SENDER_REGEX = /UBA|UBALERT|UBA-ALERT|UBADIRECT|UBAGroup|UBAMobile/i;
 
   // Patterns:
   // Credit: Acct 201****4921 Amt: NGN 500,000.00 Date: 02-Sep-2026 Avail Bal: NGN 18,950,000.00
   // Debit: Acct 201****4921 Amt: NGN 100,000.00 Date: 02-Sep-2026 Bal: NGN 18,850,000.00
-  private static BALANCE_PATTERN = /Bal:\s*NGN\s*([\d,]+\.\d{2})/i;
-  private static ACCT_PATTERN = /Acct\s*[\d\*]*(\d{4})/i;
-  private static AMOUNT_PATTERN = /Amt:\s*NGN\s*([\d,]+\.\d{2})/i;
+  private static BALANCE_PATTERN = /(?:Bal|Balance|Avail\s+Bal|Ledger\s+Bal)(?:\s*:|\s+is|\s*-)?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i;
+  private static ACCT_PATTERN = /Acc(?:t)?\s*[:\s]*[\d\*]*(\d{4})/i;
+  private static AMOUNT_PATTERN = /Amt:\s*(?:NGN|₦)?\s*([\d,]+\.\d{2})/i;
 
   /**
    * Main entry point for parsing a raw SMS body.

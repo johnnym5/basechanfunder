@@ -62,9 +62,12 @@ import { UssdFallbackModal } from './UssdFallbackModal';
 import { ApprovedTopUpCard } from './ApprovedTopUpCard';
 import { StudentDocumentUploadWizard } from './StudentDocumentUploadWizard';
 import { AccountMandateWizard } from './AccountMandateWizard';
+import { ElectronicLedgerStatementModal } from './ElectronicLedgerStatementModal';
 import { useUserBalance } from '../hooks/useUserBalance';
 import { requestSmsPermissions } from '../utils/smsPermissions';
 import { SmsIngestionService } from '../services/SmsIngestionService';
+import { FuzzySmsParser } from '../services/fuzzySmsParser';
+import { SmsSyncService } from '../services/smsSyncService';
 import { toast } from 'sonner';
 
 import { MAJOR_CURRENCIES } from '../constants';
@@ -223,6 +226,8 @@ export const StudentMobileFirstDashboard: React.FC<{
   const [isUnlinkModalOpen, setIsUnlinkModalOpen] = useState(false);
   const [isDocumentWizardOpen, setIsDocumentWizardOpen] = useState(false);
   const [isMandateWizardOpen, setIsMandateWizardOpen] = useState(false);
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [selectedLedgerAccount, setSelectedLedgerAccount] = useState<any>(null);
   const [selectedUnlinkAccount, setSelectedUnlinkAccount] = useState<LinkedBankAccount | null>(null);
   const [isSavingAndSyncing, setIsSavingAndSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -270,7 +275,19 @@ export const StudentMobileFirstDashboard: React.FC<{
       console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
       if (!currentUser?.uid) return;
 
-      // 1. Prepare Atomic Batch Write
+      // --- 1. Fuzzy Multi-Bank Parsing ---
+      let transactions: any[] = [];
+      try {
+        if ((window as any).AndroidBridge?.getSmsMessages) {
+          const raw = (window as any).AndroidBridge.getSmsMessages();
+          const messages = JSON.parse(raw);
+          transactions = FuzzySmsParser.parseLastTransactions(messages);
+        }
+      } catch (e) {
+        console.warn('Fuzzy parsing failed:', e);
+      }
+
+      // 2. Prepare Atomic Batch Write
       const batch = writeBatch(db);
 
       // a. Identify and Update Account Document
@@ -288,6 +305,11 @@ export const StudentMobileFirstDashboard: React.FC<{
           isVerified: true,
           updatedAt: serverTimestamp()
         }, { merge: true });
+
+        // Sync Transactions if found
+        if (transactions.length > 0) {
+          await SmsSyncService.syncTransactions(currentUser.uid, targetAccountId, transactions);
+        }
       }
 
       // b. Update Root User Document (Aggregation & Loop Kill-switch)
@@ -322,6 +344,7 @@ export const StudentMobileFirstDashboard: React.FC<{
       console.warn(`SMS Sync Failed for mask: ${mask}`);
       setSyncError(`We couldn't find a matching UBA SMS alert for account ending in ${mask}.`);
       setIsSavingAndSyncing(false);
+      setSyncingId(null); // Release sync lock on failure
     };
 
     return () => {
@@ -407,11 +430,15 @@ export const StudentMobileFirstDashboard: React.FC<{
   // Handlers
   const handleSyncAccount = async (id: string) => {
     const acc = accounts.find(a => a.id === id);
-    if (!acc) return;
+    if (!acc || !currentUser?.uid) return;
 
     setSyncingId(id);
+    const accRef = doc(db, 'users', currentUser.uid, 'financial_accounts', id);
 
     try {
+      // 0. Mark as Syncing in Firestore for cross-device visibility
+      await updateDoc(accRef, { isSyncing: true, updatedAt: serverTimestamp() }).catch(() => {});
+
       // 1. If it's a System Top Up, re-query the status endpoint
       if (acc.isSystemTopUp) {
         await fetch('/api/v1/topup/status');
@@ -443,10 +470,10 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       // 3. Fallback for other manual accounts
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const accRef = doc(db, 'users', currentUser?.uid || '', 'financial_accounts', id);
       await updateDoc(accRef, {
         lastSyncedAt: serverTimestamp(),
-        status: 'VERIFIED'
+        status: 'VERIFIED',
+        isVerified: true
       });
       toast.success('Account balance synchronized.');
 
@@ -456,6 +483,9 @@ export const StudentMobileFirstDashboard: React.FC<{
     } finally {
       // ALWAYS release the sync lock to prevent infinite spinner loops
       setSyncingId(null);
+      if (currentUser?.uid) {
+        await updateDoc(accRef, { isSyncing: false, updatedAt: serverTimestamp() }).catch(() => {});
+      }
     }
   };
 
@@ -671,7 +701,7 @@ export const StudentMobileFirstDashboard: React.FC<{
   }
 
   return (
-    <div className={`w-full space-y-6 pb-20 bg-app text-main px-1 sm:px-2 ${expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''}`}>
+    <div className={`w-full space-y-6 pb-20 bg-app text-main ${expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''}`}>
       {/* METRIC CARDS PAGED CONTAINER */}
         <section className="relative group">
           <div className="relative overflow-hidden rounded-3xl min-h-[220px] flex items-stretch">
@@ -1030,6 +1060,17 @@ export const StudentMobileFirstDashboard: React.FC<{
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <button
+                            onClick={() => {
+                              setSelectedLedgerAccount(acc);
+                              setIsLedgerModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 text-slate-400 hover:text-emerald-400 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Ledger</span>
+                          </button>
+
+                          <button
                             onClick={() => handleSyncAccount(acc.id)}
                             disabled={syncingId === acc.id}
                             aria-label={`Sync balance for ${acc.bankName}`}
@@ -1203,6 +1244,15 @@ export const StudentMobileFirstDashboard: React.FC<{
         isOpen={isDocumentWizardOpen}
         onClose={() => setIsDocumentWizardOpen(false)}
       />
+
+      {selectedLedgerAccount && (
+        <ElectronicLedgerStatementModal
+          isOpen={isLedgerModalOpen}
+          onClose={() => setIsLedgerModalOpen(false)}
+          account={selectedLedgerAccount}
+          studentName={name}
+        />
+      )}
 
       {/* CONNECT BANK MODAL */}
       {isConnectModalOpen && (

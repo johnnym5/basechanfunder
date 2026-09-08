@@ -27,6 +27,29 @@ export class MandateController {
     }
   }
 
+  @Post('generate-overlay')
+  async generateOverlay(@Body() data: MandateData, @Res() res: Response) {
+    try {
+      const result = await this.pdfStampingService.generateOverlay(data);
+
+      // If cloud upload succeeded, return the JSON with URL
+      if (result.url) {
+        return res.status(HttpStatus.OK).json({ status: 'SUCCESS', downloadUrl: result.url });
+      }
+
+      // If cloud upload failed (limbo mode), stream the PDF directly back to browser
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=Upgrade_Form_${data.surname}.pdf`,
+        'Content-Length': result.buffer.length,
+      });
+      return res.end(result.buffer);
+
+    } catch (e) {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ status: 'ERROR', message: e.message });
+    }
+  }
+
   @Post('submit-package')
   async submitPackage(@Body() payload: CompilationPayload) {
     return this.pdfCompilerService.compileAndSubmit(payload);

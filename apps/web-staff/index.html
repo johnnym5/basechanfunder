@@ -10,8 +10,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <title>Basechan Funder — Compliance & Proof of Funds Portal</title>
+    <!-- Anti-Flicker Hydration Safeguard -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme') || localStorage.getItem('bcf-theme');
+          var isDark = saved ? saved === 'dark' : true;
+          var html = document.documentElement;
+          if (isDark) {
+            html.classList.add('dark');
+            html.classList.remove('light');
+          } else {
+            html.classList.remove('dark');
+            html.classList.add('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-cyan-500 selection:text-white">
+  <body class="antialiased selection:bg-cyan-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

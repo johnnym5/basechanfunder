@@ -1,3 +1,5 @@
+@import './globals.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -125,6 +127,15 @@ body {
     background-color: var(--surface-glass);
     border: 1px solid var(--surface-glass-border);
     color: var(--text-main);
+  }
+
+  /* Global Accessibility Focus Rings */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-amber-400 ring-offset-2 ring-offset-transparent;
   }
 }
 

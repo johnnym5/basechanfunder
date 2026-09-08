@@ -1,0 +1,42 @@
+/* ═══════════════════════════════════════════════════════════
+   View Transition — Smooth Radial Ripple with Feathered Edge
+   CRITICAL: Do NOT set clip-path on ::view-transition-new(root)
+   in CSS — the JS animation uses fill:'forwards' and any CSS
+   clip-path would conflict and snap back to 0 on animation end.
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. Kill browser default cross-fade — we drive our own */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal;
+  display: block;
+}
+
+/* 2. Old layer sits behind */
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+/* 3. New layer on top — NO clip-path here, JS controls it entirely */
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* 4. Long CSS fallback transitions for elements that don't re-render */
+.glass-card,
+body,
+header,
+aside,
+nav,
+main,
+button,
+input,
+select,
+textarea {
+  transition:
+    background-color 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color     0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    color            0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow       0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}

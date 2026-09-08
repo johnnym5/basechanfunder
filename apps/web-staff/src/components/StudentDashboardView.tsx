@@ -1190,23 +1190,6 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         </div>
       )}
 
-      {/* Profile FAB - Student Side */}
-      {!isAdmin && role === 'STUDENT' && (
-        <motion.button
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsProfileModalOpen(true)}
-          className="fixed bottom-6 right-6 z-[150] w-14 h-14 md:w-16 md:h-16 rounded-full bg-slate-900/90 backdrop-blur-xl border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)] flex items-center justify-center text-amber-500 hover:border-amber-500 transition-all group"
-        >
-          {appUser?.photoURL ? (
-            <img src={appUser.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-          ) : (
-            <User className="w-6 h-6 md:w-7 h-7" />
-          )}
-          <div className="absolute inset-0 rounded-full border border-amber-500/0 group-hover:border-amber-500/50 animate-ping duration-1000" />
-        </motion.button>
-      )}
-
       <StudentProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}

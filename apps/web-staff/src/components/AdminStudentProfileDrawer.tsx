@@ -230,7 +230,7 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
               <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Governance Review</h3>
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Configuration Mode: {student.name || student.displayName}</p>
             </div>
-            <button onClick={onClose} className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all shadow-sm">
+            <button onClick={onClose} aria-label="Close governance review" className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all shadow-sm">
               <X className="w-5 h-5" />
             </button>
           </div>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Basechan Funder</title>
+    <!-- Anti-Flicker Hydration Safeguard -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme') || localStorage.getItem('bcf-theme');
+          var isDark = saved ? saved === 'dark' : true;
+          var html = document.documentElement;
+          if (isDark) {
+            html.classList.add('dark');
+            html.classList.remove('light');
+          } else {
+            html.classList.remove('dark');
+            html.classList.add('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+  </body>
+</html>

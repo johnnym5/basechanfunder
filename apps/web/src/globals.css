@@ -1,0 +1,43 @@
+/* View Transition Anti-Flicker & Feathered Radial Reveal Overrides */
+@property --ripple-radius {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  display: block;
+}
+
+/* Ensure new theme layer renders over old theme layer during transition */
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+  /* Heavily feathered radial mask: ensures soft, blurred edge gradient */
+  mask-image: radial-gradient(
+    circle at var(--ripple-x, 100vw) var(--ripple-y, 0px),
+    #000 0%,
+    #000 calc(var(--ripple-radius, 0px) - 260px),
+    transparent calc(var(--ripple-radius, 0px) + 20px)
+  );
+  -webkit-mask-image: radial-gradient(
+    circle at var(--ripple-x, 100vw) var(--ripple-y, 0px),
+    #000 0%,
+    #000 calc(var(--ripple-radius, 0px) - 260px),
+    transparent calc(var(--ripple-radius, 0px) + 20px)
+  );
+}
+
+/* Smooth fallback color transition for non-supported elements */
+.glass-card, 
+body, 
+header, 
+button {
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
+}

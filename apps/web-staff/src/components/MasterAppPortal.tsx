@@ -191,15 +191,16 @@ export const MasterAppPortal: React.FC = () => {
         <AnimatePresence mode="sync">
           <motion.div
             key={role === 'STUDENT' ? (isDark ? 'student_dark' : 'student_light') : (isDark ? 'admin_dark' : 'admin_light')}
-            initial={{ opacity: 0, scale: 1.0, x: '-6%' }}
+            initial={{ opacity: 1, scale: 1.0, x: '-6%' }}
             animate={{
               opacity: 1,
               scale: [1.0, 1.75, 1.0],
               x: ['-6%', '6%', '-6%'],
               y: ['-2%', '3%', '-2%'],
             }}
+            exit={{ opacity: 0, transition: { duration: 0 } }}
             transition={{
-              opacity: { duration: 1.2, ease: 'easeInOut' },
+              opacity: { duration: 0 },
               scale: { duration: 42, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
               x: { duration: 38, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
               y: { duration: 32, ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' },
@@ -211,29 +212,29 @@ export const MasterAppPortal: React.FC = () => {
                   ? (isDark ? '/bg_student_dark.jpg' : '/bg_student_light.jpg')
                   : (isDark ? '/bg_admin_dark.jpg' : '/bg_admin_light.jpg')
               })`,
-              filter: isDark ? 'brightness(0.75) contrast(1.15)' : 'brightness(1.02) contrast(1.02)',
+              filter: isDark ? 'brightness(0.65) contrast(1.15)' : 'brightness(1.1) contrast(1.0) saturate(0.9)',
             }}
           />
         </AnimatePresence>
 
-        {/* ── High-Depth Frosted Glass Backdrop Overlay (Strong Blur & Translucent Glass Reflection) ── */}
+        {/* ── High-Depth Frosted Glass Backdrop Overlay ── */}
         <div
-          className={`absolute inset-0 transition-colors duration-500 ${
-            isDark ? 'bg-[#030712]/60' : 'bg-slate-100/60'
+          className={`absolute inset-0 transition-colors duration-700 ${
+            isDark ? 'bg-[#030712]/70' : 'bg-white/82'
           }`}
           style={{
-            backdropFilter: 'blur(75px) saturate(160%)',
-            WebkitBackdropFilter: 'blur(75px) saturate(160%)',
+            backdropFilter: 'blur(60px) saturate(140%)',
+            WebkitBackdropFilter: 'blur(60px) saturate(140%)',
           }}
         />
 
-        {/* ── Subtle Glass Specular Highlights / Light Gradient ── */}
+        {/* ── Specular Highlights ── */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background: isDark
               ? 'radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 70%), linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 40%)'
-              : 'radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 70%), linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 40%)',
+              : 'radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.8) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.6) 0%, transparent 50%)',
           }}
         />
       </div>
@@ -272,9 +273,6 @@ export const MasterAppPortal: React.FC = () => {
             <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 relative" ref={profileMenuRef}>
                {/* Global Action Cluster */}
                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {/* Top-Right Header Theme Toggle */}
-                  <ThemeToggle />
-
                   {/* Notification Bell */}
                   {isStaffOrAdmin ? (
                     <AdminNotificationPopover

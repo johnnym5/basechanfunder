@@ -11,6 +11,8 @@ import { AuthActionPage } from './pages/AuthActionPage';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Toaster } from 'sonner';
 import { DashboardSkeleton } from './components/ui/LoadingStates';
+import { LegalPages } from './pages/LegalPages';
+import { CookieBanner } from './components/ui/CookieBanner';
 
 const AppInner: React.FC = () => {
   const { currentUser, loading } = useAuth();
@@ -22,10 +24,12 @@ const AppInner: React.FC = () => {
   return (
     <ErrorBoundary>
       <Toaster richColors position="top-right" />
+      <CookieBanner />
       <Routes>
         <Route path="/" element={currentUser ? <MasterAppPortal /> : <Navigate to="/auth" />} />
         <Route path="/auth" element={!currentUser ? <AuthPage /> : <Navigate to="/" />} />
         <Route path="/auth/action" element={<AuthActionPage />} />
+        <Route path="/legal/*" element={<LegalPages />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </ErrorBoundary>

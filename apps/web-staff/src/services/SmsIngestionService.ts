@@ -12,8 +12,8 @@ export interface ParsedSms {
 
 const BANK_PARSERS: Record<string, { sender: RegExp; balance: RegExp; account: RegExp }> = {
   "United Bank for Africa (UBA)": {
-    sender: /UBA|UBAGroup|UBAMobile/i,
-    balance: /(?:Bal|Avail\s*Bal|Balance)\s*[:\s]*NGN\s*([\d,]+\.\d{2})/i,
+    sender: /UBA|UBAGroup|UBAMobile|UBALERT|UBA-ALERT|UBADIRECT/i,
+    balance: /(?:Bal|Balance|Avail\s+Bal|Ledger\s+Bal)(?:\s*:|\s+is|\s*-)?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i,
     account: /(?:Acct|Ac|A\/c|Account)\s*[:\s]*[\d\*]*(\d{4})/i
   },
   "Guaranty Trust Bank (GTB)": {

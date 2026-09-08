@@ -243,12 +243,6 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
         }`}
       >
         <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
-        {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-          </span>
-        )}
       </button>
 
       {/* Popover Window */}

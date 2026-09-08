@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ChevronRight, ChevronLeft, Download, Send,
   Loader2, CheckCircle2, FileText, ShieldCheck,
-  Rocket, AlertCircle
+  Rocket, AlertCircle, Eye
 } from 'lucide-react';
 import { MandateTextForm } from './MandateTextForm';
 import { MandateDocumentUploader } from './MandateDocumentUploader';
 import { MandateSignatureUpload } from './MandateSignatureUpload';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { FormConsent } from './ui/FormConsent';
 
 interface AccountMandateWizardProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
   const { currentUser } = useAuth();
   const [stage, setStage] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
+  const [hasFinalConsent, setHasFinalConsent] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -48,6 +51,7 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
   // Files State
   const [files, setFiles] = useState<Record<string, string>>({});
   const [signedMandate, setSignedMandate] = useState<string | null>(null);
+  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -55,6 +59,10 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
     if (stage === 1) {
         if (!formData.surname || !formData.firstName || !formData.bvn) {
             toast.error("Please fill in all required personal details.");
+            return;
+        }
+        if (!hasConsent) {
+            toast.error("Please provide data processing consent to proceed.");
             return;
         }
     }
@@ -70,6 +78,34 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
   };
 
   const handleBack = () => setStage(prev => prev - 1);
+
+  const generateOverlay = async () => {
+    if (!currentUser) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/v1/mandate/generate-overlay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ...formData,
+            userId: currentUser.uid,
+            passportPhotoBase64: files.passport_photo
+        }),
+      });
+
+      const result = await response.json();
+      if (result.status === 'SUCCESS') {
+        setOverlayUrl(result.downloadUrl);
+        toast.success("Precise overlay generated! You can now preview and print.");
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (e: any) {
+      toast.error("Overlay generation failed: " + e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const downloadDraft = async () => {
     setIsSubmitting(true);
@@ -180,10 +216,17 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
             {stage === 1 && (
-              <MandateTextForm
-                data={formData}
-                onChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
-              />
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <MandateTextForm
+                  data={formData}
+                  onChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+                />
+                <FormConsent
+                  id="mandate-initial-consent"
+                  checked={hasConsent}
+                  onChange={setHasConsent}
+                />
+              </div>
             )}
             {stage === 2 && (
               <MandateDocumentUploader
@@ -199,24 +242,46 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
                 <div className="max-w-md mx-auto space-y-3">
                     <h3 className="text-3xl font-black text-white uppercase tracking-tight">Review & Generate</h3>
                     <p className="text-sm font-medium text-slate-400 leading-relaxed">
-                        We've mapped your data and photo onto the official template. Please download the draft, review for accuracy, and print it out for signing.
+                        We've mapped your data and photo onto the official template. Please generate the precise overlay, review for accuracy, and print it out for signing.
                     </p>
                 </div>
-                <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 max-w-sm mx-auto flex items-center gap-4 text-left">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                    <div>
-                        <p className="text-xs font-bold text-white uppercase tracking-tight">Auto-Fill Successful</p>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Includes stamped Passport Photo and 12 regulatory fields.</p>
+
+                {overlayUrl ? (
+                  <div className="space-y-6">
+                    <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 max-w-sm mx-auto flex items-center gap-4 text-left">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <div>
+                            <p className="text-xs font-bold text-white uppercase tracking-tight">Overlay Ready</p>
+                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Document is pre-filled and aligned with your passport photo.</p>
+                        </div>
                     </div>
-                </div>
-                <button
-                  onClick={downloadDraft}
-                  disabled={isSubmitting}
-                  className="px-10 py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto"
-                >
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                  Download Pre-Filled Form to Sign
-                </button>
+                    <div className="flex justify-center gap-4">
+                      <a
+                        href={overlayUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" /> Preview PDF
+                      </a>
+                      <button
+                        onClick={() => window.open(overlayUrl, '_blank')}
+                        className="px-8 py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" /> Download to Print
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={generateOverlay}
+                    disabled={isSubmitting}
+                    className="px-10 py-5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto"
+                  >
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />}
+                    Generate Pre-Filled Overlay
+                  </button>
+                )}
               </div>
             )}
             {stage === 4 && (
@@ -246,10 +311,19 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
                         <span className="text-[10px] font-black uppercase text-slate-400">Express Submission</span>
                     </div>
                 </div>
+
+                <div className="max-w-lg mx-auto">
+                  <FormConsent
+                    id="mandate-final-consent"
+                    checked={hasFinalConsent}
+                    onChange={setHasFinalConsent}
+                  />
+                </div>
+
                 <button
                   onClick={submitFinalPackage}
-                  disabled={isSubmitting || !signedMandate}
-                  className="px-12 py-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto"
+                  disabled={isSubmitting || !signedMandate || !hasFinalConsent}
+                  className="px-12 py-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:teal-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto"
                 >
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   Submit Master Package

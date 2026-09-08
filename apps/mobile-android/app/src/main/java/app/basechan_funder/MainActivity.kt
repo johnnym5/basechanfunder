@@ -311,10 +311,10 @@ class MainActivity : ComponentActivity() {
                 
                 val bankName = identifyBank(address) ?: continue
 
-                // Broad pattern to capture balance NGN 1,234.56 - Removed 'Amt' to prevent capturing charge amount
-                val balancePattern = Pattern.compile("(?:Bal|Avail\\s*Bal|Balance)\\s*[:\\s]*(?:NGN|₦)?\\s*([\\d,]+\\.\\d{2})", Pattern.CASE_INSENSITIVE)
+                // Updated broad pattern for UBA and others
+                val balancePattern = Pattern.compile("(?:Bal|Balance|Avail\\s+Bal|Ledger\\s+Bal)(?:\\s*:|\\s+is|\\s*-)?\\s*(?:NGN|₦)?\\s*([0-9,]+\\.[0-9]{2})", Pattern.CASE_INSENSITIVE)
                 // Broad pattern to capture account mask (last 4 digits)
-                val acctPattern = Pattern.compile("(?:Acct|Ac|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
+                val acctPattern = Pattern.compile("(?:Acct|Ac|Acc|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
                 
                 val balMatcher = balancePattern.matcher(body)
                 val acctMatcher = acctPattern.matcher(body)
@@ -324,6 +324,11 @@ class MainActivity : ComponentActivity() {
                     val balance = balanceStr.replace(",", "").toDoubleOrNull()
                     
                     val mask = if (acctMatcher.find()) acctMatcher.group(1) ?: "XXXX" else "XXXX"
+
+                    // If targetMask is provided and not empty, we check for a match
+                    if (targetMask.isNotEmpty() && targetMask != "XXXX" && mask != targetMask) {
+                        continue
+                    }
 
                     if (balance != null) {
                         Log.i("MainActivity", "Extracted $bankName Balance: $balance for account $mask")
@@ -337,7 +342,9 @@ class MainActivity : ComponentActivity() {
 
     private fun identifyBank(sender: String): String? {
         return when {
-            sender.contains("UBA", true) || sender.contains("UBAGroup", true) -> "United Bank for Africa (UBA)"
+            sender.contains("UBA", true) || sender.contains("UBALERT", true) || 
+            sender.contains("UBA-ALERT", true) || sender.contains("UBADIRECT", true) ||
+            sender.contains("UBAGroup", true) -> "United Bank for Africa (UBA)"
             sender.contains("GTBank", true) || sender.contains("GTB", true) -> "Guaranty Trust Bank (GTB)"
             sender.contains("Access", true) -> "Access Bank"
             sender.contains("Zenith", true) -> "Zenith Bank"

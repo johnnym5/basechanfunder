@@ -1,0 +1,96 @@
+/**
+ * Adaptive Multi-Bank Fuzzy SMS Ingestion Engine
+ * Handles extraction of financial entities across multiple Nigerian bank formats.
+ */
+
+export interface StatementTransaction {
+  id: string;
+  timestamp: string;      // ISO String
+  description: string;
+  type: 'CREDIT' | 'DEBIT';
+  amountNgn: number;
+  runningBalanceNgn: number;
+  rawSmsText?: string;
+}
+
+const BANK_SENDERS = ['UBA', 'UBALERT', 'PARALLEX', 'GTBANK', 'ACCESS', 'ZENITH', 'FIRSTBANK', 'BANKALERT'];
+
+export class FuzzySmsParser {
+  /**
+   * Parses a collection of SMS messages into a standardized transaction array.
+   * Limits to the last 10 valid financial alerts.
+   */
+  public static parseLastTransactions(messages: { sender: string; body: string; date: number }[]): StatementTransaction[] {
+    const transactions: StatementTransaction[] = [];
+
+    // Filter by bank senders and sort by date descending
+    const validMessages = messages
+      .filter(msg => BANK_SENDERS.some(s => msg.sender.toUpperCase().includes(s)))
+      .sort((a, b) => b.date - a.date);
+
+    for (const msg of validMessages) {
+      if (transactions.length >= 10) break;
+
+      const parsed = this.parseSingle(msg.body, msg.date);
+      if (parsed) {
+        transactions.push(parsed);
+      }
+    }
+
+    return transactions;
+  }
+
+  private static parseSingle(body: string, date: number): StatementTransaction | null {
+    // 1. Transaction Type
+    let type: 'CREDIT' | 'DEBIT' | null = null;
+    if (/(?:CR|Credit|Credited|Received|Deposit)/i.test(body)) {
+      type = 'CREDIT';
+    } else if (/(?:DR|Debit|Debited|Sent|Withdrawal|Purchase)/i.test(body)) {
+      type = 'DEBIT';
+    }
+    if (!type) return null;
+
+    // 2. Amount (NGN)
+    const amtMatch = body.match(/(?:Amt|Amount|CR|DR|Txn|Val)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i);
+    if (!amtMatch) return null;
+    const amountNgn = parseFloat(amtMatch[1].replace(/,/g, ''));
+
+    // 3. Running Balance (NGN)
+    const balMatch = body.match(/(?:Bal|Balance|Avail\s*Bal|Ledger|New\s*Bal)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i);
+    const runningBalanceNgn = balMatch ? parseFloat(balMatch[1].replace(/,/g, '')) : 0;
+
+    // 4. Description / Reference
+    const descMatch = body.match(/(?:Desc|Ref|Remarks|Info)\s*:\s*(.+?)(?:\s*(?:Amt|Bal|Date)|$)/i);
+    const description = descMatch ? descMatch[1].trim() : 'Transaction Alert';
+
+    return {
+      id: `txn_${date}_${Math.random().toString(36).substr(2, 5)}`,
+      timestamp: new Date(date).toISOString(),
+      description,
+      type,
+      amountNgn,
+      runningBalanceNgn,
+      rawSmsText: body
+    };
+  }
+
+  /**
+   * Formats a timestamp for display (DD/MM/YYYY hh:mm A)
+   */
+  public static formatTimestamp(isoString: string): string {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+
+    let hours = d.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+  }
+}

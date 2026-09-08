@@ -39,6 +39,7 @@ import { auth, db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getPlatformType } from '../utils/deviceDetection';
+import { FormConsent } from './ui/FormConsent';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
   // Searchable Bank Selector State
   const [bankSearch, setBankSearch] = useState('');
   const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
 
   // SMS scan state
   const [smsPermState, setSmsPermState] = useState<'pitch' | 'requesting' | 'denied' | 'granted'>('pitch');
@@ -657,11 +659,18 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
                     className="w-full text-lg md:text-xl font-bold input-rounded px-5 py-4"
                   />
                 </div>
+
+                <FormConsent
+                  id="onboarding-consent"
+                  checked={hasConsent}
+                  onChange={setHasConsent}
+                  className="mt-4"
+                />
               </div>
 
               <button
                 onClick={goNext}
-                disabled={!profile.homeCountry.trim()}
+                disabled={!profile.homeCountry.trim() || !hasConsent}
                 className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-500/20"
               >
                 <span>Continue</span>

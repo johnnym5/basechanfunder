@@ -7,7 +7,8 @@ import {
   limit,
   doc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
@@ -41,6 +42,8 @@ import { useRef } from 'react';
 
 import { StudentTableFilters, FilterCriteria } from './StudentTableFilters';
 import { toast } from 'sonner';
+import { useTheme } from '../hooks/useTheme';
+import { ThemeToggle } from './ThemeToggle';
 
 // --- Types & Interfaces ---
 
@@ -131,13 +134,14 @@ export const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isDark, setIsDark] = useState(true);
+  const { isDark, toggleThemeWithRipple } = useTheme();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [rules, setRules] = useState<Rule[]>([
     { country: 'United Kingdom', code: 'GBR', threshold: 13340, period: 28, currency: 'GBP' },
     { country: 'Canada', code: 'CAN', threshold: 20635, period: 30, currency: 'CAD' },
     { country: 'Germany', code: 'DEU', threshold: 11208, period: 90, currency: 'EUR' },
+  ]);
   const [fxBuffer, setFxBuffer] = useState(10);
   const [loading, setLoading] = useState(true);
 
@@ -176,7 +180,7 @@ export const AdminDashboard: React.FC = () => {
         const isNew = elapsedHours <= 24;
 
         const start = d.startDate ? new Date(d.startDate).getTime() : null;
-        const days = start ? Math.min(Math.max(Math.floor((Date.now() - start) / 86400000)) + 1, 1), 28) : 0;
+        const days = start ? Math.min(Math.max(Math.floor((Date.now() - start) / 86400000) + 1, 1), 28) : 0;
 
         let status = (d.status || 'PENDING') as StudentStatus;
         if (status === ('VALIDATED' as any)) status = 'CLEARED' as StudentStatus;
@@ -447,17 +451,7 @@ export const AdminDashboard: React.FC = () => {
                 </button>
 
                 {/* Theme Toggle */}
-                <button
-                  onClick={() => setIsDark(!isDark)}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:scale-105 active:scale-95 shadow-sm backdrop-blur-md depth-btn-glass ${
-                    isDark
-                      ? 'bg-slate-900/80 border-white/10 text-amber-300 hover:bg-slate-800'
-                      : 'bg-white/80 border-slate-200 text-blue-600 hover:bg-slate-100'
-                  }`}
-                  title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                  {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                </button>
+                <ThemeToggle />
              </div>
 
              <div className="relative" ref={profileMenuRef}>
@@ -521,7 +515,7 @@ export const AdminDashboard: React.FC = () => {
 
                     {/* a. Theme Toggle */}
                     <button
-                      onClick={() => setIsDark(!isDark)}
+                      onClick={(e) => toggleThemeWithRipple(e)}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         isDark ? 'text-slate-200 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-slate-800 bg-slate-100 hover:bg-slate-200'
                       }`}
@@ -577,7 +571,7 @@ export const AdminDashboard: React.FC = () => {
                     { label: 'Global Roster', value: stats.total, icon: Users, color: 'text-slate-200' },
                     { label: 'Unassigned', value: stats.unassigned, icon: UserPlus, color: 'text-amber-400' },
                     { label: 'At-Risk Accounts', value: stats.atRisk, icon: AlertTriangle, color: 'text-rose-400' },
-                    { label: 'Active Pipeline', value: stats.activeStudents, icon: ShieldCheck, color: 'text-emerald-400' },
+                    { label: 'Active Pipeline', value: stats.activePipeline, icon: ShieldCheck, color: 'text-emerald-400' },
                   ].map((stat, i) => (
                     <div key={i} className="bg-slate-900/40 border border-slate-800 p-3.5 md:p-5 rounded-2xl md:rounded-[2rem] backdrop-blur-sm">
                       <stat.icon className={`w-3.5 h-3.5 md:w-4 md:h-4 ${stat.color} mb-2 md:mb-3`} />
@@ -748,9 +742,6 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Reassignment Modal */}
-      {isModalOpen && selectedStudent && (
-        ...
-      )}
 
       {/* NOTIFICATIONS DRAWER */}
       {isNotificationsOpen && (
