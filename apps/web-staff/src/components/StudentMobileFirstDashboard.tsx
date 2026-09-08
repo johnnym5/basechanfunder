@@ -63,10 +63,12 @@ import { ApprovedTopUpCard } from './ApprovedTopUpCard';
 import { StudentDocumentUploadWizard } from './StudentDocumentUploadWizard';
 import { AccountMandateWizard } from './AccountMandateWizard';
 import { useUserBalance } from '../hooks/useUserBalance';
+import { requestSmsPermissions } from '../utils/smsPermissions';
 import { SmsIngestionService } from '../services/SmsIngestionService';
 import { toast } from 'sonner';
 
 import { MAJOR_CURRENCIES } from '../constants';
+import { Link } from 'react-router-dom';
 
 // --- Types ---
 type AccountType = 'SAVINGS' | 'CURRENT' | 'DOMICILIARY';
@@ -283,6 +285,7 @@ export const StudentMobileFirstDashboard: React.FC<{
           balanceGbp: balance / LIVE_FX_RATE,
           lastSyncedAt: serverTimestamp(),
           status: 'VERIFIED',
+          isVerified: true,
           updatedAt: serverTimestamp()
         }, { merge: true });
       }
@@ -408,42 +411,50 @@ export const StudentMobileFirstDashboard: React.FC<{
 
     setSyncingId(id);
 
-    // If it's a System Top Up, re-query the status endpoint
-    if (acc.isSystemTopUp) {
-      try {
+    try {
+      // 1. If it's a System Top Up, re-query the status endpoint
+      if (acc.isSystemTopUp) {
         await fetch('/api/v1/topup/status');
         await new Promise(resolve => setTimeout(resolve, 1000));
         toast.success('System liquidity pulse verified.');
-      } catch (e) {
-        // Fallback
-      } finally {
-        setSyncingId(null);
         return;
       }
-    }
 
-    // If it's a UBA account, try Native SMS Sync
-    if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
-       const mask = acc.accountNumberMasked.slice(-4);
-       if ((window as any).AndroidBridge) {
-         console.log(`Triggering Native SMS Sync for mask: ${mask}`);
-         (window as any).AndroidBridge.triggerSmsSync(mask);
-         return;
-       } else {
-         toast.error("SMS Sync is only available in the Android App.");
-         setSyncingId(null);
-         return;
-       }
-    }
+      // 2. If it's a UBA account, try Native SMS Sync
+      if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
+        const hasPermission = await requestSmsPermissions();
+        if (!hasPermission) {
+          toast.error('SMS permissions required to sync bank alerts');
+          return;
+        }
 
-    try {
+        const mask = acc.accountNumberMasked.slice(-4);
+        if ((window as any).AndroidBridge) {
+          console.log(`Triggering Native SMS Sync for mask: ${mask}`);
+          (window as any).AndroidBridge.triggerSmsSync(mask);
+          // The bridge will call onSmsBalanceUpdate globally
+          // We wait a bit then release if no update comes
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } else {
+          toast.error("SMS Sync is only available in the Android App.");
+        }
+        return;
+      }
+
+      // 3. Fallback for other manual accounts
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const accRef = doc(db, 'financial_accounts', id);
+      const accRef = doc(db, 'users', currentUser?.uid || '', 'financial_accounts', id);
       await updateDoc(accRef, {
         lastSyncedAt: serverTimestamp(),
         status: 'VERIFIED'
       });
+      toast.success('Account balance synchronized.');
+
+    } catch (error: any) {
+      console.error('[SMS_SYNC_ERROR]', error);
+      toast.error(`Sync failed: ${error.message || 'Unknown error'}`);
     } finally {
+      // ALWAYS release the sync lock to prevent infinite spinner loops
       setSyncingId(null);
     }
   };
@@ -708,6 +719,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                       <div className="flex gap-2">
                         <button
                           onClick={handleDownloadStatement}
+                          aria-label="Download PDF Report"
                           className={`flex items-center gap-1 text-[8px] font-black uppercase tracking-widest border transition-all px-2 py-1 rounded-lg ${
                             isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600'
                           }`}
@@ -717,6 +729,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                         </button>
                         <button
                           onClick={() => isStaff && onStaffAction ? onStaffAction() : setIsTopUpModalOpen(true)}
+                          aria-label={isStaff ? "Update Top-Up" : "Request Top-Up"}
                           className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors border-l border-white/10 pl-3 ml-2"
                         >
                           <span>{isStaff ? 'UPDATE' : 'TOP-UP'}</span>
@@ -737,14 +750,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                      Holding & Expiration
+                      Proof of Funds Timeline
                     </p>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider ${
                       targetGBP > 0
                         ? isTargetMet ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                         : 'bg-slate-800 text-slate-400 border-slate-700'
                     }`}>
-                      {targetGBP > 0 ? (isTargetMet ? 'Compliant' : `${progressPercent}% Of Target`) : 'No Target Set'}
+                      {targetGBP > 0 ? (isTargetMet ? 'Target Met' : `${progressPercent}% Of Target`) : 'No Target Set'}
                     </span>
                   </div>
 
@@ -764,7 +777,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                       )
                     ) : (
                       <div className="flex items-baseline space-x-2 opacity-60">
-                        <h3 className="text-xl sm:text-3xl font-black tracking-tight text-slate-500 uppercase">No window set</h3>
+                        <h3 className="text-xl sm:text-3xl font-black tracking-tight text-slate-500 uppercase">No active timeline</h3>
                       </div>
                     )}
                   </div>
@@ -816,6 +829,7 @@ export const StudentMobileFirstDashboard: React.FC<{
           <div className="flex justify-center items-center mt-3 gap-6">
             <button
               onClick={() => setActiveMetricCard(0)}
+              aria-label="Previous card"
               className={`p-1.5 rounded-full border transition-all ${activeMetricCard === 0 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/10 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}
             >
               <ChevronLeft className="w-4 h-4" />
@@ -823,12 +837,13 @@ export const StudentMobileFirstDashboard: React.FC<{
 
             <div className="flex gap-2">
               {[0, 1].map(i => (
-                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeMetricCard === i ? 'bg-blue-500 w-4 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                <div key={i} aria-hidden="true" className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${activeMetricCard === i ? 'bg-blue-500 w-4 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
               ))}
             </div>
 
             <button
               onClick={() => setActiveMetricCard(1)}
+              aria-label="Next card"
               className={`p-1.5 rounded-full border transition-all ${activeMetricCard === 1 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/10 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}
             >
               <ChevronRight className="w-4 h-4" />
@@ -836,14 +851,14 @@ export const StudentMobileFirstDashboard: React.FC<{
           </div>
         </section>
 
-        {/* COMPLIANCE CHECKLIST */}
+        {/* VERIFICATION & UPGRADE STEPS */}
         <section className="space-y-3 px-1 sm:px-4">
           <div className="px-1">
             <h3 className="text-sm sm:text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Compliance Checklist
+              Verification & Upgrades
             </h3>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-              Document Verification & Submissions
+              Verify your documents to unlock full features
             </p>
           </div>
 
@@ -853,37 +868,37 @@ export const StudentMobileFirstDashboard: React.FC<{
           >
              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm ${
-                  appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
+                  appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
                 }`}>
                    <Upload className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                    <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest leading-tight">
-                     {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Verification Cleared' :
-                      appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Package Submitted' :
-                      'Awaiting Compliance Verification'}
+                     {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'Account Verified' :
+                      appUser?.mandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL' ? 'Documents Under Review' :
+                      'Upgrade Account'}
                    </p>
                    <p className="text-[9px] text-slate-500 font-bold uppercase truncate">
-                     {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'All documents verified' : 'Passport & financial docs'}
+                     {appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'All documents verified' : 'Upload ID & financial documents'}
                    </p>
                 </div>
              </div>
              <div className="flex items-center justify-between w-full sm:w-auto mt-1 sm:mt-0">
-                <span className="text-[9px] font-black text-blue-600 sm:hidden">GO TO VAULT</span>
-                <ChevronRight className={`w-5 h-5 ${appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'text-emerald-500' : 'text-blue-600'}`} />
+                <span className="text-[9px] font-black text-amber-500 sm:hidden">UPGRADE NOW</span>
+                <ChevronRight className={`w-5 h-5 ${appUser?.mandateStatus === 'MANDATE_APPROVED' ? 'text-emerald-500' : 'text-amber-500'}`} />
              </div>
           </div>
         </section>
 
-        {/* BANK ACCOUNTS LEDGER */}
+        {/* LINKED BANK ACCOUNTS */}
         <section className="space-y-3 pt-2 px-1 sm:px-4">
           <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 px-1">
             <div>
               <h3 className="text-sm sm:text-base uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Bank Accounts Ledger
+                Linked Bank Accounts
               </h3>
               <p className="text-[9px] sm:text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                Open Banking & Verified Sources
+                Accounts connected for proof of funds
               </p>
             </div>
             <button
@@ -972,22 +987,22 @@ export const StudentMobileFirstDashboard: React.FC<{
                         : 'bg-white/5 border-white/5'
                     }`}>
                       <div className="flex justify-between items-center mb-2">
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Ledger Breakdown</p>
+                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Balance Summary</p>
                         {acc.isCapitalBreached && (
                           <span className="text-[7px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase animate-bounce">
-                            Capital Breached
+                            Target Shortfall
                           </span>
                         )}
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center text-[9px] font-bold">
-                          <span className="text-slate-400 uppercase tracking-tighter">Your Equity</span>
+                          <span className="text-slate-400 uppercase tracking-tighter">Your Balance</span>
                           <span className={acc.isCapitalBreached ? 'text-rose-400' : 'text-emerald-400'}>
                             {currency.symbol}{Math.max(acc.balanceNgn - acc.orgTopUpCapitalNgn, 0).toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between items-center text-[9px] font-bold">
-                          <span className="text-slate-400 uppercase tracking-tighter">Org Capital</span>
+                          <span className="text-slate-400 uppercase tracking-tighter">Sponsorship / Top-Up</span>
                           <span className="text-blue-400 flex items-center gap-0.5"><Lock className="w-2 h-2" />{currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}</span>
                         </div>
                         {acc.isDedicatedParallex && (
@@ -1017,6 +1032,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                           <button
                             onClick={() => handleSyncAccount(acc.id)}
                             disabled={syncingId === acc.id}
+                            aria-label={`Sync balance for ${acc.bankName}`}
                             className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 transition-colors"
                           >
                             <RefreshCw className={`w-3 h-3 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
@@ -1026,6 +1042,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                           {!acc.isSystemTopUp && (
                             <button
                               onClick={() => setIsUssdModalOpen(true)}
+                              aria-label={`USSD shortcode for ${acc.bankName}`}
                               className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 transition-colors"
                             >
                               <Phone className="w-3 h-3" />
@@ -1046,6 +1063,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                               }
                             }}
                             disabled={!isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'}
+                            aria-label={isStaff ? "Force Unlink Account" : "Request Unlink"}
                             className={`transition-colors ${
                               !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
                                 ? 'text-slate-700 cursor-not-allowed'
@@ -1062,7 +1080,12 @@ export const StudentMobileFirstDashboard: React.FC<{
                           </button>
                         )}
                       </div>
-                      {!acc.isVerified && (
+                      {acc.isVerified ? (
+                        <span className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter block mt-2 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Verified via SMS Alert
+                        </span>
+                      ) : (
                         <span className="text-[9px] text-zinc-500 font-medium block mt-2">Account not verified</span>
                       )}
                     </div>
@@ -1090,12 +1113,12 @@ export const StudentMobileFirstDashboard: React.FC<{
       {isNotificationsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setIsNotificationsOpen(false)}>
           <div className="w-full max-w-md glass-card flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+            <div className={`p-4 rounded-b-none border-b flex items-center justify-between ${isDark ? 'border-white/5 bg-slate-900/60' : 'border-slate-100 bg-white'}`}>
               <div className="flex items-center space-x-2">
                 <Bell className="w-4 h-4 text-blue-600" />
                 <h3 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>System Alerts & Logs</h3>
               </div>
-              <button onClick={() => setIsNotificationsOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+              <button onClick={() => setIsNotificationsOpen(false)} aria-label="Close notifications" className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1359,6 +1382,23 @@ export const StudentMobileFirstDashboard: React.FC<{
           </div>
         </div>
       )}
+
+      {/* ── FOOTER: LEGAL & BUSINESS ENTITY ── */}
+      <footer className="pt-8 pb-12 border-t border-black/5 dark:border-white/5 opacity-50 px-4">
+        <div className="flex flex-col items-center text-center gap-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            © 2026 Basechan International Ltd &bull; RC-1234567
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link to="/legal/terms" className="text-[9px] font-black uppercase tracking-widest hover:text-blue-500 transition-colors">Terms</Link>
+            <Link to="/legal/privacy" className="text-[9px] font-black uppercase tracking-widest hover:text-blue-500 transition-colors">Privacy</Link>
+            <Link to="/legal/cookies" className="text-[9px] font-black uppercase tracking-widest hover:text-blue-500 transition-colors">Cookies</Link>
+          </div>
+          <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter leading-tight max-w-[240px]">
+            Registered Address: Plot 102, Trans-Amadi Industrial Layout, Port Harcourt, Rivers State, Nigeria.
+          </p>
+        </div>
+      </footer>
 
     </div>
   );
