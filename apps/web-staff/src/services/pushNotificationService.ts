@@ -37,9 +37,9 @@ export class PushNotificationService {
       }
 
       // 2. Get Token
-      const vapidKey = (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY;
+      const vapidKey = (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY || 'BOIOBEV-yxTJ8y1uNTXvy9GoXfjctPhInDki9TVB-zCzJsOXfnJwxQXipUSLWA4eAAQOEWASGjOMmi99oIVD-Xo';
       if (!vapidKey) {
-        console.error('VITE_FIREBASE_VAPID_KEY missing in env');
+        console.error('Push Notification VAPID key missing');
         return;
       }
 

@@ -1,22 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import * as admin from 'firebase-admin';
-import * as fs from 'fs';
-import * as path from 'path';
-import { MandateData, PdfStampingService } from './pdfStampingService';
 
 export interface CompilationPayload {
   userId: string;
-  signedMandateBase64?: string; // Optional: The wet-signed Page 1 scan
-  mandateData: MandateData;      // Data to stamp a fresh Page 1 if needed
-  supportingDocs: string[];      // Base64 or GCS paths for the docs
+  supportingDocs: {
+    id: string;
+    base64: string;
+    fileType: string;
+  }[];
 }
 
 @Injectable()
 export class PdfCompilerService {
   private readonly logger = new Logger(PdfCompilerService.name);
-
-  constructor(private readonly pdfStampingService: PdfStampingService) {}
 
   private get bucket() {
     return admin.storage().bucket();
@@ -27,67 +24,61 @@ export class PdfCompilerService {
 
     const masterPdf = await PDFDocument.create();
 
-    // 1. Generate/Add Page 1 (Form Overlay)
-    try {
-      if (payload.signedMandateBase64) {
-        this.logger.log('Using wet-signed mandate as Page 1');
-        const signedBytes = Buffer.from(payload.signedMandateBase64.split(',')[1] || payload.signedMandateBase64, 'base64');
-        const signedPdf = await PDFDocument.load(signedBytes);
-        const copiedPages = await masterPdf.copyPages(signedPdf, [0]);
-        masterPdf.addPage(copiedPages[0]);
-      } else {
-        this.logger.log('Generating fresh digitally stamped mandate as Page 1');
-        // We need to fetch the template buffer
-        const localAssetPath = path.resolve(process.cwd(), 'apps/server/assets/Upgrade_Form.pdf');
-        if (!fs.existsSync(localAssetPath)) throw new Error('Master template missing in assets folder');
-        const templateBuffer = fs.readFileSync(localAssetPath);
+    /**
+     * Required Sequence:
+     * 1. signed_upgrade_form
+     * 2. passport_photo
+     * 3. id_data_page
+     * 4. utility_bill
+     * 5. nin_doc
+     * 6. bvn_doc
+     */
+    const sequence = [
+      'signed_upgrade_form',
+      'passport_photo',
+      'id_data_page',
+      'utility_bill',
+      'nin_doc',
+      'bvn_doc'
+    ];
 
-        const stampedBuffer = await this.pdfStampingService.stampTemplate(templateBuffer, payload.mandateData);
-        const stampedPdf = await PDFDocument.load(stampedBuffer);
-        const copiedPages = await masterPdf.copyPages(stampedPdf, [0]);
-        masterPdf.addPage(copiedPages[0]);
+    for (const docId of sequence) {
+      const docData = payload.supportingDocs.find(d => d.id === docId);
+      if (!docData) {
+        this.logger.warn(`Missing document ${docId} for compilation. Skipping.`);
+        continue;
       }
-    } catch (e) {
-      this.logger.error(`Failed to process Page 1: ${e.message}`);
-      throw new Error('Invalid Page 1 (Mandate Form)');
-    }
-
-    // 2. Append Supporting Documents in Exact Sequence
-    // Required Order: 1. Passport Data Page, 2. Utility Bill, 3. NIN, 4. BVN
-    for (const docBase64 of payload.supportingDocs) {
-      if (!docBase64) continue;
 
       try {
-        const docBytes = Buffer.from(docBase64.split(',')[1] || docBase64, 'base64');
+        const docBytes = Buffer.from(docData.base64.split(',')[1] || docData.base64, 'base64');
 
-        // Check if it's an image or a PDF
-        if (docBase64.includes('application/pdf') || !docBase64.includes('image')) {
-            const externalPdf = await PDFDocument.load(docBytes);
-            const copiedPages = await masterPdf.copyPages(externalPdf, externalPdf.getPageIndices());
-            copiedPages.forEach((page) => masterPdf.addPage(page));
+        if (docData.fileType === 'application/pdf' || docData.base64.includes('application/pdf')) {
+          const externalPdf = await PDFDocument.load(docBytes);
+          const copiedPages = await masterPdf.copyPages(externalPdf, externalPdf.getPageIndices());
+          copiedPages.forEach((page) => masterPdf.addPage(page));
         } else {
-            // It's an image, create a new A4 PDF page and embed it
-            const page = masterPdf.addPage([595.28, 841.89]); // A4 Size
-            const { width, height } = page.getSize();
-            const image = await masterPdf.embedJpg(docBytes).catch(() => masterPdf.embedPng(docBytes));
+          // It's an image, create a new A4 PDF page and embed it
+          const page = masterPdf.addPage([595.28, 841.89]); // A4 Size
+          const { width, height } = page.getSize();
+          const image = await masterPdf.embedJpg(docBytes).catch(() => masterPdf.embedPng(docBytes));
 
-            // Scale to fit page with margins
-            const dims = image.scaleToFit(width - 80, height - 80);
-            page.drawImage(image, {
-                x: (width - dims.width) / 2,
-                y: (height - dims.height) / 2,
-                width: dims.width,
-                height: dims.height,
-            });
+          // Scale to fit page with margins
+          const dims = image.scaleToFit(width - 80, height - 80);
+          page.drawImage(image, {
+            x: (width - dims.width) / 2,
+            y: (height - dims.height) / 2,
+            width: dims.width,
+            height: dims.height,
+          });
         }
       } catch (e) {
-        this.logger.warn(`Failed to append supporting doc: ${e.message}`);
+        this.logger.warn(`Failed to append supporting doc ${docId}: ${e.message}`);
       }
     }
 
     const finalPdfBytes = await masterPdf.save();
-    const fileName = `Parallex_Mandate_Package_${payload.userId}.pdf`;
-    const destination = `mandate_packages/${payload.userId}/${fileName}`;
+    const fileName = `Parallex_Upgrade_Package_${payload.userId}.pdf`;
+    const destination = `student_packages/${payload.userId}/${fileName}`;
 
     // 3. Upload to Firebase Storage
     const file = this.bucket.file(destination);
@@ -95,14 +86,21 @@ export class PdfCompilerService {
       metadata: { contentType: 'application/pdf' },
     });
 
+    // Generate signed URL (valid for 24 hours)
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
     // 4. Update Student Status in Firestore
     await admin.firestore().collection('users').doc(payload.userId).update({
       mandateStatus: 'MANDATE_SUBMITTED_AWAITING_APPROVAL',
-      mandatePackageUrl: destination,
+      compiledPackageUrl: destination,
+      compiledPackageDownloadUrl: signedUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     this.logger.log(`Master PDF package submitted for user ${payload.userId}`);
-    return { success: true, url: destination };
+    return { success: true, url: signedUrl };
   }
 }

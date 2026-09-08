@@ -365,6 +365,40 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
                   </div>
                 </div>
 
+                {/* Master Package Dispatch */}
+                {student.compiledPackageUrl && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Master Regulatory Package</h4>
+                    </div>
+                    <div className="p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-4">
+                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-wider">
+                        A unified 6-page PDF has been compiled for this student including the signed upgrade form and all identity proofs.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => window.open(student.compiledPackageDownloadUrl || student.compiledPackageUrl, '_blank')}
+                          className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Review Package
+                        </button>
+                        <a
+                          href={student.compiledPackageDownloadUrl || student.compiledPackageUrl}
+                          download={`Package_${student.name || 'User'}.pdf`}
+                          className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2 hover:bg-slate-700 transition-all"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Financial Status */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">

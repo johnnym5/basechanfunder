@@ -2,9 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import mkcert from 'vite-plugin-mkcert';
 import { VitePWA } from 'vite-plugin-pwa';
+import path from 'path';
 
 export default defineConfig({
   base: './',
+  envDir: path.resolve(__dirname, '../../'), // Load .env from root
   plugins: [
     react(),
     mkcert(),
@@ -28,9 +30,10 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000', // Use IP instead of localhost
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path // Ensure path is preserved
       },
     },
   },

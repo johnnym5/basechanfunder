@@ -12,6 +12,7 @@ import { MilestoneService } from './services/milestone.service';
 import { PdfStampingService } from './services/pdfStampingService';
 import { PdfCompilerService } from './services/pdfCompilerService';
 import { MandateSyncService } from './services/mandateSync.service';
+import { TemplateService } from './services/templateService';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { MandateSyncService } from './services/mandateSync.service';
     MilestoneService,
     PdfStampingService,
     PdfCompilerService,
-    MandateSyncService
+    MandateSyncService,
+    TemplateService
   ],
 })
 export class AppModule {}

@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import { PdfStampingService, MandateData } from '../services/pdfStampingService';
 import { PdfCompilerService, CompilationPayload } from '../services/pdfCompilerService';
 import { MandateSyncService } from '../services/mandateSync.service';
+import { TemplateService } from '../services/templateService';
 
 @Controller('api/v1/mandate')
 export class MandateController {
@@ -11,7 +12,27 @@ export class MandateController {
     private readonly pdfStampingService: PdfStampingService,
     private readonly pdfCompilerService: PdfCompilerService,
     private readonly mandateSyncService: MandateSyncService,
+    private readonly templateService: TemplateService,
   ) {}
+
+  @Get('template/upgrade-form')
+  async getUpgradeFormTemplate(@Res() res: Response) {
+    try {
+      const buffer = await this.templateService.getUpgradeForm();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Upgrade_Form_Blank.pdf"');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Length', buffer.length.toString());
+      return res.send(buffer);
+    } catch (e) {
+      return res.status(HttpStatus.NOT_FOUND).json({ error: e.message });
+    }
+  }
+
+  @Post('compile-package')
+  async compilePackage(@Body() payload: CompilationPayload) {
+    return this.pdfCompilerService.compileAndSubmit(payload);
+  }
 
   @Post('generate-draft')
   async generateDraft(@Body() data: MandateData, @Res() res: Response) {
