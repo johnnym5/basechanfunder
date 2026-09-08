@@ -76,6 +76,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
+    if (filters.searchTerm.trim().length > 0) count++;
     if (filters.statuses.length > 0) count++;
     if (filters.assignedCounselorIds.length > 0) count++;
     if (filters.financialState !== 'ALL') count++;
@@ -86,6 +87,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
   }, [filters]);
 
   const STATUS_OPTIONS = [
+    'TOPUP_PENDING',
     'NEEDS_TOPUP',
     'CLEARED',
     'PENDING',
@@ -119,6 +121,15 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
             onChange={(e) => updateFilter({ searchTerm: e.target.value })}
             className="w-full bg-transparent border-none py-2.5 px-3 text-xs font-bold focus:outline-none placeholder:text-slate-500 text-inherit"
           />
+          {filters.searchTerm && (
+            <button
+              onClick={() => updateFilter({ searchTerm: '' })}
+              className="mr-3 text-slate-400 hover:text-white p-1 rounded-full transition-colors"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Vertical Divider */}

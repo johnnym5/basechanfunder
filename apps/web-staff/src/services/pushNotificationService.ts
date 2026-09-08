@@ -1,5 +1,5 @@
 import { getMessagingInstance } from '../firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { getToken as getFcmToken, onMessage as onFcmMessage } from 'firebase/messaging';
@@ -45,12 +45,12 @@ export class PushNotificationService {
 
       const token = await getFcmToken(messaging, { vapidKey });
       if (token) {
-        // 3. Save to User Profile
+        // 3. Save to User Profile (Using setDoc with merge to be more robust)
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
+        await setDoc(userRef, {
           fcm_tokens: arrayUnion(token),
           updatedAt: new Date()
-        });
+        }, { merge: true });
         console.log('FCM Token registered:', token);
       }
 
@@ -103,10 +103,11 @@ export class PushNotificationService {
       // 3. Token handler
       PushNotifications.addListener('registration', async (token) => {
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
+        await setDoc(userRef, {
           fcm_tokens: arrayUnion(token.value),
-          platform: 'ANDROID_NATIVE'
-        });
+          platform: 'ANDROID_NATIVE',
+          updatedAt: new Date()
+        }, { merge: true });
       });
 
       // 4. Receive handler

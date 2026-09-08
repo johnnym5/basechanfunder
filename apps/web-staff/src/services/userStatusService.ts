@@ -10,7 +10,8 @@ export type ComplianceStatus =
   | 'AT_RISK_CAPITAL_BREACH'
   | 'ARCHIVED'
   | 'PENDING_ONBOARDING'
-  | 'AWAITING_VERIFICATION';
+  | 'AWAITING_VERIFICATION'
+  | 'TOPUP_PENDING';
 
 export interface UserStatusData {
   isApproved: boolean;
@@ -29,6 +30,11 @@ export interface UserStatusData {
  * Determines the precise lifecycle state of a student.
  */
 export function resolveUserStatus(data: UserStatusData): ComplianceStatus {
+  // Top-Up Pending takes priority so students needing top-up review appear immediately
+  if (data.status === 'TOPUP_PENDING') {
+    return 'TOPUP_PENDING';
+  }
+
   // 1. Initial State: Newly signed up, no profile details yet
   if (!data.onboardingComplete) {
     return 'PENDING_ONBOARDING';

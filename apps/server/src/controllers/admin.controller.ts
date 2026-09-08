@@ -138,6 +138,99 @@ export class AdminController {
     return { status: 'SUCCESS', apkUrl };
   }
 
+  @Get('topup-test')
+  testTopUp() {
+    return { status: 'REACHABLE' };
+  }
+
+  @Post('topup-approve')
+  @HttpCode(HttpStatus.OK)
+  async approveTopUp(@Body() body: { requestId: string, userId: string, approvedCapitalNgn: number, adminServiceFeeNgn: number }) {
+    const { requestId, userId, approvedCapitalNgn, adminServiceFeeNgn } = body;
+
+    try {
+      const batch = this.db.batch();
+
+      const requestRef = this.db.collection('topup_requests').doc(requestId);
+      batch.update(requestRef, {
+        status: 'APPROVED',
+        approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        approvedCapitalNgn: Number(approvedCapitalNgn),
+        adminServiceFeeNgn: Number(adminServiceFeeNgn),
+      });
+
+      const userRef = this.db.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      const userData = userDoc.data() || {};
+
+      const newEquity = (Number(userData.totalEquityNgn) || 0) + Number(approvedCapitalNgn);
+      const newConsolidated = (Number(userData.consolidatedBalanceNgn) || 0) + Number(approvedCapitalNgn);
+
+      batch.update(userRef, {
+        totalEquityNgn: newEquity,
+        consolidatedBalanceNgn: newConsolidated,
+        topUpStatus: 'APPROVED',
+        status: 'CLEARED',
+        hasPendingTopUp: false,
+        activeTopUpRequestId: null,
+        updatedAt: new Date().toISOString()
+      });
+
+      const notifRef = this.db.collection('notifications').doc();
+      batch.set(notifRef, {
+        userId,
+        title: 'Top-Up Approved!',
+        message: `₦${Number(approvedCapitalNgn).toLocaleString()} has been added to your ledger.`,
+        type: 'SUCCESS',
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await batch.commit();
+      return { status: 'SUCCESS' };
+    } catch (err: any) {
+      return { status: 'ERROR', message: err.message };
+    }
+  }
+
+  @Post('topup-deny')
+  @HttpCode(HttpStatus.OK)
+  async denyTopUp(@Body() body: { requestId: string, userId: string, rejectionReason: string }) {
+    const { requestId, userId, rejectionReason } = body;
+
+    try {
+      const batch = this.db.batch();
+
+      batch.update(this.db.collection('topup_requests').doc(requestId), {
+        status: 'REJECTED',
+        rejectionReason,
+        rejectedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      batch.update(this.db.collection('users').doc(userId), {
+        topUpStatus: 'REJECTED',
+        hasPendingTopUp: false,
+        status: 'ACTION_REQUIRED',
+        activeTopUpRequestId: null,
+        updatedAt: new Date().toISOString()
+      });
+
+      batch.set(this.db.collection('notifications').doc(), {
+        userId,
+        title: 'Top-Up Request Denied',
+        message: `Your top-up request was declined: ${rejectionReason}`,
+        type: 'ALERT',
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await batch.commit();
+      return { status: 'SUCCESS' };
+    } catch (err: any) {
+      return { status: 'ERROR', message: err.message };
+    }
+  }
+
   @Post('settings/seed-requirements')
   @HttpCode(HttpStatus.OK)
   async seedGlobalDocumentRequirements() {
@@ -158,11 +251,11 @@ export class AdminController {
         const userRef = this.db.collection('users').doc(userId);
         const userSnap = await userRef.get();
         const currentLevel = userSnap.data()?.inactivityReminderLevel || 30;
-        await userRef.update({
+        await userRef.set({
           inactivityReminderLevel: currentLevel === 30 ? 30 : 60, // Level is managed by cron, we just acknowledge
           lastInactivityAction: 'LEAVE',
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
       }
 
       // Mark notification as read and processed

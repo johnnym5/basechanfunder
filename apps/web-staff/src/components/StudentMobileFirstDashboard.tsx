@@ -93,8 +93,10 @@ interface LinkedBankAccount {
   connectionMethod: ConnectionMethod;
   lastSyncedAt: string;
   status: AccountStatus;
+  isSyncing?: boolean;
   isSystemTopUp: boolean;
   unlinkStatus: 'ACTIVE' | 'UNLINK_REQUESTED';
+  verificationBadge?: string;
 }
 
 interface ToastNotification {
@@ -164,7 +166,9 @@ export const StudentMobileFirstDashboard: React.FC<{
       lastSyncedAt: item.lastSyncedAt?.seconds
         ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : 'Just now',
-      status: item.status || 'VERIFIED'
+      status: item.status || 'VERIFIED',
+      isSyncing: item.isSyncing || false,
+      verificationBadge: item.verificationBadge || ''
     } as LinkedBankAccount));
   }, [liveAccounts]);
 
@@ -271,8 +275,7 @@ export const StudentMobileFirstDashboard: React.FC<{
 
   // Native SMS Listener Bridge
   useEffect(() => {
-    (window as any).onSmsBalanceUpdate = async (balance: number, mask: string, timestamp: number) => {
-      console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
+    const handleSmsSuccess = async (balance: number, mask: string, timestamp: number, isFallback = false) => {
       if (!currentUser?.uid) return;
 
       // --- 1. Fuzzy Multi-Bank Parsing ---
@@ -296,13 +299,14 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       if (matchedAcc || pendingAccountId) {
         targetAccountId = matchedAcc?.id || pendingAccountId || '';
-        const accRef = doc(db, 'financial_accounts', targetAccountId);
+        const accRef = doc(db, 'users', currentUser.uid, 'financial_accounts', targetAccountId);
         batch.set(accRef, {
           balanceNgn: balance,
           balanceGbp: balance / LIVE_FX_RATE,
           lastSyncedAt: serverTimestamp(),
           status: 'VERIFIED',
           isVerified: true,
+          verificationBadge: isFallback ? 'SYNCED FROM LATEST BANK ALERT' : null,
           updatedAt: serverTimestamp()
         }, { merge: true });
 
@@ -329,8 +333,10 @@ export const StudentMobileFirstDashboard: React.FC<{
       // 3. Trigger a success toast
       triggerSlideOutToast({
         id: `sms-${Date.now()}`,
-        title: 'SMS Alert Received',
-        message: `Balance updated: ₦${balance.toLocaleString()} across all devices.`,
+        title: isFallback ? 'Recent Alert Sync' : 'SMS Alert Received',
+        message: isFallback
+          ? `Synced balance ₦${balance.toLocaleString()} from recent UBA alert`
+          : `Balance updated: ₦${balance.toLocaleString()} across all devices.`,
         time: 'Just now',
         type: 'SUCCESS'
       });
@@ -338,14 +344,45 @@ export const StudentMobileFirstDashboard: React.FC<{
       // 4. Clear modal states
       setIsConnectModalOpen(false);
       setIsSavingAndSyncing(false);
+      setSyncingId(null);
+    };
+
+    (window as any).onSmsBalanceUpdate = async (balance: number, mask: string, timestamp: number) => {
+      console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
+      await handleSmsSuccess(balance, mask, timestamp, false);
     };
 
     (window as any).onSmsSyncFailed = async (mask: string, reason: string) => {
-      console.warn(`SMS Sync Failed for mask: ${mask}. Reason: ${reason}`);
-      const message = reason === 'PERMISSION_DENIED'
-        ? 'SMS access permission was denied.'
-        : `No matching UBA alerts found for account ending in ${mask}.`;
+      console.log(`Native Sync Failed for ${mask} (${reason}). Executing Tiered Fallback...`);
 
+      if (reason === 'PERMISSION_DENIED') {
+        setSyncError('SMS access permission was denied.');
+        toast.error('SMS access permission was denied.');
+        setSyncingId(null);
+        return;
+      }
+
+      // Tiered Fallback Strategy
+      try {
+        if ((window as any).AndroidBridge?.getSmsMessages) {
+          const raw = (window as any).AndroidBridge.getSmsMessages();
+          const messages = JSON.parse(raw);
+
+          // Execute Tiered Inspection in JS
+          const result = FuzzySmsParser.findLatestBalance(messages, mask, 'UBA');
+
+          if (result) {
+            console.log(`JS Fallback Success: Found balance ${result.balance}`);
+            await handleSmsSuccess(result.balance, mask, result.timestamp, result.isFallback);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Tiered Fallback Engine Error:', e);
+      }
+
+      // Final failure if even fallback finds nothing
+      const message = `No matching UBA alerts found for account ending in ${mask}.`;
       setSyncError(message);
       toast.error(message);
       setIsSavingAndSyncing(false);
@@ -353,9 +390,9 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       // Clear Firestore sync lock if possible
       if (currentUser?.uid) {
-        const accRef = liveAccounts.find(acc => acc.accountNumberMasked?.endsWith(mask))?.id;
-        if (accRef) {
-          await updateDoc(doc(db, 'users', currentUser.uid, 'financial_accounts', accRef), {
+        const accId = liveAccounts.find(acc => acc.accountNumberMasked?.endsWith(mask))?.id;
+        if (accId) {
+          await updateDoc(doc(db, 'users', currentUser.uid, 'financial_accounts', accId), {
             isSyncing: false,
             updatedAt: serverTimestamp()
           }).catch(() => {});
@@ -367,7 +404,7 @@ export const StudentMobileFirstDashboard: React.FC<{
       (window as any).onSmsBalanceUpdate = null;
       (window as any).onSmsSyncFailed = null;
     };
-  }, [currentUser, accounts]);
+  }, [currentUser, liveAccounts, pendingAccountId]);
 
   // 2. Fetch Notifications Stream
   useEffect(() => {
@@ -519,13 +556,13 @@ export const StudentMobileFirstDashboard: React.FC<{
     const acc = accounts.find(a => a.id === accountId);
     if (!acc) return;
 
-    if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics.')) {
+    if (window.confirm('Accept and unlink this account immediately? This will recalculate compliance metrics and the total consolidated balance.')) {
       try {
         await deleteDoc(doc(db, 'financial_accounts', accountId));
 
         // Add Notification
         await addDoc(collection(db, 'notifications'), {
-          userId: currentUser?.uid, // If in student view, this might be tricky, usually staffId
+          userId: currentUser?.uid,
           studentId: currentUser?.uid,
           studentName: name,
           title: 'Account Force-Unlinked',
@@ -535,10 +572,49 @@ export const StudentMobileFirstDashboard: React.FC<{
           isRead: false
         });
 
-        toast.success('Account unlinked by Administrator.');
+        // Trigger balance recalculation after deletion
+        if (currentUser?.uid) {
+          await fetch('/api/v1/ledger/recalculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUser.uid })
+          });
+        }
+
+        toast.success('Account unlinked and balance updated.');
       } catch (err: any) {
         toast.error('Failed to unlink: ' + err.message);
       }
+    }
+  };
+
+  const handleClearAccountBalance = async (accountId: string) => {
+    if (!window.confirm('Reset this account balance to zero? This will update your total consolidated balance.')) return;
+
+    setSyncingId(accountId);
+    try {
+      await updateDoc(doc(db, 'financial_accounts', accountId), {
+        balanceNgn: 0,
+        balanceGbp: 0,
+        accountBalanceNgn: 0,
+        lastSyncedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Trigger balance recalculation
+      if (currentUser?.uid) {
+        await fetch('/api/v1/ledger/recalculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUser.uid })
+        });
+      }
+
+      toast.success('Account balance cleared.');
+    } catch (err: any) {
+      toast.error('Clear failed: ' + err.message);
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -1010,7 +1086,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                           {acc.isVerified && (
                             <span className="px-1 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[6px] font-black uppercase tracking-tighter flex items-center gap-0.5">
                               <ShieldCheck className="w-2 h-2" />
-                              Verified
+                              {acc.verificationBadge ? 'Verified (Fuzzy)' : 'Verified'}
                             </span>
                           )}
                           {acc.isDedicatedParallex && (
@@ -1106,6 +1182,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                             <span>{syncingId === acc.id ? 'Syncing...' : 'Sync'}</span>
                           </button>
 
+                          <button
+                            onClick={() => handleClearAccountBalance(acc.id)}
+                            className="flex items-center gap-1.5 text-slate-400 hover:text-rose-400 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Clear</span>
+                          </button>
+
                           {!acc.isSystemTopUp && (
                             <button
                               onClick={() => setIsUssdModalOpen(true)}
@@ -1148,9 +1232,16 @@ export const StudentMobileFirstDashboard: React.FC<{
                         )}
                       </div>
                       {acc.isVerified ? (
-                        <span className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter block mt-2 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Verified via SMS Alert
+                        <span className="text-[9px] text-emerald-500 font-black uppercase tracking-tighter block mt-2 flex flex-col gap-0.5">
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Verified via SMS Alert
+                          </span>
+                          {acc.verificationBadge && (
+                            <span className="text-[7px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 w-max">
+                              {acc.verificationBadge}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-[9px] text-zinc-500 font-medium block mt-2">Account not verified</span>

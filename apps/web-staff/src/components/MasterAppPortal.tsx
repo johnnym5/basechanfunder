@@ -139,7 +139,7 @@ export const MasterAppPortal: React.FC = () => {
   // Determine user status for routing
   const userStatus = appUser ? resolveUserStatus({
     isApproved: appUser.isApproved,
-    onboardingComplete: !!appUser.onboardingComplete,
+    onboardingComplete: !!appUser.onboardingComplete || !!(appUser as any).setupCompleted,
     status: (appUser as any).status,
     verificationFailed: (appUser as any).verificationFailed
   }) : null;
@@ -419,7 +419,7 @@ export const MasterAppPortal: React.FC = () => {
             <div className="w-full h-full flex flex-col">
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
-              ) : !appUser.isApproved && role === 'STUDENT' ? (
+              ) : (!appUser.isApproved && (appUser as any).status !== 'TOPUP_PENDING' && !(appUser as any).hasPendingTopUp) && role === 'STUDENT' ? (
                 <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4 sm:space-y-8">
                   <div className="w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-[2.5rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shadow-2xl shadow-amber-500/10">
                     <ShieldAlert className="w-6 h-6 sm:w-12 sm:h-12 animate-pulse" />

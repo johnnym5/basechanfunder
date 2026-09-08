@@ -6,16 +6,20 @@ import { getPlatformType } from '../utils/deviceDetection';
 
 // For local development on physical mobile devices, use the host PC's IP.
 // In production, this would be your deployed API domain.
-const REMOTE_API_BASE = 'http://192.168.0.122:3000';
+const REMOTE_API_HOST = '192.168.0.122';
+
 export const getApiBaseUrl = (): string => {
   const platform = getPlatformType();
 
-  // If running in the native Android shell or on a mobile browser using the IP directly,
-  // we must use the absolute URL to hit the PC's backend.
-  if (platform === 'NATIVE_ANDROID' || platform === 'MOBILE_WEB') {
-    return REMOTE_API_BASE;
+  // 1. NATIVE ANDROID (APK/WebView)
+  // The virtual host (appassets.androidplatform.net) doesn't have a proxy.
+  // We must hit the backend directly via HTTP on the local network.
+  if (platform === 'NATIVE_ANDROID') {
+    return `http://${REMOTE_API_HOST}:3000`;
   }
 
-  // On desktop, we use relative URLs which are handled by the Vite proxy.
+  // 2. MOBILE WEB or DESKTOP WEB
+  // We use relative URLs. This allows the Vite proxy (configured in vite.config.ts)
+  // to handle the HTTPS -> HTTP transition automatically, preventing SSL errors.
   return '';
 };

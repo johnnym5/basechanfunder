@@ -13,6 +13,7 @@ async function bootstrap() {
   // Initialize Firebase Admin once
   if (!admin.apps.length) {
     const serviceAccountPath = path.join(rootDir, 'service-account.json');
+    const altServiceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
 
     const config: admin.AppOptions = {
       projectId: process.env.FIREBASE_PROJECT_ID || 'basechanfunder',
@@ -20,22 +21,66 @@ async function bootstrap() {
     };
 
     try {
-      // Prefer explicit service account file for local dev and production stability
+      // 1. Try root service-account.json
       if (require('fs').existsSync(serviceAccountPath)) {
         config.credential = admin.credential.cert(serviceAccountPath);
-        Logger.log('🔑 Using explicit Service Account Key', 'Bootstrap');
-      } else {
-        Logger.warn('⚠️ No service-account.json found. Falling back to Application Default Credentials.', 'Bootstrap');
+        Logger.log('🔑 Using root Service Account Key', 'Bootstrap');
+      }
+      // 2. Try server-local serviceAccountKey.json (Requirement specific)
+      else if (require('fs').existsSync(altServiceAccountPath)) {
+        config.credential = admin.credential.cert(altServiceAccountPath);
+        Logger.log('🔑 Using server-local Service Account Key', 'Bootstrap');
+      }
+      else {
+        Logger.warn('⚠️ No service account JSON found. Falling back to Application Default Credentials.', 'Bootstrap');
       }
 
-      admin.initializeApp(config);
-      Logger.log('🔥 Firebase Admin initialized', 'Bootstrap');
+      const app = admin.initializeApp(config);
+      const defaultDbId = process.env.FIRESTORE_DATABASE_ID || 'basechanfunder';
+      const { getFirestore } = require('firebase-admin/firestore');
+      try {
+        (app as any).firestore = function (databaseId?: string) {
+          return getFirestore(app, databaseId || defaultDbId);
+        };
+        const origFirestore = admin.firestore;
+        const firestoreFn = function (appOrDb?: any) {
+          if (typeof appOrDb === 'string') {
+            return getFirestore(admin.app(), appOrDb);
+          }
+          return getFirestore(appOrDb || admin.app(), defaultDbId);
+        };
+        Object.assign(firestoreFn, origFirestore);
+        Object.defineProperty(admin, 'firestore', {
+          value: firestoreFn,
+          configurable: true,
+          writable: true,
+        });
+      } catch (err: any) {
+        Logger.warn(`Firestore default db routing skipped: ${err.message}`, 'Bootstrap');
+      }
+
+      Logger.log(`🔥 Firebase Admin initialized (Firestore DB: ${defaultDbId})`, 'Bootstrap');
     } catch (err: any) {
       Logger.error(`❌ Firebase Admin init failed: ${err.message}`, 'Bootstrap');
     }
   }
 
-  const app = await NestFactory.create(AppModule);
+  // Detect SSL Certificates for Local HTTPS Development
+  const sslKeyPath = path.join(__dirname, '../key.pem');
+  const sslCertPath = path.join(__dirname, '../cert.pem');
+  let httpsOptions = null;
+
+  if (require('fs').existsSync(sslKeyPath) && require('fs').existsSync(sslCertPath)) {
+    httpsOptions = {
+      key: require('fs').readFileSync(sslKeyPath),
+      cert: require('fs').readFileSync(sslCertPath),
+    };
+    Logger.log('🛡️ SSL Certificates detected. Enabling HTTPS.', 'Bootstrap');
+  }
+
+  const app = await NestFactory.create(AppModule, {
+    httpsOptions,
+  });
 
   // Enable CORS for frontend development
   app.enableCors();

@@ -17,6 +17,7 @@ pkg/
 *.pem
 *.key
 service-account.json
+serviceAccountKey.json
 
 # IDE & System Files
 .DS_Store

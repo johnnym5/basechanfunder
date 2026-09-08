@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   addDoc,
@@ -136,12 +137,14 @@ const StatusBadge: React.FC<{ status: ComplianceStatus; isNew?: boolean }> = ({ 
     PENDING_ONBOARDING: theme === 'dark' ? 'bg-slate-800 text-slate-500 border-white/5' : 'bg-slate-100 text-slate-400 border-slate-200',
     AWAITING_VERIFICATION: theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200',
     UNAUTHENTICATED: theme === 'dark' ? 'bg-rose-600/20 text-rose-500 border-rose-600/30 shadow-lg shadow-rose-900/10' : 'bg-rose-50 text-rose-700 border-rose-200 shadow-sm',
+    TOPUP_PENDING: theme === 'dark' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-600 border-amber-200',
   };
 
   const labels: Record<string, string> = {
     PENDING_ONBOARDING: 'INCOMPLETE ONBOARDING',
     AWAITING_VERIFICATION: 'PENDING VERIFICATION',
     UNAUTHENTICATED: 'IDENTIFICATION FAILED',
+    TOPUP_PENDING: 'TOP-UP PENDING',
   };
 
   return (
@@ -427,8 +430,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       if (studentAccs.length === 0 && manualTotalGbp === 0) ingestionChannels.push('UNVERIFIED');
 
       // Adjust status based on approval and onboarding
-      const onboardingComplete = !!userProfile?.onboardingComplete || !!userProfile?.setupCompleted;
-      const finalStatus = resolveUserStatus({
+      const isTopUpPending = userProfile?.status === 'TOPUP_PENDING' || userProfile?.topUpStatus === 'REQUEST_PENDING' || userProfile?.hasPendingTopUp === true;
+      const onboardingComplete = !!userProfile?.onboardingComplete || !!userProfile?.setupCompleted || isTopUpPending;
+      const finalStatus = isTopUpPending ? 'TOPUP_PENDING' : resolveUserStatus({
         isApproved,
         onboardingComplete,
         status: s.status,
@@ -442,6 +446,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         name,
         isApproved,
         status: finalStatus,
+        topUpStatus: userProfile?.topUpStatus,
+        hasPendingTopUp: userProfile?.hasPendingTopUp || isTopUpPending,
+        setupCompleted: userProfile?.setupCompleted,
         balanceGbp: totalGbp,
         pendingRequest: studentRequest,
         phoneNumber,
@@ -461,12 +468,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       const isStudentRole = u.role === 'STUDENT' || (!u.email?.endsWith('@basechaninternational.com') && !u.email?.endsWith('.basechaninternational@gmail.com'));
 
       if (!isAlreadyIn && isStudentRole) {
+        const isTopUpPending = u.status === 'TOPUP_PENDING' || u.topUpStatus === 'REQUEST_PENDING' || u.hasPendingTopUp === true;
         const isApproved = u.isApproved === true && u.hardDeleted !== true;
-        const onboardingComplete = !!u.onboardingComplete || !!u.setupCompleted;
-        const status = resolveUserStatus({
+        const onboardingComplete = !!u.onboardingComplete || !!u.setupCompleted || isTopUpPending;
+        const status = isTopUpPending ? 'TOPUP_PENDING' : resolveUserStatus({
           isApproved,
           onboardingComplete,
-          verificationFailed: u.verificationFailed
+          verificationFailed: u.verificationFailed,
+          status: u.status
         });
 
         merged.push({
@@ -478,12 +487,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           accountNumbers: [],
           parallexAccountNumbers: [u.onboardingProfile?.parallexAccountNumber].filter(Boolean),
           status,
-          isApproved: u.isApproved === true,
+          topUpStatus: u.topUpStatus,
+          hasPendingTopUp: u.hasPendingTopUp || isTopUpPending,
+          setupCompleted: u.setupCompleted,
+          isApproved,
           consecutiveDays: 0,
           balanceGbp: 0,
           targetGbp: 0,
           anomalyRatio: 0,
-          lastUpdate: 'Awaiting Setup',
+          lastUpdate: isTopUpPending ? 'Top-Up Requested' : 'Awaiting Setup',
           createdAt: u.createdAt?.seconds ? new Date(u.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
           isNew: true,
           expirationDate: null,
@@ -499,13 +511,19 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   }, [students, accounts, requests, allUsers]);
 
   const stats = useMemo(() => ({
-    total: liveStudents.filter(s => s.isApproved).length,
+    total: liveStudents.filter(s => s.isApproved || s.status === 'TOPUP_PENDING').length,
     cleared: liveStudents.filter(s => s.status === 'CLEARED' && s.isApproved).length,
-    topUpRequired: liveStudents.filter(s => (!!s.pendingRequest || s.status === 'NEEDS_TOPUP') && s.isApproved).length,
+    topUpRequired: liveStudents.filter(s =>
+      s.status === 'TOPUP_PENDING' ||
+      (s as any).topUpStatus === 'REQUEST_PENDING' ||
+      (s as any).hasPendingTopUp === true ||
+      !!s.pendingRequest ||
+      s.status === 'NEEDS_TOPUP'
+    ).length,
     nearMaturity: liveStudents.filter(s => s.status === 'NEAR_MATURITY' && s.isApproved).length,
     atRisk: liveStudents.filter(s => s.status === 'AT_RISK' && s.isApproved).length,
-    unapproved: liveStudents.filter(s => s.status === 'AWAITING_VERIFICATION' || s.status === 'UNAUTHENTICATED').length,
-    pendingOnboarding: liveStudents.filter(s => s.status === 'PENDING_ONBOARDING').length,
+    unapproved: liveStudents.filter(s => (s.status === 'AWAITING_VERIFICATION' || s.status === 'UNAUTHENTICATED') && s.status !== 'TOPUP_PENDING').length,
+    pendingOnboarding: liveStudents.filter(s => s.status === 'PENDING_ONBOARDING' && s.status !== 'TOPUP_PENDING' && !(s as any).hasPendingTopUp).length,
     newUsers: liveStudents.filter(s => s.isNew).length
   }), [liveStudents]);
 
@@ -515,9 +533,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
     return liveStudents.filter(s => {
       // 0. Quick Category Filtering (Stat Cards)
-      if (filter === 'ALL' && (s.status === 'PENDING_ONBOARDING' || !s.isApproved)) return false;
+      if (filter === 'ALL') {
+        if (s.status === 'PENDING_ONBOARDING' && s.status !== 'TOPUP_PENDING' && !(s as any).hasPendingTopUp) return false;
+        if (!s.isApproved && s.status !== 'TOPUP_PENDING' && !(s as any).hasPendingTopUp) return false;
+      }
       if (filter === 'CLEARED' && (s.status !== 'CLEARED' || !s.isApproved)) return false;
-      if (filter === 'REQUESTS' && (!s.pendingRequest && s.status !== 'NEEDS_TOPUP')) return false;
+      if (filter === 'REQUESTS' || filter === 'TOPUP_PENDING') {
+        const isTopUp = s.status === 'TOPUP_PENDING' || (s as any).topUpStatus === 'REQUEST_PENDING' || (s as any).hasPendingTopUp === true || !!s.pendingRequest || s.status === 'NEEDS_TOPUP';
+        if (!isTopUp) return false;
+      }
       if (filter === 'NEAR_MATURITY' && (s.status !== 'NEAR_MATURITY' || !s.isApproved)) return false;
       if (filter === 'UNAPPROVED' && s.status !== 'AWAITING_VERIFICATION' && s.status !== 'UNAUTHENTICATED') return false;
       if (filter === 'INCOMPLETE' && s.status !== 'PENDING_ONBOARDING') return false;
@@ -538,7 +562,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
       // 2. Status Filter (Multi-select)
       if (advancedFilters.statuses.length > 0) {
-        if (!advancedFilters.statuses.includes(s.status)) return false;
+        if (!advancedFilters.statuses.includes(s.status)) {
+          if (advancedFilters.statuses.includes('TOPUP_PENDING') && (s.status === 'TOPUP_PENDING' || (s as any).topUpStatus === 'REQUEST_PENDING' || (s as any).hasPendingTopUp)) {
+            // match
+          } else {
+            return false;
+          }
+        }
       }
 
       // 3. Counselor Assignment (Multi-select)
@@ -629,23 +659,24 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     setIsSubmitting(true);
     try {
       // 1. Perspective: Account Access Approval
-      if (!student.isApproved) {
-        await updateDoc(doc(db, 'users', targetUid), {
-          isApproved: true,
-          approvedAt: serverTimestamp()
-        });
+      await setDoc(doc(db, 'users', targetUid), {
+        isApproved: true,
+        setupCompleted: true,
+        onboardingComplete: true,
+        approvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
 
-        await addDoc(collection(db, 'audit_logs'), {
-          actor: appUser?.displayName || 'Admin',
-          action: 'USER_APPROVED',
-          detail: `Approved student access for ${student.name}`,
-          studentId: targetUid,
-          createdAt: serverTimestamp()
-        });
-        toast.success(`Access approved for ${student.name}`);
-      }
-      // 2. Perspective: Manual Compliance Clearance
-      else if (student.status !== 'CLEARED') {
+      await addDoc(collection(db, 'audit_logs'), {
+        actor: appUser?.displayName || 'Admin',
+        action: 'USER_APPROVED',
+        detail: `Approved student access for ${student.name}`,
+        studentId: targetUid,
+        createdAt: serverTimestamp()
+      });
+
+      // 2. Perspective: Manual Compliance Clearance (if student is already approved or being cleared)
+      if (student.status !== 'CLEARED') {
         const evalRef = collection(db, 'pof_evaluations');
         const q = query(evalRef, where('userId', '==', targetUid));
         const snap = await getDocs(q);
@@ -653,22 +684,42 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         if (!snap.empty) {
           await updateDoc(doc(db, 'pof_evaluations', snap.docs[0].id), {
             status: 'CLEARED',
+            isApproved: true,
             updatedAt: serverTimestamp()
           });
-
-          await addDoc(collection(db, 'audit_logs'), {
-            actor: appUser?.displayName || 'Admin',
-            action: 'COMPLIANCE_CLEARED',
-            detail: `Manually cleared compliance for ${student.name}`,
-            studentId: targetUid,
+        } else {
+          // If no eval doc exists, create one
+          await addDoc(collection(db, 'pof_evaluations'), {
+            userId: targetUid,
+            name: student.name,
+            email: student.email,
+            status: 'CLEARED',
+            isApproved: true,
+            balanceGbp: student.balanceGbp || 0,
+            targetGbp: student.targetGbp || 0,
+            anomalyRatio: 0,
+            consecutiveDays: 28,
+            verifiedAt: serverTimestamp(),
             createdAt: serverTimestamp()
           });
-          toast.success(`Compliance cleared for ${student.name}`);
-        } else {
-          toast.error("No evaluation record found to clear.");
         }
+
+        await setDoc(doc(db, 'users', targetUid), {
+          status: 'CLEARED',
+          isApproved: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        await addDoc(collection(db, 'audit_logs'), {
+          actor: appUser?.displayName || 'Admin',
+          action: 'COMPLIANCE_CLEARED',
+          detail: `Cleared compliance for ${student.name}`,
+          studentId: targetUid,
+          createdAt: serverTimestamp()
+        });
       }
 
+      toast.success(`Access & clearance updated for ${student.name}`);
       setSelectedStudent(null);
     } catch (e: any) {
       console.error('Approval error:', e);
@@ -847,11 +898,29 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const statConfigs = [
     { label: "Total Students", value: stats.total, icon: Users, color: "text-slate-600 dark:text-slate-300", description: "Authorized student profiles", filterId: 'ALL' },
     { label: "Cleared", value: stats.cleared, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400", description: "Full POF maturity reached", filterId: 'CLEARED' },
-    { label: "Top Up Required", value: stats.topUpRequired, icon: Zap, color: "text-amber-600 dark:text-amber-400", description: "Funding needed or pending", filterId: 'REQUESTS' },
+    { label: "Top Up Required", value: stats.topUpRequired, icon: Zap, color: "text-amber-600 dark:text-amber-400", description: "Funding needed or pending", filterId: 'TOPUP_PENDING' },
     { label: "Almost Done", value: stats.nearMaturity, icon: Clock, color: "text-cyan-600 dark:text-cyan-400", description: "Near 28-day maturity", filterId: 'NEAR_MATURITY' },
     { label: "Auth Failed", value: stats.unapproved, icon: ShieldAlert, color: "text-rose-600 dark:text-rose-500", description: "Verification failed or pending", filterId: 'UNAPPROVED' },
     ...(stats.pendingOnboarding > 0 ? [{ label: "Incomplete", value: stats.pendingOnboarding, icon: Loader2, color: "text-slate-600 dark:text-slate-400", description: "Awaiting setup completion", filterId: 'INCOMPLETE' }] : []),
   ];
+
+  const handleResetAllFilters = () => {
+    setAdvancedFilters(INITIAL_FILTERS);
+    setSearchTerm('');
+    setFilter('ALL');
+    setRequestTypeFilter('ALL');
+  };
+
+  const handleStatCardClick = (filterId: string) => {
+    setFilter(filterId as any);
+    if (filterId === 'TOPUP_PENDING') {
+      setAdvancedFilters(prev => ({ ...prev, statuses: ['TOPUP_PENDING'] }));
+    } else {
+      setAdvancedFilters(prev => ({ ...prev, statuses: [] }));
+    }
+    if (filterId === 'REQUESTS') setRequestTypeFilter('ALL');
+    setIsMetricsExpanded(false);
+  };
 
   const activeStat = statConfigs.find(c => c.filterId === filter) || statConfigs[0];
 
@@ -909,11 +978,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                       icon={s.icon}
                       color={s.color}
                       description={s.description}
-                      onClick={() => {
-                        setFilter(s.filterId as any);
-                        if (s.filterId === 'REQUESTS') setRequestTypeFilter('ALL');
-                        setIsMetricsExpanded(false);
-                      }}
+                      onClick={() => handleStatCardClick(s.filterId)}
                       isActive={filter === s.filterId}
                     />
                   ))}
@@ -933,10 +998,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
               icon={s.icon}
               color={s.color}
               description={s.description}
-              onClick={() => {
-                setFilter(s.filterId as any);
-                if (s.filterId === 'REQUESTS') setRequestTypeFilter('ALL');
-              }}
+              onClick={() => handleStatCardClick(s.filterId)}
               isActive={filter === s.filterId}
             />
           ))}
@@ -962,7 +1024,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           filters={advancedFilters}
           onFilterChange={setAdvancedFilters}
           counselors={counselors}
-          onReset={() => setAdvancedFilters(INITIAL_FILTERS)}
+          onReset={handleResetAllFilters}
           isDark={theme === 'dark'}
         />
 
@@ -981,7 +1043,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                    </p>
                 </div>
                 <button
-                  onClick={() => setAdvancedFilters(INITIAL_FILTERS)}
+                  onClick={handleResetAllFilters}
                   className="flex items-center gap-2 px-8 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-amber-500"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />

@@ -9,7 +9,8 @@ import {
   updateDoc,
   serverTimestamp,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  limit
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -29,7 +30,8 @@ import {
   Settings2,
   Save,
   Zap,
-  CreditCard
+  CreditCard,
+  CheckCheck
 } from 'lucide-react';
 import { StudentDashboardView } from './StudentDashboardView';
 import { MAJOR_CURRENCIES } from '../constants';
@@ -43,10 +45,14 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
-  const [overrideTab, setModalTab] = useState<'balance' | 'days' | 'pricing'>('balance');
+  const [overrideTab, setModalTab] = useState<'request' | 'days' | 'pricing'>('request');
 
   // Form States
-  const [balanceAdjust, setBalanceAdjust] = useState('');
+  const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [isModifying, setIsModifying] = useState(false);
+  const [modifiedCapital, setModifiedCapital] = useState<number>(0);
+  const [isProcessing, setIsSubmitting] = useState(false);
+
   const [holdingDays, setHoldingDays] = useState('');
   const [targetGbpInput, setTargetGbpInput] = useState('');
   const [localCurrency, setLocalCurrency] = useState('NGN');
@@ -61,15 +67,14 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   useEffect(() => {
     if (!studentId) return;
 
-    // Listen to the student's evaluation using a query (matches useUserBalance logic)
+    // 1. Listen to Student Evaluation
     const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', studentId));
-    const unsub = onSnapshot(evalQ, (snap) => {
+    const unsubEval = onSnapshot(evalQ, (snap) => {
       if (!snap.empty) {
         const docSnap = snap.docs[0];
         const data = docSnap.data();
         setStudent({ id: docSnap.id, ...data });
 
-        // Pre-fill setup fields
         if (data.targetGBP) setTargetGbpInput(data.targetGBP.toString());
         if (data.localCurrency) setLocalCurrency(data.localCurrency);
         if (data.startDate) setTimerStartInput(data.startDate);
@@ -80,7 +85,6 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
           });
         }
       } else {
-        // Fallback: Use basic user data if evaluation doesn't exist yet
         getDoc(doc(db, 'users', studentId)).then(userSnap => {
            if (userSnap.exists()) {
              setStudent({ userId: studentId, userName: userSnap.data().displayName });
@@ -90,29 +94,88 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       setLoading(false);
     });
 
-    return () => unsub();
+    // 2. Listen to Pending Top-Up Request
+    const requestQ = query(
+        collection(db, 'topup_requests'),
+        where('userId', '==', studentId),
+        where('status', '==', 'PENDING_ADMIN_VERIFICATION'),
+        limit(1)
+    );
+    const unsubRequest = onSnapshot(requestQ, (snap) => {
+        if (!snap.empty) {
+            const data = snap.docs[0].data();
+            setActiveRequest({ id: snap.docs[0].id, ...data });
+            setModifiedCapital(data.topUpAmountNgn || 0);
+        } else {
+            setActiveRequest(null);
+        }
+    });
+
+    return () => {
+        unsubEval();
+        unsubRequest();
+    };
   }, [studentId]);
 
-  const handleUpdateBalance = async () => {
-    if (!student) return;
-    const adjust = parseFloat(balanceAdjust) || 0;
-    const current = student.currentBalanceNgn || 0;
+  const handleApproveRequest = async () => {
+    if (!activeRequest || !studentId) return;
+    setIsSubmitting(true);
+    try {
+        const response = await fetch('/api/v1/topup/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId: activeRequest.id,
+                userId: studentId,
+                approvedCapitalNgn: modifiedCapital,
+                adminServiceFeeNgn: Math.round(modifiedCapital * (pricingForm.feePercentage / 100))
+            })
+        });
 
-    await updateDoc(doc(db, 'pof_evaluations', studentId), {
-      currentBalanceNgn: current + adjust,
-      updatedAt: serverTimestamp()
-    });
+        const result = await response.json();
+        if (result.status === 'SUCCESS') {
+            toast.success('Top-Up approved successfully!');
+            setIsOverrideModalOpen(false);
+            setIsModifying(false);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (err: any) {
+        toast.error('Approval failed: ' + err.message);
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
-    await addDoc(collection(db, 'audit_logs'), {
-      actor: 'Staff Inspector',
-      action: 'BALANCE_ADJUST',
-      detail: `${adjust >= 0 ? 'Credited' : 'Debited'} ₦${Math.abs(adjust)} for ${student.userName}`,
-      studentId: studentId,
-      createdAt: serverTimestamp()
-    });
+  const handleDenyRequest = async () => {
+    if (!activeRequest || !studentId) return;
+    const reason = window.prompt("Reason for denial:");
+    if (reason === null) return; // Cancelled
 
-    setIsOverrideModalOpen(false);
-    setBalanceAdjust('');
+    setIsSubmitting(true);
+    try {
+        const response = await fetch('/api/v1/topup/deny', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId: activeRequest.id,
+                userId: studentId,
+                rejectionReason: reason || 'Information mismatch'
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'SUCCESS') {
+            toast.success('Request denied.');
+            setIsOverrideModalOpen(false);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (err: any) {
+        toast.error('Denial failed: ' + err.message);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const handleUpdateDays = async () => {
@@ -222,7 +285,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
               <div className="px-8 pt-6">
                  <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5">
                     {[
-                      { id: 'balance', label: 'Balance' },
+                      { id: 'request', label: 'Pending Request' },
                       { id: 'days', label: 'Setup Window' },
                       { id: 'pricing', label: 'Top-Up Pricing' }
                     ].map((t) => (
@@ -238,24 +301,87 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
               </div>
 
               <div className="p-8">
-                 {overrideTab === 'balance' && (
-                   <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Adjustment Amount (₦)</label>
-                        <input
-                          type="number"
-                          placeholder="e.g. +500000 or -100000"
-                          value={balanceAdjust}
-                          onChange={e => setBalanceAdjust(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                      <button
-                        onClick={handleUpdateBalance}
-                        className="w-full py-4 bg-amber-500 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
-                      >
-                         Apply Balance Change
-                      </button>
+                 {overrideTab === 'request' && (
+                   <div className="space-y-6 animate-in fade-in duration-300">
+                      {!activeRequest ? (
+                        <div className="py-12 text-center space-y-4 opacity-50">
+                           <ShieldAlert className="w-12 h-12 mx-auto text-slate-500" />
+                           <p className="text-xs font-black uppercase tracking-widest">No active top-up claims pending for this profile.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                           <div className="p-6 rounded-3xl bg-blue-600/5 border border-blue-500/20 space-y-5 relative overflow-hidden">
+                              <div className="absolute top-0 right-0 p-4">
+                                 <div className="px-2 py-1 rounded bg-blue-500 text-white text-[7px] font-black uppercase tracking-widest animate-pulse">Live Claim</div>
+                              </div>
+
+                              <div className="space-y-4">
+                                 <div>
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Top-Up Capital Requested</p>
+                                    {isModifying ? (
+                                       <div className="relative">
+                                          <input
+                                             type="number"
+                                             value={modifiedCapital}
+                                             onChange={e => setModifiedCapital(Number(e.target.value))}
+                                             className="w-full bg-slate-950 border border-amber-500/50 rounded-xl px-4 py-3 text-lg font-black text-white focus:outline-none"
+                                          />
+                                       </div>
+                                    ) : (
+                                       <h4 className="text-3xl font-black text-white leading-none">₦{activeRequest.topUpAmountNgn?.toLocaleString()}</h4>
+                                    )}
+                                 </div>
+
+                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                                    <div>
+                                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Admin Service Fee (2.5%)</p>
+                                       <p className="text-sm font-bold text-blue-400">₦{Math.round(modifiedCapital * (pricingForm.feePercentage / 100)).toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-right">
+                                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Payment Reference</p>
+                                       <div className="flex items-center justify-end gap-1.5 mt-1">
+                                          <Zap className="w-3 h-3 text-amber-500" />
+                                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase">"{activeRequest.paymentReference || 'N/A'}"</span>
+                                       </div>
+                                    </div>
+                                 </div>
+
+                                 <div className="pt-2">
+                                    <p className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter italic">Submitted: {new Date(activeRequest.createdAt).toLocaleString()}</p>
+                                 </div>
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-1 gap-3">
+                              <button
+                                 onClick={handleApproveRequest}
+                                 disabled={isProcessing}
+                                 className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                              >
+                                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+                                 Approve Top-Up
+                              </button>
+
+                              <div className="flex gap-3">
+                                 <button
+                                    onClick={() => setIsModifying(!isModifying)}
+                                    className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isModifying ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 border border-white/5'}`}
+                                 >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    {isModifying ? 'Save Mod' : 'Modify'}
+                                 </button>
+                                 <button
+                                    onClick={handleDenyRequest}
+                                    disabled={isProcessing}
+                                    className="flex-1 py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
+                                 >
+                                    <X className="w-3.5 h-3.5" />
+                                    Deny Request
+                                 </button>
+                              </div>
+                           </div>
+                        </div>
+                      )}
                    </div>
                  )}
 

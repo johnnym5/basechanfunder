@@ -165,10 +165,13 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
   const handleApprove = async () => {
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'users', student.userId || student.id), {
+      await setDoc(doc(db, 'users', student.userId || student.id), {
         isApproved: true,
-        approvedAt: serverTimestamp()
-      });
+        setupCompleted: true,
+        onboardingComplete: true,
+        approvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
       toast.success('Student account approved');
       if (onUpdate) onUpdate();
     } catch (error: any) {

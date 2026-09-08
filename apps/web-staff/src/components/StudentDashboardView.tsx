@@ -362,7 +362,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     const acc = accounts.find(a => a.id === accountId);
     if (!acc) return;
 
-    if (window.confirm('Accept and unlink this account immediately?')) {
+    if (window.confirm('Accept and unlink this account immediately? This will recalculate the total balance.')) {
       try {
         await deleteDoc(doc(db, 'financial_accounts', accountId));
 
@@ -376,10 +376,45 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           isRead: false
         });
 
-        toast.success('Account unlinked.');
+        // Trigger balance recalculation after deletion
+        await fetch('/api/v1/ledger/recalculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: studentId })
+        });
+
+        toast.success('Account unlinked and total balance updated.');
       } catch (err: any) {
         toast.error('Failed to unlink: ' + err.message);
       }
+    }
+  };
+
+  const handleClearAccountBalance = async (accountId: string) => {
+    if (!window.confirm('Reset this account balance to zero? This will update the total consolidated balance.')) return;
+
+    setSyncingId(accountId);
+    try {
+      await updateDoc(doc(db, 'financial_accounts', accountId), {
+        balanceNgn: 0,
+        balanceGbp: 0,
+        accountBalanceNgn: 0,
+        lastSyncedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Trigger balance recalculation
+      await fetch('/api/v1/ledger/recalculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: studentId })
+      });
+
+      toast.success('Account balance cleared.');
+    } catch (err: any) {
+      toast.error('Clear failed: ' + err.message);
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -1030,6 +1065,16 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
                           {syncingId === acc.id ? 'Syncing...' : 'Sync Balance'}
+                        </button>
+
+                        <button
+                          onClick={() => handleClearAccountBalance(acc.id)}
+                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
+                            isDark ? 'text-slate-400 hover:text-rose-400' : 'text-slate-600 hover:text-rose-600'
+                          }`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Clear
                         </button>
 
                         <button

@@ -62,7 +62,13 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
 
   // Load student's specific pricing config and evaluation details
   useEffect(() => {
-    if (isOpen && currentUser) {
+    if (isOpen) {
+      if (!currentUser?.uid) {
+        toast.error('Authentication required: Please re-authenticate or complete onboarding.');
+        onClose();
+        return;
+      }
+
       const loadData = async () => {
         // 1. Fetch User (Source of Destination Country)
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
@@ -141,7 +147,11 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!currentUser?.uid) {
+      toast.error('Authentication required: Please re-authenticate or complete onboarding.');
+      onClose();
+      return;
+    }
     if (requestType === 'TOP_UP' && (!amount || !paymentRef)) return;
     if (requestType === 'EXTENSION' && !days) return;
 

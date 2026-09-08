@@ -17,10 +17,10 @@ export class LedgerController {
     this.logger.log(`Recalculating balance for user ${userId}`);
 
     try {
-      // 1. Query all active financial accounts
-      const accountsSnap = await this.db.collection('users').doc(userId)
-        .collection('financial_accounts')
-        .where('status', '==', 'ACTIVE')
+      // 1. Query all active financial accounts (Corrected to top-level collection)
+      const accountsSnap = await this.db.collection('financial_accounts')
+        .where('userId', '==', userId)
+        .where('status', '==', 'VERIFIED') // Frontend uses 'VERIFIED'
         .get();
 
       let totalEquityNgn = 0;

@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Logger, Get } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export const PRE_APPROVED_COUNSELORS = [
   { name: "Peter", email: "peter.basechaninternational@gmail.com" },
@@ -14,6 +15,10 @@ export const PRE_APPROVED_COUNSELORS = [
 @Controller('api/v1/auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
+
+  private get db() {
+    return getFirestore(admin.app(), 'basechanfunder');
+  }
 
   @Get('health')
   healthCheck() {
@@ -57,10 +62,17 @@ export class AuthController {
       }
 
       // 3. Update Firestore profile (This is our main source of truth for the UI)
-      await admin.firestore().collection('users').doc(uid).set({
+      const userRef = this.db.collection('users').doc(uid);
+      const userSnap = await userRef.get();
+      const existingData = userSnap.data();
+
+      // IMPORTANT: Preserve existing approval! NEVER overwrite isApproved: true with false.
+      const isApproved = existingData?.isApproved === true || existingData?.status === 'TOPUP_PENDING' || existingData?.hasPendingTopUp === true || role !== 'STUDENT';
+
+      await userRef.set({
         email,
         role,
-        isApproved: role !== 'STUDENT',
+        isApproved,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
