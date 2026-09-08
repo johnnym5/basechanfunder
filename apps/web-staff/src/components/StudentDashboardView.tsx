@@ -440,37 +440,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       expiryInfo.isExpired ? 'grayscale opacity-40 pointer-events-none' : ''
     }`}>
 
-      {/* Top Hero Bar / Mode Banner Badge */}
-      {isAdmin ? (
-        <div className="w-full flex items-center justify-between p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-xl shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-md shadow-amber-500/20">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black uppercase tracking-widest">
-                  🛡️ ADMIN INSPECTOR MODE
-                </span>
-                <span className="text-xs font-bold text-slate-400">Inspecting:</span>
-                <span className="text-xs font-black text-white">{effectiveStudentName}</span>
-              </div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                Real-time synchronized student ledger and regulatory review
-              </p>
-            </div>
-          </div>
-          {onExit && (
-            <button
-              onClick={onExit}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-white/10 hover:bg-slate-800 text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white transition-all shadow-md"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Exit Inspection</span>
-            </button>
-          )}
-        </div>
-      ) : null}
+
 
       {/* Expiry Warning Banner */}
       {expiryInfo.isNearExpiry && !expiryInfo.isExpired && (

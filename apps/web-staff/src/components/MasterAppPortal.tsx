@@ -244,14 +244,20 @@ export const MasterAppPortal: React.FC = () => {
           <header className={`h-16 flex-shrink-0 px-4 sm:px-6 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] bg-surface-glass border-surface-glass-border shadow-2xl`}>
             <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
               {inspectingStudentId ? (
-                <button
-                  onClick={() => setInspectingStudentId(null)}
-                  aria-label="Exit student view"
-                  className="flex items-center gap-1.5 bg-slate-900 border border-white/10 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
-                >
-                  <ArrowLeft className="w-2.5 h-2.5" />
-                  <span className="hidden xs:inline">Exit</span>
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => setInspectingStudentId(null)}
+                    aria-label="Exit student view"
+                    className="flex items-center gap-1.5 bg-slate-900 border border-white/10 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
+                  >
+                    <ArrowLeft className="w-2.5 h-2.5" />
+                    <span>Exit</span>
+                  </button>
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] sm:text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                    <span>🛡️</span>
+                    <span>ADMIN INSPECTOR MODE</span>
+                  </span>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 truncate">
                   <h1 className="text-xs sm:text-lg md:text-xl font-black uppercase tracking-tight text-depth-header whitespace-nowrap overflow-hidden">
