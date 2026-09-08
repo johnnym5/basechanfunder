@@ -106,7 +106,7 @@ export const MasterAppPortal: React.FC = () => {
     const platform = getPlatformType();
 
     // 1. Initialize based on platform
-    if (platform === 'WEB' || platform === 'PWA') {
+    if (platform === 'MOBILE_WEB' || platform === 'DESKTOP_WEB') {
       pushService.initWebPush(currentUser.uid);
     } else {
       pushService.initNativePush(currentUser.uid, (data) => {
@@ -243,7 +243,7 @@ export const MasterAppPortal: React.FC = () => {
         <main className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
 
           {/* Restructured Top Header - High Density Utility Cluster */}
-          <header className={`h-16 flex-shrink-0 px-4 sm:px-6 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] bg-surface-glass border-surface-glass-border shadow-2xl`}>
+          <header className={`h-16 flex-shrink-0 px-2 sm:px-4 border-b flex items-center justify-between transition-colors duration-500 backdrop-blur-md sticky top-0 z-[100] bg-surface-glass border-surface-glass-border shadow-2xl`}>
             <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
               {inspectingStudentId ? (
                 <div className="flex items-center gap-2.5">

@@ -30,6 +30,8 @@ export interface AppUser {
   isApproved: boolean;
   onboardingComplete?: boolean;
   mandateStatus?: 'NOT_STARTED' | 'DRAFT_GENERATED' | 'MANDATE_SUBMITTED_AWAITING_APPROVAL' | 'MANDATE_APPROVED' | 'MANDATE_REJECTED';
+  hasCustomRequirements?: boolean;
+  customDocumentRequirements?: any[];
   createdAt?: unknown;
 }
 

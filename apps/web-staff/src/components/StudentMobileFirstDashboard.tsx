@@ -340,11 +340,27 @@ export const StudentMobileFirstDashboard: React.FC<{
       setIsSavingAndSyncing(false);
     };
 
-    (window as any).onSmsSyncFailed = (mask: string) => {
-      console.warn(`SMS Sync Failed for mask: ${mask}`);
-      setSyncError(`We couldn't find a matching UBA SMS alert for account ending in ${mask}.`);
+    (window as any).onSmsSyncFailed = async (mask: string, reason: string) => {
+      console.warn(`SMS Sync Failed for mask: ${mask}. Reason: ${reason}`);
+      const message = reason === 'PERMISSION_DENIED'
+        ? 'SMS access permission was denied.'
+        : `No matching UBA alerts found for account ending in ${mask}.`;
+
+      setSyncError(message);
+      toast.error(message);
       setIsSavingAndSyncing(false);
-      setSyncingId(null); // Release sync lock on failure
+      setSyncingId(null);
+
+      // Clear Firestore sync lock if possible
+      if (currentUser?.uid) {
+        const accRef = liveAccounts.find(acc => acc.accountNumberMasked?.endsWith(mask))?.id;
+        if (accRef) {
+          await updateDoc(doc(db, 'users', currentUser.uid, 'financial_accounts', accRef), {
+            isSyncing: false,
+            updatedAt: serverTimestamp()
+          }).catch(() => {});
+        }
+      }
     };
 
     return () => {
@@ -459,11 +475,21 @@ export const StudentMobileFirstDashboard: React.FC<{
         if ((window as any).AndroidBridge) {
           console.log(`Triggering Native SMS Sync for mask: ${mask}`);
           (window as any).AndroidBridge.triggerSmsSync(mask);
-          // The bridge will call onSmsBalanceUpdate globally
-          // We wait a bit then release if no update comes
-          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          // Safety timeout to clear the sync state if no callback comes from native
+          setTimeout(() => {
+            setSyncingId(prev => {
+              if (prev === id) {
+                console.warn('Native SMS sync timed out.');
+                toast.error('Sync timed out. No matching UBA SMS alert found.');
+                return null;
+              }
+              return prev;
+            });
+          }, 15000);
         } else {
           toast.error("SMS Sync is only available in the Android App.");
+          setSyncingId(null);
         }
         return;
       }

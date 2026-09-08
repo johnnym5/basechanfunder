@@ -41,7 +41,7 @@ export const AdminCounselorRoster: React.FC = () => {
     // 1. Fetch all registered counselors from Firestore
     const q = query(collection(db, 'users'), where('role', '==', 'COUNSELOR'));
     const unsub = onSnapshot(q, async (snap) => {
-      const registered = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const registered = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
       // 2. Map whitelisted counselors to their registration status and student counts
       const rosterPromises = PRE_APPROVED_COUNSELORS.map(async (white) => {

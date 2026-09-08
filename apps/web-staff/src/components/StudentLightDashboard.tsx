@@ -337,6 +337,42 @@ export const StudentLightDashboard: React.FC<{
     setAccountNumberInput('');
   };
 
+  const handleRetrySync = () => {
+    if (!accountNumberInput || !(window as any).AndroidBridge) return;
+    setIsSavingAndSyncing(true);
+    setSyncError(null);
+    (window as any).AndroidBridge.triggerSmsSync(accountNumberInput.slice(-4));
+  };
+
+  const handleContinueManual = async () => {
+    if (!accountNumberInput || !activeUserId) return;
+    setIsSavingAndSyncing(true);
+    setSyncError(null);
+    try {
+      const mask = `•••• ${accountNumberInput.slice(-4)}`;
+      await addDoc(collection(db, 'financial_accounts'), {
+        userId: activeUserId,
+        userEmail: isStaff ? liveEvaluation?.userEmail || '' : currentUser?.email,
+        bankName: selectedBank,
+        accountName: name,
+        accountNumberMasked: mask,
+        accountType: selectedAccountType,
+        balanceNgn: 0,
+        balanceGbp: 0,
+        connectionMethod: 'MANUAL_DEPOSIT',
+        status: 'VERIFIED',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Account registered. Please proceed to USSD/SMS fallback.');
+      setIsConnectModalOpen(false);
+    } catch (err: any) {
+      toast.error('Failed to link account: ' + err.message);
+    } finally {
+      setIsSavingAndSyncing(false);
+    }
+  };
+
   const handleAdditionalTopUp = () => {
     const deficitGbp = targetGBP - totals.gbp;
     if (deficitGbp > 0) setPrepopulatedTopUpAmount(Math.round(deficitGbp * LIVE_FX_RATE));

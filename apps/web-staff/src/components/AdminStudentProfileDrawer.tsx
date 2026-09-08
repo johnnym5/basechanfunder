@@ -7,6 +7,7 @@ import {
   FileText, Plus, Trash2, Edit3, ShieldCheck, Download,
   ExternalLink, AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   doc, updateDoc, collection, query, where, orderBy,
@@ -43,6 +44,7 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
   highlightEventId = null
 }) => {
   const { theme } = useTheme();
+  const { appUser } = useAuth();
   const isDark = theme === 'dark';
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'activity' | 'documents'>(initialTab);

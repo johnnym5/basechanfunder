@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, FileText, Upload, CheckCircle2, Loader2, AlertCircle,
   ArrowRight, ShieldCheck, Download, Trash2, Edit3, Image as ImageIcon,
-  File as FileIcon, Rocket, Send
+  File as FileIcon, Rocket, Send, ExternalLink
 } from 'lucide-react';
 import { doc, getDoc, collection, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -62,6 +62,15 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
     });
   };
 
+  useEffect(() => {
+    // Cleanup blob URLs to prevent memory leaks
+    return () => {
+      if (draftPdfUrl && draftPdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(draftPdfUrl);
+      }
+    };
+  }, [draftPdfUrl]);
+
   const handleGenerateDraft = async () => {
     setIsSubmitting(true);
     try {
@@ -93,7 +102,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
         passportPhotoBase64: photoBase64
       };
 
-      const response = await fetch('/api/v1/mandate/generate-draft', {
+      const response = await fetch('/api/v1/mandate/generate-overlay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -104,9 +113,21 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
         throw new Error(errData.error || "Failed to generate PDF");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      setDraftPdfUrl(url);
+      // ─── PDF Viewer Fix: Handle as Blob & Explicit Headers ───
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        if (result.status === 'SUCCESS') {
+          setDraftPdfUrl(result.downloadUrl);
+        } else {
+          throw new Error(result.message);
+        }
+      } else {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setDraftPdfUrl(url);
+      }
+
       toast.success("Mandate draft generated successfully!");
     } catch (e: any) {
       console.error(e);
@@ -125,8 +146,9 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
 
       const signedBase64 = await fetchBase64(signedMandateUrl);
 
+      // ─── Enforce Multi-Page Overlay Assembly Pipeline ───
+      // Required Sequence: 1. ID Data Page, 2. Utility Bill, 3. NIN Slip, 4. BVN Doc
       const supportingDocsUrls = [
-        submissions['passport_photo']?.value,
         submissions['id_data_page']?.value,
         submissions['utility_bill']?.value,
         submissions['nin_doc']?.value,
@@ -143,6 +165,19 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
         body: JSON.stringify({
           userId: currentUser.uid,
           signedMandateBase64: signedBase64,
+          mandateData: {
+            accountName: submissions['account_name']?.value || '',
+            accountNumber: submissions['account_number']?.value || '',
+            mandateAuthorisation: submissions['mandate_auth_rule']?.value || 'SOLE_SIGNATORY',
+            bvn: submissions['signatory_bvn']?.value || '',
+            surname: submissions['surname']?.value || '',
+            firstName: submissions['first_name']?.value || '',
+            otherName: submissions['other_name']?.value || '',
+            identificationType: submissions['id_type']?.value || 'INTERNATIONAL_PASSPORT',
+            identificationNo: submissions['id_number']?.value || '',
+            telephoneNo: submissions['telephone_number']?.value || '',
+            date: new Date().toISOString().split('T')[0]
+          },
           supportingDocs: supportingDocsBase64
         }),
       });
@@ -450,7 +485,23 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
 
               {draftPdfUrl ? (
                 <div className="aspect-[4/5] w-full rounded-3xl overflow-hidden border border-white/10 bg-black/40 relative group">
-                  <iframe src={`${draftPdfUrl}#toolbar=0`} className="w-full h-full border-none" />
+                  <iframe
+                    src={`${draftPdfUrl}#view=FitH&toolbar=0`}
+                    className="w-full h-full border-none"
+                    title="Mandate Preview"
+                    onError={() => toast.error("Failed to load PDF preview. Please try downloading instead.")}
+                  />
+
+                  {/* Fallback View Action for Iframe Failures */}
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => window.open(draftPdfUrl, '_blank')}
+                      className="p-2 bg-slate-900/80 backdrop-blur-md border border-white/20 rounded-lg text-white"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="aspect-[4/5] w-full rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center space-y-4">

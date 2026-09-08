@@ -1,4 +1,3 @@
-import { getToken, onMessage, Messaging } from 'firebase/auth'; // Wait, getToken is from firebase/messaging
 import { getMessagingInstance } from '../firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';

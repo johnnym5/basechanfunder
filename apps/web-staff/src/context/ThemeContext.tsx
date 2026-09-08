@@ -70,14 +70,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Radius to reach the furthest corner of viewport
-    // We add a generous padding (220px) so the clip-path edge overshoots the screen,
-    // making the transition boundary feel naturally faded rather than hard-cut.
     const endRadius = Math.hypot(
       Math.max(x, window.innerWidth - x),
       Math.max(y, window.innerHeight - y)
     );
-    const totalRadius = Math.ceil(endRadius + 220);
+    const featherWidth = 350;
+    const totalRadius = Math.ceil(endRadius + featherWidth + 120);
 
     // Set CSS custom properties so CSS ::view-transition-new(root) can read the origin
     document.documentElement.style.setProperty('--ripple-x', `${x}px`);
@@ -92,20 +90,28 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     transition.ready
       ?.then(() => {
-        // clip-path: circle() IS animatable on pseudo-elements via Web Animations API.
-        // This is the correct approach — mask-image gradients are NOT animatable this way.
-        const anim = document.documentElement.animate(
-          [
-            { clipPath: `circle(0px at ${x}px ${y}px)` },
-            { clipPath: `circle(${totalRadius}px at ${x}px ${y}px)` },
-          ],
-          {
-            duration: 1400,
-            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-            pseudoElement: '::view-transition-new(root)',
-            fill: 'forwards', // Keep final clip-path until pseudo-elements are removed
-          }
-        );
+        const keyframes: Keyframe[] = [];
+        const steps = 48;
+        for (let i = 0; i <= steps; i++) {
+          const p = i / steps;
+          const eased = p < 0.5
+            ? 4 * p * p * p
+            : 1 - Math.pow(-2 * p + 2, 3) / 2;
+          const currentR = Math.round(eased * totalRadius);
+          const innerR = Math.max(0, currentR - featherWidth);
+
+          keyframes.push({
+            maskImage: `radial-gradient(circle at ${x}px ${y}px, black 0%, black ${innerR}px, transparent ${currentR}px)`,
+            WebkitMaskImage: `radial-gradient(circle at ${x}px ${y}px, black 0%, black ${innerR}px, transparent ${currentR}px)`,
+          });
+        }
+
+        const anim = document.documentElement.animate(keyframes, {
+          duration: 1200,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          pseudoElement: '::view-transition-new(root)',
+          fill: 'forwards',
+        });
 
         anim.finished
           .catch(() => {})

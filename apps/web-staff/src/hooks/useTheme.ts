@@ -43,7 +43,8 @@ export function triggerThemeRipple(
     Math.max(x, window.innerWidth - x),
     Math.max(y, window.innerHeight - y)
   );
-  const totalRadius = Math.ceil(endRadius + 220);
+  const featherWidth = 350;
+  const totalRadius = Math.ceil(endRadius + featherWidth + 120);
 
   // Set CSS variables for CSS origin reference
   document.documentElement.style.setProperty('--ripple-x', `${x}px`);
@@ -55,20 +56,28 @@ export function triggerThemeRipple(
 
   transition.ready
     ?.then(() => {
-      // clip-path: circle() IS properly animatable via Web Animations API on pseudo-elements.
-      // mask-image gradients are NOT — this was the original bug causing the sharp/broken look.
-      const anim = document.documentElement.animate(
-        [
-          { clipPath: `circle(0px at ${x}px ${y}px)` },
-          { clipPath: `circle(${totalRadius}px at ${x}px ${y}px)` },
-        ],
-        {
-          duration: 1400,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-          pseudoElement: '::view-transition-new(root)',
-          fill: 'forwards', // Keep final clip-path until pseudo-elements are removed
-        }
-      );
+      const keyframes: Keyframe[] = [];
+      const steps = 48;
+      for (let i = 0; i <= steps; i++) {
+        const p = i / steps;
+        const eased = p < 0.5
+          ? 4 * p * p * p
+          : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        const currentR = Math.round(eased * totalRadius);
+        const innerR = Math.max(0, currentR - featherWidth);
+
+        keyframes.push({
+          maskImage: `radial-gradient(circle at ${x}px ${y}px, black 0%, black ${innerR}px, transparent ${currentR}px)`,
+          WebkitMaskImage: `radial-gradient(circle at ${x}px ${y}px, black 0%, black ${innerR}px, transparent ${currentR}px)`,
+        });
+      }
+
+      const anim = document.documentElement.animate(keyframes, {
+        duration: 1200,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        pseudoElement: '::view-transition-new(root)',
+        fill: 'forwards',
+      });
 
       anim.finished
         .catch(() => {})

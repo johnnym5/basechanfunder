@@ -144,6 +144,7 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
         body: JSON.stringify({
           userId: currentUser.uid,
           signedMandateBase64: signedMandate,
+          mandateData: formData,
           supportingDocs: [
             files.id_data_page,
             files.utility_bill,

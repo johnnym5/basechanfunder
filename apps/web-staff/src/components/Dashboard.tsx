@@ -449,7 +449,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         parallexAccountNumbers,
         destinationCountry,
         ingestionChannels,
-        counselorName: s.counselor || 'Unassigned'
+        counselorName: s.counselorName || 'Unassigned'
       };
     });
 
@@ -945,7 +945,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
       {/* 2. Multi-Criteria Search Engine */}
       <div className="space-y-4 md:space-y-6">
-        <div className="flex justify-between items-center px-2">
+        <div className="flex justify-between items-center">
            <h2 className="text-xl uppercase font-extrabold text-slate-900 dark:text-white tracking-tight">Student Governance Roster</h2>
            <button
              onClick={() => setIsAddUserOpen(true)}
