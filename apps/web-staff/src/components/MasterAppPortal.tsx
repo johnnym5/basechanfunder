@@ -39,12 +39,14 @@ import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
 import { AdminNotificationPopover } from './ui/AdminNotificationPopover';
 import { useTheme } from '../context/ThemeContext';
+import { ThemeToggle } from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Import View Components
 import { StaffDashboard } from './Dashboard';
 import { CounselorPortal } from './CounselorPortal';
 import { StudentMobileFirstDashboard } from './StudentMobileFirstDashboard';
+import { StudentDashboardView } from './StudentDashboardView';
 import { SettingsConsole } from './SettingsConsole';
 import { StudentSupportChat } from './StudentSupportChat';
 import { AdminSupportDesk } from './AdminSupportDesk';
@@ -244,6 +246,7 @@ export const MasterAppPortal: React.FC = () => {
               {inspectingStudentId ? (
                 <button
                   onClick={() => setInspectingStudentId(null)}
+                  aria-label="Exit student view"
                   className="flex items-center gap-1.5 bg-slate-900 border border-white/10 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg depth-btn-glass shrink-0"
                 >
                   <ArrowLeft className="w-2.5 h-2.5" />
@@ -262,6 +265,9 @@ export const MasterAppPortal: React.FC = () => {
             <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 relative" ref={profileMenuRef}>
                {/* Global Action Cluster */}
                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Top-Right Header Theme Toggle */}
+                  <ThemeToggle />
+
                   {/* Notification Bell */}
                   {isStaffOrAdmin ? (
                     <AdminNotificationPopover
@@ -285,6 +291,7 @@ export const MasterAppPortal: React.FC = () => {
                {/* Profile FAB Button */}
                <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  aria-label="User menu"
                   className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 p-0.5 transition-all hover:scale-105 active:scale-95 shadow-xl ${
                     isDark
                       ? 'border-blue-500 shadow-blue-500/20 bg-slate-900'
@@ -293,7 +300,7 @@ export const MasterAppPortal: React.FC = () => {
                >
                   <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-slate-800 border border-white/5">
                     {appUser.photoURL ? (
-                      <img src={appUser.photoURL} alt="" className="w-full h-full object-cover" />
+                      <img src={appUser.photoURL} alt="User Profile" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-[10px] sm:text-sm font-black text-blue-400 uppercase">{appUser.displayName?.[0] || 'A'}</span>
                     )}
@@ -317,7 +324,7 @@ export const MasterAppPortal: React.FC = () => {
 
                       {/* Theme Toggle Inside Dropdown */}
                       <button
-                        onClick={toggleTheme}
+                        onClick={(e) => toggleTheme(e)}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wide transition-all ${
                           isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-100'
                         }`}
@@ -403,7 +410,7 @@ export const MasterAppPortal: React.FC = () => {
               </div>
           </header>
 
-          <div className="w-full flex-1 flex flex-col px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-10">
+          <div className="w-full flex-1 flex flex-col">
             <div className="w-full h-full flex flex-col">
               {inspectingStudentId ? (
                 <StaffStudentViewMode studentId={inspectingStudentId} onExit={() => setInspectingStudentId(null)} />
@@ -436,7 +443,13 @@ export const MasterAppPortal: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {role === 'STUDENT' && activeTab === 'dashboard' && <StudentMobileFirstDashboard name={appUser.displayName} />}
+                  {role === 'STUDENT' && activeTab === 'dashboard' && (
+                    <StudentDashboardView
+                      studentId={currentUser?.uid || appUser.uid}
+                      viewMode="STUDENT"
+                      studentName={appUser.displayName}
+                    />
+                  )}
                   {activeTab === 'dashboard' && isStaffOrAdmin && (
                      role === 'COUNSELOR' ? <CounselorPortal /> : <StaffDashboard
                         onInspect={(id) => setInspectingStudentId(id)}

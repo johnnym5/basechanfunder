@@ -30,7 +30,7 @@ import {
   Zap,
   CreditCard
 } from 'lucide-react';
-import { StudentLightDashboard } from './StudentLightDashboard';
+import { StudentDashboardView } from './StudentDashboardView';
 import { MAJOR_CURRENCIES } from '../constants';
 
 interface StaffStudentViewModeProps {
@@ -192,16 +192,16 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   }
 
   return (
-    <div className="relative w-full max-w-7xl mx-auto">
-      <StudentLightDashboard
-        evaluationId={studentId}
-        userId={studentId}
-        name={student?.userName || student?.displayName || 'Student'}
-        isStaff={true}
-        onStaffAction={(tab) => {
+    <div className="relative w-full">
+      <StudentDashboardView
+        studentId={studentId}
+        viewMode="ADMIN"
+        studentName={student?.userName || student?.displayName || 'Student'}
+        onAdminAction={(tab) => {
           setModalTab((tab as any) || 'balance');
           setIsOverrideModalOpen(true);
         }}
+        onExit={onExit}
       />
 
       {/* 3. Global Override Modal */}
