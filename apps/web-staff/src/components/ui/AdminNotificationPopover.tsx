@@ -166,31 +166,31 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
       case 'CAPITAL_ENCROACHMENT':
         return {
           icon: <ShieldAlert className="w-4 h-4 text-rose-500" />,
-          text: <><span className="text-rose-500 font-bold uppercase tracking-tighter">🚨 Capital Encroached:</span> <span className="font-bold text-white">{name}'s</span> balance dropped below org floor.</>,
+          text: <><span className="text-rose-500 font-bold uppercase tracking-tighter">Capital Encroached:</span> <span className="font-bold text-white">{name}'s</span> balance dropped below org floor.</>,
           cta: "Inspect Ledger"
         };
       case 'POF_EXPIRING':
         return {
           icon: <Clock className="w-4 h-4 text-amber-500" />,
-          text: <><span className="text-amber-500 font-bold uppercase tracking-tighter">⌛ POF Expiring:</span> <span className="font-bold text-white">{name}'s</span> statutory 28-day window expires soon.</>,
+          text: <><span className="text-amber-500 font-bold uppercase tracking-tighter">POF Expiring:</span> <span className="font-bold text-white">{name}'s</span> statutory 28-day window expires soon.</>,
           cta: "Alert Student"
         };
       case 'SYNC_STALE':
         return {
           icon: <ShieldAlert className="w-4 h-4 text-rose-400" />,
-          text: <><span className="text-rose-400 font-bold uppercase tracking-tighter">⚠️ Sync Disruption:</span> No updates parsed for <span className="font-bold text-white">{name}</span> in 5 days.</>,
+          text: <><span className="text-rose-400 font-bold uppercase tracking-tighter">Sync Disruption:</span> No updates parsed for <span className="font-bold text-white">{name}</span> in 5 days.</>,
           cta: "Check Bridge"
         };
       case 'UNLINK_REQUESTED':
         return {
           icon: <Lock className="w-4 h-4 text-blue-400" />,
-          text: <><span className="text-blue-400 font-bold uppercase tracking-tighter">🔓 Unlink Requested:</span> <span className="font-bold text-white">{name}</span> requested capital release.</>,
+          text: <><span className="text-blue-400 font-bold uppercase tracking-tighter">Unlink Requested:</span> <span className="font-bold text-white">{name}</span> requested capital release.</>,
           cta: "Approve Unlink"
         };
       case 'SECURITY_ALERT':
         return {
           icon: <ShieldCheck className="w-4 h-4 text-cyan-400" />,
-          text: <><span className="text-cyan-400 font-bold uppercase tracking-tighter">🛡️ Security Alert:</span> <span className="font-bold text-white">{name}</span> registered a new mobile device ID.</>,
+          text: <><span className="text-cyan-400 font-bold uppercase tracking-tighter">Security Alert:</span> <span className="font-bold text-white">{name}</span> registered a new mobile device ID.</>,
           cta: "Verify Identity"
         };
       case 'INACTIVITY_ALERT':
@@ -198,7 +198,7 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
           icon: <ShieldAlert className="w-4 h-4 text-rose-500" />,
           text: (
             <div className="space-y-2">
-              <p><span className="text-rose-500 font-bold uppercase tracking-tighter">🚨 User Inactive:</span> <span className="font-bold text-white">{name}</span> has been offline for <span className="text-rose-400 font-bold">{n.daysInactive}+ days</span>.</p>
+              <p><span className="text-rose-500 font-bold uppercase tracking-tighter">User Inactive:</span> <span className="font-bold text-white">{name}</span> has been offline for <span className="text-rose-400 font-bold">{n.daysInactive}+ days</span>.</p>
               {!n.actionTaken ? (
                 <div className="flex gap-2 pt-1">
                   <button
@@ -235,6 +235,7 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
       {/* Bell Trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Governance notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
         className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all depth-btn-glass relative ${
           isOpen
             ? 'bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]'

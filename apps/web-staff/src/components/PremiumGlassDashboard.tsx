@@ -81,7 +81,7 @@ export const PremiumGlassDashboard: React.FC = () => {
           <div className="hidden sm:flex flex-col items-end">
             <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-200">
               <Globe className="w-3.5 h-3.5 text-slate-400" />
-              <span>Target: UK Student Visa 🇬🇧</span>
+              <span>Target: UK Student Visa (GBP)</span>
             </div>
             <div className="mt-1 flex items-center space-x-1.5 px-3 py-0.5 rounded-full bg-[#003822] border border-[#00E676]/40 text-[#00E676] font-mono text-[10px] font-bold shadow-[0_0_12px_rgba(0,230,118,0.2)]">
               <CheckCircle2 className="w-3 h-3" />

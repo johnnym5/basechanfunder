@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { TopUpRequestModal } from './TopUpRequestModal';
 
+import { Link } from 'react-router-dom';
+
 export const StudentPortal: React.FC = () => {
   const { currentUser, appUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'accounts' | 'documents' | 'certificate'>('overview');
@@ -133,10 +135,10 @@ export const StudentPortal: React.FC = () => {
       <div className="bg-[#0D111A] border-b border-white/5 px-8 py-3">
         <div className="max-w-6xl mx-auto flex space-x-3 overflow-x-auto no-scrollbar">
           {[
-            { id: 'overview', label: '📊 Compliance Status', desc: '28-Day Window' },
-            { id: 'accounts', label: '🏦 Linked Sources', desc: 'Open Banking' },
-            { id: 'documents', label: '📂 Digital Vault', desc: 'Affidavits & Deeds' },
-            { id: 'certificate', label: '📜 Confirmation', desc: 'Export PDF' }
+            { id: 'overview', label: 'Compliance Status', desc: '28-Day Window' },
+            { id: 'accounts', label: 'Linked Sources', desc: 'Open Banking' },
+            { id: 'documents', label: 'Digital Vault', desc: 'Affidavits & Deeds' },
+            { id: 'certificate', label: 'Confirmation', desc: 'Export PDF' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -333,6 +335,18 @@ export const StudentPortal: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* 4. LEGAL FOOTER */}
+      <footer className="max-w-6xl mx-auto px-8 pb-12 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 opacity-60">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+          © 2026 Basechan International Ltd. RC-1234567
+        </p>
+        <div className="flex items-center gap-6">
+          <Link to="/legal/terms" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors underline decoration-white/10">Terms</Link>
+          <Link to="/legal/privacy" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors underline decoration-white/10">Privacy</Link>
+          <Link to="/legal/cookies" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors underline decoration-white/10">Cookies</Link>
+        </div>
+      </footer>
 
       <TopUpRequestModal
         isOpen={showTopUpModal}

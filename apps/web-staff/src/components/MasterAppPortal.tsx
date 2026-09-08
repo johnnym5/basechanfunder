@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import {
   ShieldCheck,
+  Shield,
   LayoutDashboard,
   Users,
   Sliders,
@@ -253,8 +254,8 @@ export const MasterAppPortal: React.FC = () => {
                     <ArrowLeft className="w-2.5 h-2.5" />
                     <span>Exit</span>
                   </button>
-                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] sm:text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                    <span>🛡️</span>
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8px] sm:text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <Shield className="w-3 h-3 text-amber-400" />
                     <span>ADMIN INSPECTOR MODE</span>
                   </span>
                 </div>

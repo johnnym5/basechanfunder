@@ -530,7 +530,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                     }}
                     className="flex items-center gap-2 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors cursor-pointer bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2 rounded-xl border border-blue-500/20"
                   >
-                    <span>{isAdmin ? '⚙️ CONFIGURE CAPITAL / TOP-UP' : 'UPDATE TOP-UP'}</span>
+                    {isAdmin && <Settings2 className="w-3.5 h-3.5" />}
+                    <span>{isAdmin ? 'CONFIGURE CAPITAL / TOP-UP' : 'UPDATE TOP-UP'}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -704,7 +705,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
              {isAdmin ? (
                <>
                  <Search className="w-3.5 h-3.5" />
-                 <span>🔍 INSPECT & VERIFY SUBMISSIONS</span>
+                 <span>INSPECT & VERIFY SUBMISSIONS</span>
                </>
              ) : (
                <span>MANAGE SUBMISSIONS</span>
@@ -750,7 +751,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                  className="w-full lg:w-auto flex items-center justify-center space-x-2 text-[9px] font-black uppercase tracking-widest transition-all px-5 py-2.5 rounded-xl bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 active:scale-95 disabled:opacity-50"
                >
                  <RefreshCw className={`w-3.5 h-3.5 ${isBulkSyncing ? 'animate-spin' : ''}`} />
-                 <span>🔄 RE-SYNC BANK LEDGER</span>
+                 <span>RE-SYNC BANK LEDGER</span>
                </button>
              ) : (
                <button
@@ -846,7 +847,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                               ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                               : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                         }`}>
-                          {acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? '🟡 Mandate Pending' : acc.status}
+                          {acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? 'Mandate Pending' : acc.status}
                         </span>
                         <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
                       </div>
