@@ -268,10 +268,22 @@ export const StudentMobileFirstDashboard: React.FC<{
 
   // Use liveBalance values for high-level metrics
   const totals = useMemo(() => {
+    // 1. Calculate sum of selected accounts
     const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
     const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + (Number(acc.balanceNgn) || 0), 0);
-    const ngn = selectedAccountIds.length > 0 ? accountsNgn : (accounts.length === 0 ? (liveBalance.consolidatedBalanceNgn || 0) : 0);
+
+    // 2. Logic: If user has explicitly selected accounts, use that sum.
+    // If NO accounts are selected, show £0/₦0 (User choice to hide everything).
+    // If NO accounts are LINKED yet, show the root document balance as a placeholder.
+    let ngn = 0;
+    if (selectedAccountIds.length > 0) {
+      ngn = accountsNgn;
+    } else if (accounts.length === 0) {
+      ngn = liveBalance.consolidatedBalanceNgn || 0;
+    }
+
     const gbp = ngn > 0 ? (ngn / LIVE_FX_RATE) : (liveBalance.gbpEquivalent || 0);
+
     return { ngn, gbp, accountsNgn, evaluationNgn: 0 };
   }, [accounts, selectedAccountIds, liveBalance]);
 
@@ -392,7 +404,8 @@ export const StudentMobileFirstDashboard: React.FC<{
         targetAccountId = matchedAcc?.id || pendingAccountId || '';
         const accRef = doc(db, 'users', currentUser.uid, 'financial_accounts', targetAccountId);
         batch.set(accRef, {
-          balanceNgn: balance,
+          accountBalanceNgn: balance, // Primary field
+          balanceNgn: balance,        // Secondary fallback
           balanceGbp: balance / LIVE_FX_RATE,
           lastSyncedAt: serverTimestamp(),
           status: 'VERIFIED',
@@ -407,13 +420,13 @@ export const StudentMobileFirstDashboard: React.FC<{
         }
       }
 
-      // b. Update Root User Document (Aggregation & Loop Kill-switch)
+      // b. Update Root User Document (Aggregation & Reactive Binding)
       const userRef = doc(db, 'users', currentUser.uid);
       batch.set(userRef, {
-        totalEquityNgn: balance, // In multi-account logic, this would be a sum
+        totalEquityNgn: balance,
         consolidatedBalanceNgn: balance,
         gbpEquivalent: balance / LIVE_FX_RATE,
-        isSyncing: false, // CRITICAL: Kills PC infinite sync loop
+        isSyncing: false,
         lastSyncedAt: serverTimestamp(),
         balanceVerificationStatus: 'VERIFIED_SMS',
         updatedAt: serverTimestamp()
@@ -421,13 +434,13 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       await batch.commit();
 
-      // 3. Trigger a success toast
+      // 3. Trigger a success toast with the CORRECT balance
       triggerSlideOutToast({
         id: `sms-${Date.now()}`,
         title: isFallback ? 'Recent Alert Sync' : 'SMS Alert Received',
         message: isFallback
           ? `Synced balance ₦${balance.toLocaleString()} from recent UBA alert`
-          : `Balance updated: ₦${balance.toLocaleString()} across all devices.`,
+          : `UBA Balance Synced: ₦${balance.toLocaleString()}`,
         time: 'Just now',
         type: 'SUCCESS'
       });
@@ -1175,12 +1188,6 @@ export const StudentMobileFirstDashboard: React.FC<{
                               Top-Up Added
                             </span>
                           )}
-                          {acc.isVerified && (
-                            <span className="px-1 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[6px] font-black uppercase tracking-tighter flex items-center gap-0.5">
-                              <ShieldCheck className="w-2 h-2" />
-                              {isTopUp ? 'Disbursed' : (acc.verificationBadge ? 'Verified (Fuzzy)' : 'Verified')}
-                            </span>
-                          )}
                           {acc.isDedicatedParallex && (
                             <span className="px-1 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[6px] font-black uppercase tracking-tighter flex items-center gap-0.5">
                               <Building2 className="w-2 h-2" />
@@ -1199,12 +1206,20 @@ export const StudentMobileFirstDashboard: React.FC<{
                         </div>
                       </div>
                     </div>
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                      isSelected
-                        ? (isTopUp ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-blue-500 border-blue-500 text-white')
-                        : 'border-slate-500'
-                    }`}>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedAccountIds(prev =>
+                          prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
+                        );
+                      }}
+                      className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
+                        isSelected
+                          ? (isTopUp ? 'bg-amber-500 border-amber-500 text-slate-950 scale-110 shadow-lg' : 'bg-blue-500 border-blue-500 text-white scale-110 shadow-lg')
+                          : 'border-slate-500'
+                      }`}
+                    >
+                      {isSelected && <CheckCircle2 className="w-5 h-5" />}
                     </div>
                   </div>
 
@@ -1223,14 +1238,14 @@ export const StudentMobileFirstDashboard: React.FC<{
                     ) : (
                       <div className="col-span-2 mb-2 p-2.5 rounded-xl border bg-white/5 border-white/5">
                         <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-emerald-400" /> Primary Student Bank Ledger
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" /> MY PERSONAL ACCOUNT
                         </span>
                       </div>
                     )}
 
                     <div>
                       <p className={`text-[8px] font-bold uppercase tracking-wider ${isTopUp ? 'text-amber-400/90' : 'text-slate-500'}`}>
-                        {isTopUp ? 'Top-Up Added' : 'Actual Bank Balance'}
+                        {isTopUp ? 'Top-Up Added' : 'Actual Account Balance'}
                       </p>
                       <p className={`font-bold font-mono ${isTopUp ? 'text-amber-400' : 'text-white'}`}>
                         {currency.symbol}{acc.balanceNgn.toLocaleString()}
@@ -1246,48 +1261,43 @@ export const StudentMobileFirstDashboard: React.FC<{
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2.5 text-[9px] font-mono text-slate-500" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between pt-2.5 text-[9px] font-mono text-slate-500">
                     <div className="flex flex-col flex-1">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => {
-                              setSelectedLedgerAccount(acc);
-                              setIsLedgerModalOpen(true);
-                            }}
-                            className="flex items-center gap-1.5 text-slate-400 hover:text-emerald-400 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setSelectedLedgerAccount(acc); setIsLedgerModalOpen(true); }}
+                            title="Ledger"
+                            className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 text-slate-400 hover:text-emerald-400 transition-colors"
                           >
-                            <ExternalLink className="w-3 h-3" />
-                            <span>Ledger</span>
+                            <ExternalLink className="w-4 h-4" />
                           </button>
 
                           <button
-                            onClick={() => handleSyncAccount(acc.id)}
+                            onClick={(e) => { e.stopPropagation(); handleSyncAccount(acc.id); }}
                             disabled={syncingId === acc.id}
-                            aria-label={`Sync balance for ${acc.bankName}`}
-                            className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 transition-colors"
+                            title={isTopUp ? 'Sync Facility' : 'Sync Balance'}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors disabled:opacity-50"
                           >
-                            <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                            <span>{syncingId === acc.id ? 'Syncing...' : (isTopUp ? 'Sync Facility' : 'Sync')}</span>
+                            <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
                           </button>
 
                           {!isTopUp && (
                             <>
                               <button
-                                onClick={() => handleClearAccountBalance(acc.id)}
-                                className="flex items-center gap-1.5 text-slate-400 hover:text-rose-400 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); handleClearAccountBalance(acc.id); }}
+                                title="Clear Balance"
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors"
                               >
-                                <XIcon className="w-3 h-3" />
-                                <span>Clear</span>
+                                <XIcon className="w-4 h-4" />
                               </button>
 
                               <button
-                                onClick={() => setIsUssdModalOpen(true)}
-                                aria-label={`USSD shortcode for ${acc.bankName}`}
-                                className="flex items-center gap-1.5 text-slate-400 hover:text-blue-400 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setIsUssdModalOpen(true); }}
+                                title="USSD Codes"
+                                className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 text-slate-400 hover:text-blue-400 transition-colors"
                               >
-                                <Phone className="w-3 h-3" />
-                                <span>USSD</span>
+                                <Phone className="w-4 h-4" />
                               </button>
                             </>
                           )}
@@ -1296,15 +1306,17 @@ export const StudentMobileFirstDashboard: React.FC<{
                         {isTopUp ? (
                           isStaff && (
                             <button
-                              onClick={() => handleAdminUnlink(acc.id)}
-                              className="text-slate-500 hover:text-rose-400 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); handleAdminUnlink(acc.id); }}
+                              title="Revoke Top-Up"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 text-slate-400 hover:text-rose-500 transition-colors"
                             >
-                              Revoke
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )
                         ) : (
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (isStaff) {
                                 handleAdminUnlink(acc.id);
                               } else {
@@ -1314,20 +1326,20 @@ export const StudentMobileFirstDashboard: React.FC<{
                               }
                             }}
                             disabled={!isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'}
-                            aria-label={isStaff ? "Force Unlink Account" : "Request Unlink"}
-                            className={`transition-colors ${
-                              !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
-                                ? 'text-slate-700 cursor-not-allowed'
-                                : 'text-slate-500 hover:text-rose-400'
-                            }`}
-                          >
-                            {isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                            title={isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
                               ? 'Approve Unlink'
                               : acc.unlinkStatus === 'UNLINK_REQUESTED'
                                 ? 'Unlink Pending'
                                 : isStaff
                                   ? 'Force Unlink'
-                                  : 'Unlink'}
+                                  : 'Request Unlink'}
+                            className={`flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 transition-colors ${
+                              !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                                ? 'text-slate-700 cursor-not-allowed'
+                                : 'text-slate-400 hover:text-rose-400'
+                            }`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>

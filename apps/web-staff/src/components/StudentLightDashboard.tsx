@@ -820,12 +820,6 @@ export const StudentLightDashboard: React.FC<{
                             </span>
                           )}
                           {acc.id === 'parallex_dedicated' && <span className="text-[10px] font-black text-accent-gold dark:text-amber-500 uppercase tracking-tighter">(Mandate)</span>}
-                          {acc.isVerified && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                              <ShieldCheck className="w-2.5 h-2.5" />
-                              {isTopUp ? 'Disbursed' : 'Verified'}
-                            </span>
-                          )}
                           {acc.isDedicatedParallex && (
                             <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5">
                               <Building2 className="w-2.5 h-2.5" />
@@ -894,7 +888,7 @@ export const StudentLightDashboard: React.FC<{
                           <div className="flex items-center space-x-2">
                             <ShieldCheck className="w-4 h-4 text-emerald-400" />
                             <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                              Primary Student Bank Ledger
+                              MY PERSONAL ACCOUNT
                             </span>
                           </div>
                           <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded ${
@@ -904,7 +898,7 @@ export const StudentLightDashboard: React.FC<{
                           </span>
                         </div>
                         <p className={`text-[9px] mt-1.5 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Student personal equity verified via automated bank alerts and statement reconciliation.
+                          Personal equity verified via automated bank alerts and statement reconciliation.
                         </p>
                       </div>
                     )}
@@ -939,33 +933,44 @@ export const StudentLightDashboard: React.FC<{
                     <div className="flex flex-col flex-1">
                       <div className="flex items-center gap-4">
                         <button
-                          onClick={() => handleSyncAccount(acc.id)}
+                          onClick={(e) => { e.stopPropagation(); handleSyncAccount(acc.id); }}
                           disabled={syncingId === acc.id}
-                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-amber-500' : 'text-slate-500 hover:text-blue-600'} disabled:opacity-50`}
+                          title={isTopUp ? 'Sync Facility' : 'Sync Balance'}
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${isDark ? 'bg-slate-800 border-white/5 text-slate-500 hover:text-amber-500' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-blue-600'} disabled:opacity-50`}
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                          {syncingId === acc.id ? 'Syncing...' : (isTopUp ? 'Sync Facility' : 'Sync Balance')}
+                          <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
                         </button>
 
                         {!isTopUp && (
-                          <button
-                            onClick={() => setIsUssdModalOpen(true)}
-                            className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                            USSD
-                          </button>
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleClearAccountBalance(acc.id); }}
+                              title="Clear Balance"
+                              className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${isDark ? 'bg-slate-800 border-white/5 text-slate-500 hover:text-rose-400' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-blue-600'}`}
+                            >
+                              <XIcon className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsUssdModalOpen(true); }}
+                              title="USSD Codes"
+                              className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${isDark ? 'bg-slate-800 border-white/5 text-slate-500 hover:text-blue-400' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-blue-600'}`}
+                            >
+                              <Phone className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
 
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setStatementOpenAccount(acc);
                             setIsStatementOpen(true);
                           }}
-                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isDark ? 'text-slate-500 hover:text-cyan-400' : 'text-slate-500 hover:text-cyan-600'}`}
+                          title="View Statement"
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${isDark ? 'bg-slate-800 border-white/5 text-slate-500 hover:text-cyan-400' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-cyan-600'}`}
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          Statement
+                          <FileText className="w-4 h-4" />
                         </button>
                       </div>
                       {!acc.isVerified && (
@@ -976,18 +981,19 @@ export const StudentLightDashboard: React.FC<{
                     {isTopUp ? (
                       isStaff && (
                         <button
-                          onClick={() => handleAdminUnlink(acc.id)}
-                          className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                            isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
+                          onClick={(e) => { e.stopPropagation(); handleAdminUnlink(acc.id); }}
+                          title="Revoke Top-Up"
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
                           }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Revoke Top-Up
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )
                     ) : (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (isStaff) {
                             handleAdminUnlink(acc.id);
                           } else {
@@ -997,20 +1003,20 @@ export const StudentLightDashboard: React.FC<{
                           }
                         }}
                         disabled={!isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'}
-                        className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                          !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
-                            ? 'text-slate-600 cursor-not-allowed'
-                            : 'text-slate-500 hover:text-rose-500'
-                        }`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                        title={isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
                           ? 'Approve Unlink'
                           : acc.unlinkStatus === 'UNLINK_REQUESTED'
                             ? 'Unlink Pending'
                             : isStaff
                               ? 'Force Unlink'
                               : 'Request Unlink'}
+                        className={`flex items-center justify-center w-8 h-8 rounded-lg border border-white/5 bg-slate-800 transition-all ${
+                          !isStaff && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                            ? 'text-slate-600 cursor-not-allowed'
+                            : 'text-slate-500 hover:text-rose-400'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>

@@ -9,7 +9,8 @@ import {
   deleteDoc,
   doc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -287,10 +288,21 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
   // High-level totals
   const totals = useMemo(() => {
+    // 1. Calculate sum of selected accounts
     const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
     const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + (Number(acc.balanceNgn) || 0), 0);
-    const ngn = selectedAccountIds.length > 0 ? accountsNgn : (accounts.length === 0 ? (liveBalance.consolidatedBalanceNgn || 0) : 0);
-    const gbp = ngn > 0 ? (ngn / LIVE_FX_RATE) : (liveBalance.gbpEquivalent || 0);
+
+    // 2. Logic: If user has explicitly selected accounts, use that sum.
+    // If NO accounts are selected, show £0/₦0 (User choice to hide everything).
+    // If NO accounts are LINKED yet, show the root document balance as a placeholder.
+    let ngn = 0;
+    if (selectedAccountIds.length > 0) {
+      ngn = accountsNgn;
+    } else if (accounts.length === 0) {
+      ngn = liveBalance.consolidatedBalanceNgn || 0;
+    }
+
+    const gbp = ngn > 0 ? (ngn / LIVE_FX_RATE) : (accounts.length === 0 ? (liveBalance.gbpEquivalent || 0) : 0);
     return { ngn, gbp, accountsNgn, evaluationNgn: 0 };
   }, [accounts, selectedAccountIds, liveBalance]);
 
@@ -356,6 +368,38 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
     (window as any).onSmsBalanceUpdate = async (balance: number, mask: string, timestamp: number) => {
       console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
+      if (!currentUser?.uid) return;
+
+      const batch = writeBatch(db);
+
+      // a. Update Account Document
+      const matchedAcc = liveAccounts.find(acc => acc.accountNumberMasked?.endsWith(mask));
+      if (matchedAcc) {
+        const accRef = doc(db, 'financial_accounts', matchedAcc.id);
+        batch.set(accRef, {
+          accountBalanceNgn: balance,
+          balanceNgn: balance,
+          balanceGbp: balance / LIVE_FX_RATE,
+          lastSyncedAt: serverTimestamp(),
+          status: 'VERIFIED',
+          isVerified: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      // b. Update Root User document for reactive Hero card
+      const userRef = doc(db, 'users', currentUser.uid);
+      batch.set(userRef, {
+        totalEquityNgn: balance,
+        consolidatedBalanceNgn: balance,
+        gbpEquivalent: balance / LIVE_FX_RATE,
+        isSyncing: false,
+        lastSyncedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      await batch.commit();
+
       toast.success(`UBA Balance Synced: ₦${balance.toLocaleString()}`);
       setSyncingId(null);
     };
@@ -983,7 +1027,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                  className="w-full lg:w-auto flex items-center justify-center space-x-2 text-[9px] font-black uppercase tracking-widest transition-all px-5 py-2.5 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-95"
                >
                  <Plus className="w-3.5 h-3.5" />
-                 <span>+ CONNECT BANK</span>
+                 <span>CONNECT BANK</span>
                </button>
              )}
           </div>
@@ -1023,14 +1067,22 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                   }`}
                 >
                   {/* Checkbox Overlay */}
-                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                    isSelected
-                      ? isTopUp
-                        ? 'bg-amber-500 border-amber-500 scale-110'
-                        : 'bg-blue-600 border-blue-600 scale-110'
-                      : isDark ? 'border-slate-600' : 'border-slate-300'
-                  }`}>
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAccountIds(prev =>
+                        prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
+                      );
+                    }}
+                    className={`absolute top-4 right-4 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
+                      isSelected
+                        ? isTopUp
+                          ? 'bg-amber-500 border-amber-500 scale-110 shadow-lg shadow-amber-500/20'
+                          : 'bg-blue-600 border-blue-600 scale-110 shadow-lg shadow-blue-500/20'
+                        : isDark ? 'border-slate-600 bg-slate-900/50' : 'border-slate-300 bg-white/50'
+                    }`}
+                  >
+                    {isSelected && <CheckCircle2 className={`w-7 h-7 ${isTopUp ? 'text-slate-950' : 'text-white'}`} />}
                   </div>
 
                   <div>
@@ -1061,14 +1113,6 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                             )}
                             {acc.id === 'parallex_dedicated' && (
                               <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter">(Mandate)</span>
-                            )}
-                            {acc.isVerified && (
-                              <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 border ${
-                                isDark ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              }`}>
-                                <ShieldCheck className="w-2.5 h-2.5" />
-                                {isTopUp ? 'Disbursed' : 'Verified'}
-                              </span>
                             )}
                             {acc.isDedicatedParallex && (
                               <span className={`px-1.5 py-0.5 rounded-full border text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 ${
@@ -1142,7 +1186,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                             <div className="flex items-center space-x-2">
                               <ShieldCheck className="w-4 h-4 text-emerald-400" />
                               <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                Primary Student Bank Ledger
+                                MY PERSONAL ACCOUNT
                               </span>
                             </div>
                             <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded ${
@@ -1152,7 +1196,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                             </span>
                           </div>
                           <p className={`text-[9px] mt-1.5 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            Student personal equity verified via automated bank alerts and statement reconciliation.
+                            Personal equity verified via automated bank alerts and statement reconciliation.
                           </p>
                         </div>
                       )}
@@ -1184,55 +1228,56 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between pt-4">
                     <div className="flex flex-col flex-1">
                       <div className="flex items-center gap-4">
                         <button
-                          onClick={() => handleSyncAccount(acc.id)}
+                          onClick={(e) => { e.stopPropagation(); handleSyncAccount(acc.id); }}
                           disabled={syncingId === acc.id}
-                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 ${
-                            isDark ? 'text-slate-400 hover:text-amber-400' : 'text-slate-600 hover:text-amber-600'
+                          title={isTopUp ? 'Sync Facility' : 'Sync Balance'}
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all disabled:opacity-50 ${
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-amber-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-amber-600'
                           }`}
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                          {syncingId === acc.id ? 'Syncing...' : (isTopUp ? 'Sync Facility' : 'Sync Balance')}
+                          <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
                         </button>
 
                         {!isTopUp && (
                           <>
                             <button
-                              onClick={() => handleClearAccountBalance(acc.id)}
-                              className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                                isDark ? 'text-slate-400 hover:text-rose-400' : 'text-slate-600 hover:text-rose-600'
+                              onClick={(e) => { e.stopPropagation(); handleClearAccountBalance(acc.id); }}
+                              title="Clear Balance"
+                              className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
                               }`}
                             >
-                              <XIcon className="w-3.5 h-3.5" />
-                              Clear
+                              <XIcon className="w-4 h-4" />
                             </button>
 
                             <button
-                              onClick={() => setIsUssdModalOpen(true)}
-                              className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                                isDark ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'
+                              onClick={(e) => { e.stopPropagation(); setIsUssdModalOpen(true); }}
+                              title="USSD Codes"
+                              className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-blue-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-blue-600'
                               }`}
                             >
-                              <Phone className="w-3.5 h-3.5" />
-                              USSD
+                              <Phone className="w-4 h-4" />
                             </button>
                           </>
                         )}
 
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setStatementOpenAccount(acc);
                             setIsStatementOpen(true);
                           }}
-                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                            isDark ? 'text-slate-400 hover:text-cyan-400' : 'text-slate-600 hover:text-cyan-600'
+                          title="View Statement"
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-cyan-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-cyan-600'
                           }`}
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          Statement
+                          <FileText className="w-4 h-4" />
                         </button>
                       </div>
                       {!acc.isVerified && (
@@ -1243,18 +1288,19 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                     {isTopUp ? (
                       isAdmin && (
                         <button
-                          onClick={() => handleAdminUnlink(acc.id)}
-                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                            isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
+                          onClick={(e) => { e.stopPropagation(); handleAdminUnlink(acc.id); }}
+                          title="Revoke Top-Up"
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
                           }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Revoke Top-Up
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )
                     ) : (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (isAdmin) {
                             handleAdminUnlink(acc.id);
                           } else {
@@ -1264,20 +1310,20 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           }
                         }}
                         disabled={!isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'}
-                        className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                          !isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
-                            ? 'text-slate-400 cursor-not-allowed opacity-50'
-                            : isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
-                        }`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                        title={isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
                           ? 'Approve Unlink'
                           : acc.unlinkStatus === 'UNLINK_REQUESTED'
                             ? 'Unlink Pending'
                             : isAdmin
                               ? 'Force Unlink'
                               : 'Request Unlink'}
+                        className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                          !isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                            ? 'text-slate-400 cursor-not-allowed opacity-50'
+                            : isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>

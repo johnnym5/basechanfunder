@@ -39,6 +39,7 @@ import { resolveUserStatus } from '../services/userStatusService';
 import { ProfessionalSpinner } from './ui/LoadingStates';
 import { NotificationDropdown } from './ui/NotificationDropdown';
 import { AdminNotificationPopover } from './ui/AdminNotificationPopover';
+import { HelpModalTrigger } from './HelpModalTrigger';
 import { useTheme } from '../context/ThemeContext';
 import { ThemeToggle } from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -276,6 +277,9 @@ export const MasterAppPortal: React.FC = () => {
             <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 relative" ref={profileMenuRef}>
                {/* Global Action Cluster */}
                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* Help & Onboarding Knowledge Base Trigger */}
+                  <HelpModalTrigger role={isStaffOrAdmin ? 'ADMIN' : 'STUDENT'} />
+
                   {/* Notification Bell */}
                   {isStaffOrAdmin ? (
                     <AdminNotificationPopover

@@ -314,8 +314,8 @@ class MainActivity : ComponentActivity() {
                 // 1. Filter by Bank Name (The ultimate source of truth for the user)
                 if (identifiedBank != targetBank) continue
 
-                // 2. Extract Data using broad patterns
-                val balancePattern = Pattern.compile("(?:Bal|Balance|Avail\\s+Bal|Ledger\\s+Bal|Amt)(?:\\s*:|\\s+is|\\s*-)?\\s*(?:NGN|₦)?\\s*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE)
+                // Strict Disambiguation: Filter by Bal/Balance only to avoid picking up Txn Amt
+                val balancePattern = Pattern.compile("(?:Bal|Balance|Avail\\s+Bal|Ledger\\s+Bal|New\\s+Bal)(?:\\s*:|\\s+is|\\s*-)?\\s*(?:NGN|₦)?\\s*([0-9,]+\\.[0-9]{2})", Pattern.CASE_INSENSITIVE)
                 val acctPattern = Pattern.compile("(?:Acct|Ac|Acc|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
                 
                 val balMatcher = balancePattern.matcher(body)

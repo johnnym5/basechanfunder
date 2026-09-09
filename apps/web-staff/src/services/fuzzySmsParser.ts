@@ -56,6 +56,7 @@ export class FuzzySmsParser {
   }
 
   public static parseBalance(body: string): number | null {
+    // Strict Bal extraction to avoid picking up transaction Amt
     const balMatch = body.match(/(?:Bal|Balance|Avail\s*Bal|Ledger|New\s*Bal)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i);
     return balMatch ? parseFloat(balMatch[1].replace(/,/g, '')) : null;
   }
@@ -107,8 +108,8 @@ export class FuzzySmsParser {
     }
     if (!type) return null;
 
-    // 2. Amount (NGN)
-    const amtMatch = body.match(/(?:Amt|Amount|CR|DR|Txn|Val)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i);
+    // 2. Amount (NGN) - Txn Amount
+    const amtMatch = body.match(/(?:Amt|Amount|Txn\s*Amt|CR|DR|Val)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2})/i);
     if (!amtMatch) return null;
     const amountNgn = parseFloat(amtMatch[1].replace(/,/g, ''));
 
