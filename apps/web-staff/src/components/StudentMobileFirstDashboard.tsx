@@ -134,17 +134,19 @@ export const StudentMobileFirstDashboard: React.FC<{
   // --- States ---
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [evaluation, setEvaluation] = useState<any>(null);
+  const hasInitializedSelection = useRef(false);
 
   useEffect(() => {
     if (liveEvaluation) setEvaluation(liveEvaluation);
   }, [liveEvaluation]);
 
-  // 1. Sync local selected IDs with live accounts
+  // 1. Sync local selected IDs with live accounts (Only on first load)
   useEffect(() => {
-    if (liveAccounts.length > 0 && selectedAccountIds.length === 0) {
+    if (liveAccounts.length > 0 && !hasInitializedSelection.current) {
       setSelectedAccountIds(liveAccounts.map(a => a.id));
+      hasInitializedSelection.current = true;
     }
-  }, [liveAccounts, selectedAccountIds]);
+  }, [liveAccounts]);
 
   // Use liveAccounts as primary data source, splitting personal balance and top-up into two separate cards
   const accounts = useMemo(() => {
@@ -1213,13 +1215,13 @@ export const StudentMobileFirstDashboard: React.FC<{
                           prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
                         );
                       }}
-                      className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
+                      className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
                         isSelected
                           ? (isTopUp ? 'bg-amber-500 border-amber-500 text-slate-950 scale-110 shadow-lg' : 'bg-blue-500 border-blue-500 text-white scale-110 shadow-lg')
                           : 'border-slate-500'
                       }`}
                     >
-                      {isSelected && <CheckCircle2 className="w-5 h-5" />}
+                      {isSelected && <CheckCircle2 className="w-6 h-6" />}
                     </div>
                   </div>
 

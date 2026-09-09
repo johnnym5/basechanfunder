@@ -43,7 +43,26 @@ export class TopUpController {
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
-      // 3. Trigger Admin Notification
+      // 3. Create a PENDING Top-Up card for immediate UI feedback
+      await this.db.collection('financial_accounts').doc(`TOPUP_${userId}`).set({
+        userId,
+        accountName: 'Organization Top-Up Capital',
+        bankName: 'Organization Top-Up Capital',
+        accountNumberMasked: '•••• TOPUP',
+        accountType: 'SPONSORED',
+        balanceNgn: Number(topUpAmountNgn),
+        accountBalanceNgn: Number(topUpAmountNgn),
+        orgTopUpCapitalNgn: Number(topUpAmountNgn),
+        balanceGbp: Math.round((Number(topUpAmountNgn) / 1945.50) * 100) / 100,
+        status: 'PENDING',
+        isSelectable: false,
+        isVerified: false,
+        connectionMethod: 'TOP_UP',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 4. Trigger Admin Notification
       await this.db.collection('notifications').add({
         recipientRole: 'ADMIN',
         targetUserId: userId,
@@ -126,9 +145,11 @@ export class TopUpController {
         orgTopUpCapitalNgn: topUpBal,
         balanceGbp: topUpGbp,
         status: 'VERIFIED',
+        isSelectable: true,
         isVerified: true,
         isSystemTopUp: false,
         connectionMethod: 'TOP_UP',
+        requestId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: new Date().toISOString()
@@ -246,6 +267,9 @@ export class TopUpController {
         isRead: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      // Also delete the pending card if it exists
+      batch.delete(this.db.collection('financial_accounts').doc(`TOPUP_${userId}`));
 
       await batch.commit();
       return { status: 'SUCCESS' };

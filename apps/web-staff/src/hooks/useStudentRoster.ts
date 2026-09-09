@@ -104,9 +104,9 @@ export function useStudentRoster() {
     return unsub;
   }, []);
 
-  // 2. Subscribe to all users
+  // 2. Subscribe to all users (Filter out archived ones)
   useEffect(() => {
-    const q = query(collection(db, 'users'));
+    const q = query(collection(db, 'users'), where('isArchived', '!=', true));
     const unsub = onSnapshot(q, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);

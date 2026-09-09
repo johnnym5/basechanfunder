@@ -1,9 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile, Get, Delete, Param } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile, Get, Delete, Param, Logger } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as admin from 'firebase-admin';
 
 @Controller('api/v1/admin')
 export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
   private get db() {
     return admin.firestore();
   }
@@ -34,33 +36,48 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   async deleteUser(@Param('uid') uid: string) {
     try {
-      console.log(`[ADMIN] Initiating cascading hard delete for user: ${uid}`);
+      this.logger.log(`[ADMIN] Archiving user (Soft Delete): ${uid}`);
+
+      // Mark user as archived
+      await this.db.collection('users').doc(uid).set({
+        status: 'DELETED',
+        isArchived: true,
+        hardDeleted: true,
+        archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      return {
+        success: true,
+        message: "User moved to archive."
+      };
+    } catch (err: any) {
+      this.logger.error('Soft-archive error:', err);
+      return { status: 'ERROR', message: err.message };
+    }
+  }
+
+  @Delete('users/:uid/purge')
+  @HttpCode(HttpStatus.OK)
+  async purgeUser(@Param('uid') uid: string) {
+    try {
+      this.logger.log(`[ADMIN] Executing final purge for user: ${uid}`);
 
       // STEP A: Firebase Storage Wipe
       try {
         const bucket = admin.storage().bucket();
-        const prefixes = [
-          `student_documents/${uid}/`,
-          `mandate_packages/${uid}/`,
-          `student_packages/${uid}/`
-        ];
-
+        const prefixes = [`student_documents/${uid}/`, `mandate_packages/${uid}/`, `student_packages/${uid}/` ];
         for (const prefix of prefixes) {
-          // deleteFiles handles empty prefixes gracefully if force is true or manually checked
-          await bucket.deleteFiles({ prefix, force: true }).catch(err => {
-            if (err.code !== 404) console.warn(`Storage prefix ${prefix} delete warning:`, err.message);
-          });
+          await bucket.deleteFiles({ prefix, force: true }).catch(() => {});
         }
-      } catch (storageErr: any) {
-        console.error(`Storage cleanup critical failure for ${uid}:`, storageErr.message);
-      }
+      } catch (e) {}
 
-      // STEP B: Firestore Document & Subcollections Cascade
-      // 1. Top-level collections where userId matches
-      const topLevelCollections = ['financial_accounts', 'pof_evaluations', 'liquidity_requests', 'notifications'];
+      // STEP B: Firestore Cleanup
+      const batchSize = 100;
+      const collections = ['financial_accounts', 'pof_evaluations', 'liquidity_requests', 'notifications', 'audit_logs'];
 
-      for (const col of topLevelCollections) {
-        const snap = await this.db.collection(col).where('userId', '==', uid).get();
+      for (const col of collections) {
+        const snap = await this.db.collection(col).where(col === 'audit_logs' ? 'studentId' : 'userId', '==', uid).get();
         if (!snap.empty) {
           const batch = this.db.batch();
           snap.docs.forEach(doc => batch.delete(doc.ref));
@@ -68,53 +85,38 @@ export class AdminController {
         }
       }
 
-      // 2. Audit Log Clean-up (Remove logs where this user was the student)
-      const auditSnap = await this.db.collection('audit_logs').where('studentId', '==', uid).get();
-      if (!auditSnap.empty) {
-        const batch = this.db.batch();
-        auditSnap.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      }
-
-      // 3. User Root & Subcollections
+      // STEP C: Subcollections & User Root
       const userRef = this.db.collection('users').doc(uid);
-
-      // Recursive subcollection deletion (submitted_documents is primary)
-      const subDocsSnap = await userRef.collection('submitted_documents').get();
-      if (!subDocsSnap.empty) {
+      const subDocs = await userRef.collection('submitted_documents').get();
+      if (!subDocs.empty) {
         const batch = this.db.batch();
-        subDocsSnap.docs.forEach(doc => batch.delete(doc.ref));
+        subDocs.docs.forEach(d => batch.delete(d.ref));
         await batch.commit();
       }
-
-      // Additional subcollections check
-      const subCollections = await userRef.listCollections();
-      for (const sub of subCollections) {
-        const subSnap = await sub.get();
-        if (!subSnap.empty) {
-          const batch = this.db.batch();
-          subSnap.docs.forEach(doc => batch.delete(doc.ref));
-          await batch.commit();
-        }
-      }
-
-      // 4. Delete the primary user document
       await userRef.delete();
 
-      // STEP C: Soft-Fail Auth Deletion
-      try {
-        await admin.auth().deleteUser(uid);
-      } catch (authError: any) {
-        console.warn(`[DELETE_USER_WARN] Could not delete Auth record for ${uid} due to IAM/permissions, proceeding with DB wipe:`, authError.message);
-      }
+      // STEP D: Auth Deletion
+      try { await admin.auth().deleteUser(uid); } catch (e) {}
 
-      // STEP D: UI Sync Response
-      return {
-        success: true,
-        message: "User database records and storage files deleted successfully."
-      };
+      return { success: true, message: "User permanently purged." };
     } catch (err: any) {
-      console.error('Cascading delete error:', err);
+      this.logger.error('Purge error:', err);
+      return { status: 'ERROR', message: err.message };
+    }
+  }
+
+  @Post('users/:uid/restore')
+  @HttpCode(HttpStatus.OK)
+  async restoreUser(@Param('uid') uid: string) {
+    try {
+      await this.db.collection('users').doc(uid).set({
+        isArchived: false,
+        hardDeleted: false,
+        status: 'ACTIVE',
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      return { status: 'SUCCESS' };
+    } catch (err: any) {
       return { status: 'ERROR', message: err.message };
     }
   }

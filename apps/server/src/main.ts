@@ -61,7 +61,12 @@ async function bootstrap() {
 
       Logger.log(`🔥 Firebase Admin initialized (Firestore DB: ${defaultDbId})`, 'Bootstrap');
     } catch (err: any) {
-      Logger.error(`❌ Firebase Admin init failed: ${err.message}`, 'Bootstrap');
+      if (err.message?.includes('invalid_rapt') || err.message?.includes('invalid_grant')) {
+        Logger.error('❌ Firebase Auth Error: Your local session has expired.', 'Bootstrap');
+        Logger.error('👉 SOLUTION: Run "gcloud auth application-default login" in your terminal.', 'Bootstrap');
+      } else {
+        Logger.error(`❌ Firebase Admin init failed: ${err.message}`, 'Bootstrap');
+      }
     }
   }
 

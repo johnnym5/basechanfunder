@@ -27,13 +27,16 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FirestoreDatabaseExplorer } from './FirestoreDatabaseExplorer';
+import { StorageExplorer } from './StorageExplorer';
+import { IncidentEngine, SystemIncident } from '../services/incidentEngine';
+import { collection, query, where, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 import { MAJOR_CURRENCIES } from '../constants';
 
 // --- Types ---
 
-type SettingTab = 'risk' | 'destinations' | 'document_requirements' | 'api' | 'security' | 'database';
+type SettingTab = 'risk' | 'destinations' | 'document_requirements' | 'api' | 'security' | 'database' | 'storage' | 'trash' | 'troubleshooting';
 
 interface RiskConfig {
   fxBuffer: number;
@@ -279,6 +282,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
         {[
           { id: 'risk', label: 'Risk & FX Buffers', icon: Sliders },
           { id: 'database', label: 'Database Explorer', icon: Database },
+          { id: 'storage', label: 'Storage Explorer', icon: HardDrive },
           { id: 'destinations', label: 'Destination Rules', icon: Globe },
           { id: 'document_requirements', label: 'Document Requirements', icon: FileText },
           { id: 'api', label: 'API & Banking Keys', icon: Key },
@@ -646,6 +650,12 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
         {activeTab === 'database' && (
           <div className="flex-1 min-h-0 flex flex-col">
             <FirestoreDatabaseExplorer />
+          </div>
+        )}
+
+        {activeTab === 'storage' && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <StorageExplorer />
           </div>
         )}
       </div>

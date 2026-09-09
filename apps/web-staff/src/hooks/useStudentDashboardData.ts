@@ -7,6 +7,7 @@ import {
   serverTimestamp,
   query,
   where,
+  limit,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -39,6 +40,7 @@ export interface StudentDashboardData {
   accounts: any[];
   evaluation: any | null;
   userProfile: StudentProfile | null;
+  pendingTopUpRequest: any | null;
   loading: boolean;
 }
 
@@ -53,6 +55,7 @@ export const useStudentDashboardData = (userId: string | undefined): StudentDash
   const [accounts, setAccounts] = useState<any[]>([]);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<StudentProfile | null>(null);
+  const [pendingTopUpRequest, setPendingTopUpRequest] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -116,7 +119,18 @@ export const useStudentDashboardData = (userId: string | undefined): StudentDash
       }
     );
 
-    // 4. Sync-state safety timeout
+    // 4. Active top-up request (PENDING state)
+    const topupQ = query(
+      collection(db, 'topup_requests'),
+      where('userId', '==', userId),
+      where('status', '==', 'PENDING_ADMIN_VERIFICATION'),
+      limit(1)
+    );
+    const unsubTopup = onSnapshot(topupQ, snap => {
+      setPendingTopUpRequest(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() });
+    });
+
+    // 5. Sync-state safety timeout
     let syncTimeout: ReturnType<typeof setTimeout>;
     if (balance.isSyncing) {
       syncTimeout = setTimeout(async () => {
@@ -132,10 +146,11 @@ export const useStudentDashboardData = (userId: string | undefined): StudentDash
       unsubUser();
       unsubAccounts();
       unsubEval();
+      unsubTopup();
       if (syncTimeout) clearTimeout(syncTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  return { balance, accounts, evaluation, userProfile, loading };
+  return { balance, accounts, evaluation, userProfile, pendingTopUpRequest, loading };
 };

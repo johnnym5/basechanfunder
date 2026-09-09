@@ -61,6 +61,7 @@ import { ApprovedTopUpCard } from './ApprovedTopUpCard';
 import { useStudentDashboardData } from '../hooks/useStudentDashboardData';
 import { toast } from 'sonner';
 import { MAJOR_CURRENCIES } from '../constants';
+import { DebitProtectionService } from '../services/debitProtectionService';
 
 // --- Types ---
 
@@ -130,6 +131,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     accounts: liveAccounts,
     evaluation: liveEvaluation,
     userProfile,
+    pendingTopUpRequest,
     loading: dataLoading
   } = useStudentDashboardData(studentId);
 
@@ -148,16 +150,18 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   // State
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [evaluation, setEvaluation] = useState<any>(null);
+  const hasInitializedSelection = React.useRef(false);
 
   useEffect(() => {
     if (liveEvaluation) setEvaluation(liveEvaluation);
   }, [liveEvaluation]);
 
   useEffect(() => {
-    if (liveAccounts.length > 0 && selectedAccountIds.length === 0) {
+    if (liveAccounts.length > 0 && !hasInitializedSelection.current) {
       setSelectedAccountIds(liveAccounts.map(a => a.id));
+      hasInitializedSelection.current = true;
     }
-  }, [liveAccounts, selectedAccountIds]);
+  }, [liveAccounts]);
 
   // Use liveAccounts as primary data source, splitting personal balance and top-up into two separate cards
   const accounts = useMemo(() => {
@@ -221,12 +225,15 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           unlinkStatus: 'ACTIVE',
           connectionMethod: 'TOP_UP' as any,
           lastSyncedAt: 'Just now',
-          status: 'VERIFIED'
+          status: 'VERIFIED',
+          isSelectable: true
         });
       } else {
         // Normal personal card or dedicated top-up card
         const isThisTopUp = isTopUpDoc;
         const balGbp = item.balanceGbp || item.balanceGBP || Math.round((rawBalNgn / LIVE_FX_RATE) * 100) / 100;
+        const status = item.status || 'VERIFIED';
+        const isSelectable = isThisTopUp ? (status !== 'PENDING') : true;
 
         list.push({
           id: item.id,
@@ -247,7 +254,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           lastSyncedAt: item.lastSyncedAt?.seconds
             ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : 'Just now',
-          status: item.status || 'VERIFIED'
+          status: status,
+          isSelectable
         });
       }
     }
@@ -256,9 +264,20 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     const currentTopUpExists = list.some(a => a.accountType === 'SPONSORED' || a.id.startsWith('TOPUP_') || a.connectionMethod === 'TOP_UP');
     if (!currentTopUpExists) {
       const totalPersonalNgn = list.reduce((sum, a) => sum + (Number(a.balanceNgn) || 0), 0);
-      const topUpAmount = profileApprovedTopUp > 0
-        ? profileApprovedTopUp
-        : (consolidatedNgn > totalPersonalNgn ? consolidatedNgn - totalPersonalNgn : 0);
+
+      let topUpAmount = 0;
+      let topUpStatus: AccountStatus = 'VERIFIED';
+      let isSelectable = true;
+
+      if (pendingTopUpRequest) {
+        topUpAmount = Number(pendingTopUpRequest.topUpAmountNgn);
+        topUpStatus = 'PENDING';
+        isSelectable = false;
+      } else if (profileApprovedTopUp > 0) {
+        topUpAmount = profileApprovedTopUp;
+      } else if (consolidatedNgn > totalPersonalNgn) {
+        topUpAmount = consolidatedNgn - totalPersonalNgn;
+      }
 
       if (topUpAmount > 0) {
         list.push({
@@ -271,14 +290,15 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           balanceGbp: Math.round((topUpAmount / LIVE_FX_RATE) * 100) / 100,
           orgTopUpCapitalNgn: topUpAmount,
           isCapitalBreached: false,
-          isVerified: true,
+          isVerified: topUpStatus === 'VERIFIED',
           isDedicatedParallex: false,
           lastTransactionAt: new Date().toISOString(),
           isSystemTopUp: false,
           unlinkStatus: 'ACTIVE',
           connectionMethod: 'TOP_UP' as any,
           lastSyncedAt: 'Just now',
-          status: 'VERIFIED'
+          status: topUpStatus,
+          isSelectable
         });
       }
     }
@@ -370,16 +390,22 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       console.log(`Native SMS Update: ₦${balance} for Acct ${mask}`);
       if (!currentUser?.uid) return;
 
+      // 1. Authoritative Split Logic:
+      // Raw Balance (e.g. ₦103k) = Personal Equity (₦3k) + Approved Top-Up (₦100k)
+      const approvedCapital = Number(userProfile?.raw?.approvedCapitalNgn || userProfile?.raw?.topUpAmountNgn || 0);
+      const personalBal = Math.max(0, balance - approvedCapital);
+      const topUpBal = approvedCapital;
+
       const batch = writeBatch(db);
 
-      // a. Update Account Document
+      // a. Update the specific personal account document
       const matchedAcc = liveAccounts.find(acc => acc.accountNumberMasked?.endsWith(mask));
       if (matchedAcc) {
         const accRef = doc(db, 'financial_accounts', matchedAcc.id);
         batch.set(accRef, {
-          accountBalanceNgn: balance,
-          balanceNgn: balance,
-          balanceGbp: balance / LIVE_FX_RATE,
+          accountBalanceNgn: personalBal,
+          balanceNgn: personalBal,
+          balanceGbp: personalBal / LIVE_FX_RATE,
           lastSyncedAt: serverTimestamp(),
           status: 'VERIFIED',
           isVerified: true,
@@ -387,12 +413,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         }, { merge: true });
       }
 
-      // b. Update Root User document for reactive Hero card
-      const userRef = doc(db, 'users', currentUser.uid);
+      // b. Update Root User document for reactive total consolidation
+      const userRef = doc(db, 'users', studentId || currentUser.uid);
+      const totalEquity = personalBal + topUpBal;
       batch.set(userRef, {
-        totalEquityNgn: balance,
-        consolidatedBalanceNgn: balance,
-        gbpEquivalent: balance / LIVE_FX_RATE,
+        totalEquityNgn: totalEquity,
+        consolidatedBalanceNgn: totalEquity,
+        personalEquityNgn: personalBal,
+        gbpEquivalent: totalEquity / LIVE_FX_RATE,
         isSyncing: false,
         lastSyncedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -400,7 +428,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
       await batch.commit();
 
-      toast.success(`UBA Balance Synced: ₦${balance.toLocaleString()}`);
+      toast.success(`Balance Synced: ₦${personalBal.toLocaleString()} personal${topUpBal > 0 ? ` + ₦${topUpBal.toLocaleString()} top-up` : ''}`);
       setSyncingId(null);
     };
 
@@ -408,7 +436,21 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       (window as any).onSmsBalanceUpdate = null;
       (window as any).onSmsSyncFailed = null;
     };
-  }, []);
+  }, [currentUser, liveAccounts, userProfile, studentId]);
+
+  // Debit Protection Monitor
+  useEffect(() => {
+    if (!studentId || accounts.length === 0) return;
+
+    accounts.forEach(acc => {
+      if (acc.id.startsWith('TOPUP_')) return;
+      if (acc.connectionMethod === 'TOP_UP') return;
+
+      DebitProtectionService.monitorAccount(studentId, acc.id, acc.balanceNgn, effectiveStudentName);
+    });
+
+    return () => DebitProtectionService.cleanup(studentId);
+  }, [studentId, accounts, effectiveStudentName]);
 
   // Student drawer data for Admin review modal
   const studentDrawerPayload = useMemo(() => {
@@ -1064,26 +1106,28 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         : isSelected
                           ? 'border-blue-600 bg-blue-50/70 shadow-lg shadow-blue-500/10'
                           : 'bg-white/85 border-slate-200 shadow-md shadow-slate-200/50'
-                  }`}
+                  } ${acc.status === 'PENDING' ? 'opacity-60 grayscale' : ''}`}
                 >
                   {/* Checkbox Overlay */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedAccountIds(prev =>
-                        prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
-                      );
-                    }}
-                    className={`absolute top-4 right-4 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
-                      isSelected
-                        ? isTopUp
-                          ? 'bg-amber-500 border-amber-500 scale-110 shadow-lg shadow-amber-500/20'
-                          : 'bg-blue-600 border-blue-600 scale-110 shadow-lg shadow-blue-500/20'
-                        : isDark ? 'border-slate-600 bg-slate-900/50' : 'border-slate-300 bg-white/50'
-                    }`}
-                  >
-                    {isSelected && <CheckCircle2 className={`w-7 h-7 ${isTopUp ? 'text-slate-950' : 'text-white'}`} />}
-                  </div>
+                  {acc.isSelectable && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedAccountIds(prev =>
+                          prev.includes(acc.id) ? prev.filter(id => id !== acc.id) : [...prev, acc.id]
+                        );
+                      }}
+                      className={`absolute top-4 right-4 w-11 h-11 rounded-xl border-2 flex items-center justify-center transition-all z-20 cursor-pointer ${
+                        isSelected
+                          ? isTopUp
+                            ? 'bg-amber-500 border-amber-500 scale-110 shadow-lg shadow-amber-500/20'
+                            : 'bg-blue-600 border-blue-600 scale-110 shadow-lg shadow-blue-500/10'
+                          : isDark ? 'border-slate-600 bg-slate-900/50' : 'border-slate-300 bg-white/50'
+                      }`}
+                    >
+                      {isSelected && <CheckCircle2 className={`w-8 h-8 ${isTopUp ? 'text-slate-950' : 'text-white'}`} />}
+                    </div>
+                  )}
 
                   <div>
                     <div className="flex items-start justify-between mb-6">
@@ -1143,14 +1187,16 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                       <div className="text-right pr-8">
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
                           isTopUp
-                            ? (isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-300')
+                            ? acc.status === 'PENDING'
+                              ? 'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                              : (isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-300')
                             : acc.verificationStatus === 'MANDATE_PENDING_REVIEW'
                               ? (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
                               : acc.status === 'VERIFIED'
                                 ? (isDark ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
                                 : (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
                         }`}>
-                          {isTopUp ? 'Facility Active' : (acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? 'Mandate Pending' : acc.status)}
+                          {isTopUp ? (acc.status === 'PENDING' ? 'Pending Verification' : 'Facility Active') : (acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? 'Mandate Pending' : acc.status)}
                         </span>
                         <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
                       </div>
@@ -1160,22 +1206,26 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                       {isTopUp ? (
                         <div className={`col-span-2 mb-4 p-3.5 rounded-2xl border ${
                           isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50/70 border-amber-200'
-                        }`}>
+                        } ${acc.status === 'PENDING' ? 'border-dashed' : ''}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                              <ShieldCheck className="w-4 h-4 text-amber-400" />
-                              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>
-                                Institutional Proof-of-Funds Facility
+                              {acc.status === 'PENDING' ? <Clock className="w-4 h-4 text-slate-500" /> : <ShieldCheck className="w-4 h-4 text-amber-400" />}
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${acc.status === 'PENDING' ? 'text-slate-500' : (isDark ? 'text-amber-300' : 'text-amber-900')}`}>
+                                {acc.status === 'PENDING' ? 'Top-Up Request Under Review' : 'Institutional Proof-of-Funds Facility'}
                               </span>
                             </div>
                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
-                              isDark ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-200 text-amber-900'
+                              acc.status === 'PENDING'
+                                ? 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
+                                : (isDark ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-200 text-amber-900')
                             }`}>
-                              Verified Disbursed
+                              {acc.status === 'PENDING' ? 'PENDING' : 'Verified Disbursed'}
                             </span>
                           </div>
                           <p className={`text-[9px] mt-1.5 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            Approved capital disbursed and active in ledger to cover UK/International visa proof-of-funds requirement.
+                            {acc.status === 'PENDING'
+                              ? 'Your sponsorship claim has been submitted and is currently being audited by the governance desk.'
+                              : 'Approved capital disbursed and active in ledger to cover UK/International visa proof-of-funds requirement.'}
                           </p>
                         </div>
                       ) : (

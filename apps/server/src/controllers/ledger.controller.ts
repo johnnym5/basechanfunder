@@ -17,27 +17,40 @@ export class LedgerController {
     this.logger.log(`Recalculating balance for user ${userId}`);
 
     try {
-      // 1. Query all active financial accounts (Corrected to top-level collection)
+      // 1. Query all financial accounts for this user
       const accountsSnap = await this.db.collection('financial_accounts')
         .where('userId', '==', userId)
-        .where('status', '==', 'VERIFIED') // Frontend uses 'VERIFIED'
+        .where('status', '==', 'VERIFIED')
         .get();
 
-      let totalEquityNgn = 0;
+      // 2. Authoritative Split Logic:
+      // Sum only personal accounts (non-TOPUP_ ids)
+      // Top-up capital is managed separately via the TOPUP_ document
+      let personalEquityNgn = 0;
+      let approvedTopUpNgn = 0;
+
       accountsSnap.forEach(doc => {
         const data = doc.data();
-        totalEquityNgn += (Number(data.accountBalanceNgn) || Number(data.balanceNgn) || 0);
+        if (doc.id.startsWith('TOPUP_')) {
+          approvedTopUpNgn = Number(data.balanceNgn) || 0;
+        } else {
+          personalEquityNgn += (Number(data.accountBalanceNgn) || Number(data.balanceNgn) || 0);
+        }
       });
 
-      // 2. Fetch Live FX Rate
+      const totalEquityNgn = personalEquityNgn + approvedTopUpNgn;
+
+      // 3. Fetch Live FX Rate
       const configSnap = await this.db.collection('system_config').doc('global').get();
       const exchangeRate = configSnap.data()?.fxRate || 1945.50;
       const gbpEquivalent = totalEquityNgn / exchangeRate;
 
-      // 3. Overwrite Root User Document
+      // 4. Overwrite Root User Document
       await this.db.collection('users').doc(userId).set({
         totalEquityNgn,
         consolidatedBalanceNgn: totalEquityNgn,
+        personalEquityNgn, // New: helpful for client-side split
+        approvedCapitalNgn: approvedTopUpNgn, // New: ensure authoritative record
         gbpEquivalent,
         isSyncing: false,
         lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -47,7 +60,9 @@ export class LedgerController {
       return {
         status: 'SUCCESS',
         totalEquityNgn,
-        gbpEquivalent
+        gbpEquivalent,
+        personalEquityNgn,
+        approvedTopUpNgn
       };
     } catch (error: any) {
       this.logger.error(`Recalculation error: ${error.message}`);

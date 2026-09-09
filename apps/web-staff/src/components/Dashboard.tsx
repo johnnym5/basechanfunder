@@ -360,9 +360,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
   // 1b. Subscribe to all users (Filter out those who haven't started setup to avoid polluting the roster)
   useEffect(() => {
-    // Only fetch users who have at least started setup or completed onboarding
-    // Or just fetch all and filter in JS if we want to show 'Incomplete' count
-    const q = query(collection(db, 'users'));
+    // Only fetch users who have at least started setup and are NOT archived
+    const q = query(collection(db, 'users'), where('isArchived', '!=', true));
     const unsub = onSnapshot(q, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -829,61 +828,33 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     if (!selectedStudent) return;
 
     showNotification({
-      title: "Purge Student Data?",
-      message: `Are you sure you want to permanently wipe ALL database records for ${selectedStudent.name}? This will remove their ledger, evaluations, and documents. The user will be revoked of access and moved to the Unauthenticated pool.`,
+      title: "Archive Student Profile?",
+      message: `Are you sure you want to delete ${selectedStudent.name}? They will be removed from all active rosters and revoked of portal access. Their files and ledger data will be moved to the administrative archive for audit purposes.`,
       type: "CONFIRM",
-      confirmText: "Purge & Revoke Access",
+      confirmText: "Delete & Archive",
       onConfirm: async () => {
         setIsSubmitting(true);
-        const t = toast.loading(`Purging all records for ${selectedStudent.name}...`);
+        const t = toast.loading(`Moving ${selectedStudent.name} to archive...`);
         try {
           const uid = selectedStudent.userId || selectedStudent.id;
-          const batch = writeBatch(db);
 
-          // 1. Reset User Profile (Revoke Approval & Mark for Force Logout)
-          batch.set(doc(db, 'users', uid), {
-            isApproved: false,
-            hardDeleted: true, // Triggers forced logout in student app
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-
-          // 2. Find and Delete Evaluations
-          const evalQuery = await getDocs(query(collection(db, 'pof_evaluations'), where('userId', '==', uid)));
-          evalQuery.forEach(d => batch.delete(d.ref));
-
-          // 3. Find and Delete Financial Accounts
-          const accQuery = await getDocs(query(collection(db, 'financial_accounts'), where('userId', '==', uid)));
-          accQuery.forEach(d => batch.delete(d.ref));
-
-          // 4. Find and Delete Liquidity Requests
-          const reqQuery = await getDocs(query(collection(db, 'liquidity_requests'), where('userId', '==', uid)));
-          reqQuery.forEach(d => batch.delete(d.ref));
-
-          // 5. Find and Delete Notifications
-          const notifQuery = await getDocs(query(collection(db, 'notifications'), where('userId', '==', uid)));
-          notifQuery.forEach(d => batch.delete(d.ref));
-
-          // 6. Delete Submissions (Subcollection)
-          const subQuery = await getDocs(collection(db, 'users', uid, 'submitted_documents'));
-          subQuery.forEach(d => batch.delete(d.ref));
-
-          // Commit all deletions
-          await batch.commit();
-
-          // Final Audit Log (Actor remains, but subject is gone)
-          await addDoc(collection(db, 'audit_logs'), {
-            actor: appUser?.displayName || 'Admin',
-            action: 'USER_PURGED_TO_UNAUTHENTICATED',
-            detail: `Permanently purged all database records for ${selectedStudent.name} and revoked access.`,
-            studentId: uid,
-            createdAt: serverTimestamp()
+          // Use the backend Soft-Archive endpoint
+          const response = await fetch(`/api/v1/admin/users/${uid}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
           });
 
-          toast.success('Database purge complete. Access revoked.', { id: t });
-          setSelectedStudent(null);
-        } catch (e: any) {
-          console.error('Purge error:', e);
-          toast.error(`Purge failed: ${e.message}`, { id: t });
+          const result = await response.json();
+
+          if (result.success || result.status === 'SUCCESS') {
+            toast.success('Student archived and access revoked.', { id: t });
+            setSelectedStudent(null);
+            setIsProfileDrawerOpen(false);
+          } else {
+            throw new Error(result.message || 'Archive failed');
+          }
+        } catch (err: any) {
+          toast.error('Operation failed: ' + err.message, { id: t });
         } finally {
           setIsSubmitting(false);
         }
@@ -1082,7 +1053,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                                <button
                                  onClick={(e) => {
                                    e.stopPropagation();
-                                   if (onInspect) onInspect(student.id);
+                                   if (onInspect) onInspect(student.userId || student.id);
                                  }}
                                  className="p-1 rounded-md bg-blue-500/10 text-blue-500 hover:bg-blue-600 hover:text-white transition-all"
                                  title="View Full Dashboard"
@@ -1237,7 +1208,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                 <>
                   <div
                     onClick={() => {
-                      if (onInspect) onInspect(selectedStudent.id);
+                      if (onInspect) onInspect(selectedStudent.userId || selectedStudent.id);
                       setSelectedStudent(null);
                     }}
                     className={`border p-6 rounded-[2.5rem] flex items-center space-x-6 cursor-pointer group/card transition-all ${
