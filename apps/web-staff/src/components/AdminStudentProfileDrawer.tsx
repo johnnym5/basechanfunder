@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { modalBackdropVariants, drawerVariants, modalBoxVariants } from '../utils/motionPresets';
+import { BouncyButton } from './ui/BouncyButton';
 import {
   X, Flag, CheckCircle2, User, Globe, CreditCard,
   Save, Loader2, TrendingUp, Sliders, Activity,
@@ -219,13 +221,20 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
   return (
     <AnimatePresence mode="wait">
       {isOpen && student && (
-        <div className="fixed inset-0 z-[600] flex justify-end bg-slate-950/40 backdrop-blur-md" onClick={onClose}>
+        <motion.div
+          variants={modalBackdropVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-[600] flex justify-end bg-slate-950/40 backdrop-blur-md"
+          onClick={onClose}
+        >
           <motion.div
             key={`drawer-${student.userId || student.id}`}
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            variants={drawerVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             className="fixed right-0 top-0 bottom-0 h-screen w-full max-w-[420px] bg-slate-900/60 backdrop-blur-[75px] border-l border-white/15 z-50 flex flex-col overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-l-3xl transition-colors duration-500"
             onClick={e => e.stopPropagation()}
           >
@@ -660,24 +669,24 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
                 Save Changes
               </button>
               {!student.isApproved && (
-                <button
+                <BouncyButton
                   onClick={handleApprove}
                   disabled={isSaving}
                   className="flex-1 py-4 rounded-2xl bg-emerald-500 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-400 shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Approve Access
-                </button>
+                </BouncyButton>
               )}
             </div>
-            <button className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2">
+            <BouncyButton className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2">
               <Flag className="w-4 h-4" />
               Flag Low Funds
-            </button>
+            </BouncyButton>
           </div>
         </motion.div>
-      </div>
-    )}
+        </motion.div>
+      )}
     <RequirementItemModal
         isOpen={isRequirementModalOpen}
         onClose={() => setIsRequirementModalOpen(false)}
@@ -715,80 +724,98 @@ const RequirementItemModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
-      <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.5)]" onClick={e => e.stopPropagation()}>
-        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
-          <div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Custom Requirement</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure student-specific check item</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
-        </div>
-        <div className="p-8 space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Label</label>
-              <input
-                value={form.label}
-                onChange={e => setForm({...form, label: e.target.value})}
-                placeholder="e.g. Sponsor Bank Statement"
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Input Type</label>
-              <select
-                value={form.type}
-                onChange={e => setForm({...form, type: e.target.value as any})}
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
-              >
-                <option value="TEXT">Text Input / Response</option>
-                <option value="IMAGE">Image (.jpg, .png)</option>
-                <option value="DOC">Word Document (.doc, .docx)</option>
-                <option value="PDF">PDF File (.pdf)</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Instruction / Description</label>
-              <textarea
-                value={form.description}
-                onChange={e => setForm({...form, description: e.target.value})}
-                placeholder="Instructions for the student..."
-                rows={3}
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Template Download URL (Optional)</label>
-              <input
-                value={form.templateUrl}
-                onChange={e => setForm({...form, templateUrl: e.target.value})}
-                placeholder="e.g. /downloads/template.pdf"
-                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
-              />
-            </div>
-            <div className="flex items-center justify-between p-4 glass-subcard">
-              <div>
-                <p className="text-[10px] font-black text-white uppercase tracking-widest">Mandatory Requirement</p>
-                <p className="text-[8px] text-slate-500 uppercase font-bold mt-0.5">Blocking if not submitted</p>
-              </div>
-              <button
-                onClick={() => setForm({...form, isRequired: !form.isRequired})}
-                className={`w-12 h-6 rounded-full transition-all relative ${form.isRequired ? 'bg-emerald-500' : 'bg-slate-800'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${form.isRequired ? 'left-7' : 'left-1'}`} />
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={() => onSave(form)}
-            disabled={!form.label}
-            className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          variants={modalBackdropVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md"
+          onClick={onClose}
+        >
+          <motion.div
+            variants={modalBoxVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="glass-card w-full max-w-md flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+            onClick={e => e.stopPropagation()}
           >
-            {requirement ? 'Commit Requirement Change' : 'Incorporate into Custom List'}
-          </button>
-        </div>
-      </div>
-    </div>
+            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Custom Requirement</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure student-specific check item</p>
+              </div>
+              <BouncyButton onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></BouncyButton>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Field Label</label>
+                  <input
+                    value={form.label}
+                    onChange={e => setForm({...form, label: e.target.value})}
+                    placeholder="e.g. Sponsor Bank Statement"
+                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Input Type</label>
+                  <select
+                    value={form.type}
+                    onChange={e => setForm({...form, type: e.target.value as any})}
+                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none"
+                  >
+                    <option value="TEXT">Text Input / Response</option>
+                    <option value="IMAGE">Image (.jpg, .png)</option>
+                    <option value="DOC">Word Document (.doc, .docx)</option>
+                    <option value="PDF">PDF File (.pdf)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Instruction / Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={e => setForm({...form, description: e.target.value})}
+                    placeholder="Instructions for the student..."
+                    rows={3}
+                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Template Download URL (Optional)</label>
+                  <input
+                    value={form.templateUrl}
+                    onChange={e => setForm({...form, templateUrl: e.target.value})}
+                    placeholder="e.g. /downloads/template.pdf"
+                    className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div className="flex items-center justify-between p-4 glass-subcard">
+                  <div>
+                    <p className="text-[10px] font-black text-white uppercase tracking-widest">Mandatory Requirement</p>
+                    <p className="text-[8px] text-slate-500 uppercase font-bold mt-0.5">Blocking if not submitted</p>
+                  </div>
+                  <BouncyButton
+                    onClick={() => setForm({...form, isRequired: !form.isRequired})}
+                    className={`w-12 h-6 rounded-full transition-all relative ${form.isRequired ? 'bg-emerald-500' : 'bg-slate-800'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${form.isRequired ? 'left-7' : 'left-1'}`} />
+                  </BouncyButton>
+                </div>
+              </div>
+              <BouncyButton
+                onClick={() => onSave(form)}
+                disabled={!form.label}
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-blue-500/20 transition-all disabled:opacity-50"
+              >
+                {requirement ? 'Commit Requirement Change' : 'Incorporate into Custom List'}
+              </BouncyButton>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

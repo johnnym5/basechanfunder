@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, FileText, Upload, CheckCircle2, Loader2, AlertCircle,
-  ArrowRight, ShieldCheck, Download, Image as ImageIcon,
-  File as FileIcon, Rocket, Send, ExternalLink, Layers, Eye
+  X,
+  FileText,
+  Upload,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Download,
+  Image as ImageIcon,
+  File as FileIcon,
+  Rocket,
+  Send,
+  Layers,
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 import { doc, collection, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -64,11 +77,9 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
   const handleDownloadTemplate = async () => {
     const t = toast.loading('Connecting to compliance engine...');
     try {
-      // Try relative (proxied) first, then absolute fallback if on dev
       let res = await fetch('/api/v1/mandate/template/upgrade-form');
 
       if (!res.ok && window.location.hostname === 'localhost') {
-         console.warn("Proxy fallback: attempting direct connection to port 3000");
          res = await fetch('http://localhost:3000/api/v1/mandate/template/upgrade-form');
       }
 
@@ -418,7 +429,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
           {currentStage === 5 && (
             <div className="space-y-8 animate-in zoom-in-95 duration-500">
               <div className="text-center space-y-4">
-                <div className="w-20 h-20 rounded-[2rem] bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mx-auto shadow-2xl shadow-emerald-500/10">
+                <div className="w-20 h-20 rounded-[2rem] bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mx-auto shadow-2xl shadow-blue-500/10">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
                 <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">Review Master Package</h3>

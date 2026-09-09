@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { modalBackdropVariants, modalBoxVariants } from '../utils/motionPresets';
+import { BouncyButton } from './ui/BouncyButton';
 import {
   X,
   Zap,
@@ -210,8 +213,24 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
-      <div className="glass-card w-full max-w-lg max-h-[95vh] animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          variants={modalBackdropVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-[150] flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <motion.div
+            variants={modalBoxVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="glass-card w-full max-w-lg max-h-[95vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
 
         {/* Header */}
         <div className="p-5 sm:p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20 shrink-0">
@@ -227,18 +246,20 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
         {/* Mode Switcher */}
         <div className="px-5 sm:px-8 pt-4 sm:pt-6 shrink-0">
           <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5">
-            <button
+            <BouncyButton
+              type="button"
               onClick={() => setRequestType('TOP_UP')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'TOP_UP' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Top-Up
-            </button>
-            <button
+            </BouncyButton>
+            <BouncyButton
+              type="button"
               onClick={() => setRequestType('EXTENSION')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${requestType === 'EXTENSION' ? 'bg-amber-50 text-slate-950 shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Extension
-            </button>
+            </BouncyButton>
           </div>
         </div>
 
@@ -262,20 +283,20 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                       <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Select Capital Amount</label>
                         <div className="flex bg-slate-900 border border-white/5 rounded-lg p-0.5 w-fit">
-                           <button
+                           <BouncyButton
                              type="button"
                              onClick={() => setSliderMode('AMOUNT')}
                              className={`px-3 py-1 rounded-md text-[8px] font-black uppercase transition-all ${sliderMode === 'AMOUNT' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
                            >
                              ₦ Value
-                           </button>
-                           <button
+                           </BouncyButton>
+                           <BouncyButton
                              type="button"
                              onClick={() => setSliderMode('PERCENT')}
                              className={`px-3 py-1 rounded-md text-[8px] font-black uppercase transition-all ${sliderMode === 'PERCENT' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
                            >
                              % Scale
-                           </button>
+                           </BouncyButton>
                         </div>
                       </div>
                       <div className="text-right">
@@ -415,10 +436,10 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                 </div>
               )}
 
-              <button
+              <BouncyButton
                 type="submit"
                 disabled={isSubmitting || (requestType === 'TOP_UP' && amount <= 0)}
-                className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 ${
+                className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl disabled:opacity-50 ${
                   requestType === 'TOP_UP'
                     ? 'bg-gradient-to-tr from-blue-500 to-blue-700 text-white shadow-blue-500/20'
                     : 'bg-gradient-to-tr from-amber-400 to-amber-600 text-slate-950 shadow-amber-500/20'
@@ -432,12 +453,14 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
-              </button>
+              </BouncyButton>
             </form>
           )}
         </div>
 
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
