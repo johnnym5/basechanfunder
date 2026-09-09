@@ -45,10 +45,11 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
-  const [overrideTab, setModalTab] = useState<'request' | 'days' | 'pricing'>('request');
+  const [overrideTab, setModalTab] = useState<'request' | 'history' | 'days' | 'pricing'>('request');
 
   // Form States
   const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [requestHistory, setRequestHistory] = useState<any[]>([]);
   const [isModifying, setIsModifying] = useState(false);
   const [modifiedCapital, setModifiedCapital] = useState<number>(0);
   const [isProcessing, setIsSubmitting] = useState(false);
@@ -111,9 +112,21 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
         }
     });
 
+    // 3. Listen to Top-Up Request History
+    const historyQ = query(
+        collection(db, 'topup_requests'),
+        where('userId', '==', studentId),
+        where('status', 'in', ['APPROVED', 'REJECTED'])
+    );
+    const unsubHistory = onSnapshot(historyQ, (snap) => {
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRequestHistory(docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    });
+
     return () => {
         unsubEval();
         unsubRequest();
+        unsubHistory();
     };
   }, [studentId]);
 
@@ -283,16 +296,17 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
               </div>
 
               <div className="px-8 pt-6">
-                 <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5">
+                 <div className="flex items-center space-x-2 bg-slate-950/50 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
                     {[
                       { id: 'request', label: 'Pending Request' },
+                      { id: 'history', label: 'History' },
                       { id: 'days', label: 'Setup Window' },
                       { id: 'pricing', label: 'Top-Up Pricing' }
                     ].map((t) => (
                       <button
                         key={t.id}
                         onClick={() => setModalTab(t.id as any)}
-                        className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all ${overrideTab === t.id ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
+                        className={`flex-1 px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-tight transition-all shrink-0 ${overrideTab === t.id ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
                       >
                         {t.label}
                       </button>
@@ -304,9 +318,19 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                  {overrideTab === 'request' && (
                    <div className="space-y-6 animate-in fade-in duration-300">
                       {!activeRequest ? (
-                        <div className="py-12 text-center space-y-4 opacity-50">
-                           <ShieldAlert className="w-12 h-12 mx-auto text-slate-500" />
-                           <p className="text-xs font-black uppercase tracking-widest">No active top-up claims pending for this profile.</p>
+                        <div className="py-12 text-center space-y-4">
+                           <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto border border-white/5 opacity-40">
+                              <CheckCheck className="w-8 h-8 text-emerald-500" />
+                           </div>
+                           <div className="space-y-1">
+                              <p className="text-xs font-black uppercase tracking-widest text-white opacity-40">No pending claims</p>
+                              <button
+                                 onClick={() => setModalTab('history')}
+                                 className="text-[9px] font-bold text-blue-400 uppercase tracking-widest hover:underline"
+                              >
+                                 View Request History
+                              </button>
+                           </div>
                         </div>
                       ) : (
                         <div className="space-y-6">
@@ -383,6 +407,39 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                         </div>
                       )}
                    </div>
+                 )}
+
+                 {overrideTab === 'history' && (
+                    <div className="space-y-4 animate-in fade-in duration-300 max-h-[400px] overflow-y-auto no-scrollbar">
+                       {requestHistory.length === 0 ? (
+                          <div className="py-12 text-center opacity-30">
+                             <History className="w-10 h-10 mx-auto mb-2" />
+                             <p className="text-[10px] font-black uppercase tracking-widest">No transaction history</p>
+                          </div>
+                       ) : (
+                          requestHistory.map((req) => (
+                             <div key={req.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3 relative overflow-hidden group">
+                                <div className="flex justify-between items-start">
+                                   <div>
+                                      <p className="text-[10px] font-black text-white uppercase tracking-tight">₦{req.topUpAmountNgn?.toLocaleString()}</p>
+                                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">{new Date(req.createdAt).toLocaleDateString()}</p>
+                                   </div>
+                                   <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${
+                                      req.status === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
+                                   }`}>
+                                      {req.status}
+                                   </span>
+                                </div>
+                                <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                                   <div className="px-2 py-0.5 rounded bg-slate-900 text-[8px] font-mono text-slate-400">REF: {req.paymentReference}</div>
+                                   {req.rejectionReason && (
+                                      <p className="text-[8px] text-rose-400 italic truncate flex-1">"{req.rejectionReason}"</p>
+                                   )}
+                                </div>
+                             </div>
+                          ))
+                       )}
+                    </div>
                  )}
 
                  {overrideTab === 'days' && (

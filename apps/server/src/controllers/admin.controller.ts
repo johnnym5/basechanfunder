@@ -152,29 +152,107 @@ export class AdminController {
       const batch = this.db.batch();
 
       const requestRef = this.db.collection('topup_requests').doc(requestId);
-      batch.update(requestRef, {
+      batch.set(requestRef, {
         status: 'APPROVED',
         approvedAt: admin.firestore.FieldValue.serverTimestamp(),
         approvedCapitalNgn: Number(approvedCapitalNgn),
         adminServiceFeeNgn: Number(adminServiceFeeNgn),
-      });
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
 
       const userRef = this.db.collection('users').doc(userId);
       const userDoc = await userRef.get();
       const userData = userDoc.data() || {};
 
+      const LIVE_FX_RATE = 1945.50;
       const newEquity = (Number(userData.totalEquityNgn) || 0) + Number(approvedCapitalNgn);
       const newConsolidated = (Number(userData.consolidatedBalanceNgn) || 0) + Number(approvedCapitalNgn);
+      const newGbp = Math.round((newConsolidated / LIVE_FX_RATE) * 100) / 100;
 
-      batch.update(userRef, {
+      batch.set(userRef, {
         totalEquityNgn: newEquity,
         consolidatedBalanceNgn: newConsolidated,
+        gbpEquivalent: newGbp,
         topUpStatus: 'APPROVED',
         status: 'CLEARED',
+        isApproved: true,
+        setupCompleted: true,
+        onboardingComplete: true,
         hasPendingTopUp: false,
         activeTopUpRequestId: null,
+        lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 1. Maintain Card 2: Dedicated Organization Top-Up Card in financial_accounts
+      const topUpAccRef = this.db.collection('financial_accounts').doc(`TOPUP_${userId}`);
+      const topUpBal = Number(approvedCapitalNgn);
+      const topUpGbp = Math.round((topUpBal / LIVE_FX_RATE) * 100) / 100;
+
+      batch.set(topUpAccRef, {
+        userId,
+        userEmail: userData.email || '',
+        accountName: 'Basechan Sponsored Capital',
+        bankName: 'Organization Top-Up Capital',
+        accountNumberMasked: '•••• TOPUP',
+        accountType: 'SPONSORED',
+        balanceNgn: topUpBal,
+        accountBalanceNgn: topUpBal,
+        orgTopUpCapitalNgn: topUpBal,
+        balanceGbp: topUpGbp,
+        status: 'VERIFIED',
+        isVerified: true,
+        isSystemTopUp: false,
+        connectionMethod: 'TOP_UP',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Add transaction entry for the top-up card
+      const txnRef = topUpAccRef.collection('transactions').doc();
+      batch.set(txnRef, {
+        type: 'CREDIT',
+        amount: topUpBal,
+        description: 'Organization Top-Up Capital Disbursement',
+        reference: requestId,
+        balanceAfter: topUpBal,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date().toISOString()
       });
+
+      // 2. Ensure existing personal account(s) only reflect actual personal balance
+      const accountsSnap = await this.db.collection('financial_accounts')
+        .where('userId', '==', userId)
+        .get();
+
+      for (const accDoc of accountsSnap.docs) {
+        if (accDoc.id !== `TOPUP_${userId}` && accDoc.data().connectionMethod !== 'TOP_UP') {
+          const accData = accDoc.data();
+          if (accData.orgTopUpCapitalNgn > 0) {
+            const actualBal = Math.max((Number(accData.balanceNgn) || 0) - Number(accData.orgTopUpCapitalNgn), 0);
+            batch.set(accDoc.ref, {
+              orgTopUpCapitalNgn: 0,
+              balanceNgn: actualBal,
+              accountBalanceNgn: actualBal,
+              balanceGbp: Math.round((actualBal / LIVE_FX_RATE) * 100) / 100,
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+          }
+        }
+      }
+
+      // 3. Sync pof_evaluations
+      const evalSnap = await this.db.collection('pof_evaluations').where('userId', '==', userId).get();
+      if (!evalSnap.empty) {
+        batch.set(evalSnap.docs[0].ref, {
+          status: 'CLEARED',
+          isApproved: true,
+          balanceGbp: newGbp,
+          balanceNgn: newConsolidated,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
 
       const notifRef = this.db.collection('notifications').doc();
       batch.set(notifRef, {

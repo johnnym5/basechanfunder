@@ -256,8 +256,8 @@ class MainActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
-        fun triggerSmsSync(mask: String) {
-            Log.d("MainActivity", "triggerSmsSync called for mask: $mask")
+        fun triggerSmsSync(mask: String, bankName: String) {
+            Log.d("MainActivity", "triggerSmsSync called for mask: $mask, bank: $bankName")
             
             try {
                 // Check for SMS permissions at runtime
@@ -269,7 +269,7 @@ class MainActivity : ComponentActivity() {
                     return
                 }
 
-                val result = scanInboxForBankBalance(mask)
+                val result = scanInboxForBankBalance(mask, bankName)
                 if (result != null) {
                     updateSmsBalance(result.balance, result.mask, result.timestamp)
                     // Requirement: Post to backend
@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
         val bankName: String
     )
 
-    private fun scanInboxForBankBalance(targetMask: String): SmsScanResult? {
+    private fun scanInboxForBankBalance(targetMask: String, targetBank: String): SmsScanResult? {
         val uri = Uri.parse("content://sms/inbox")
         val cursor: Cursor? = contentResolver.query(uri, null, null, null, "date DESC")
         
@@ -309,11 +309,13 @@ class MainActivity : ComponentActivity() {
                 val body = it.getString(bodyIdx) ?: ""
                 val date = it.getLong(dateIdx)
                 
-                val bankName = identifyBank(address) ?: continue
+                val identifiedBank = identifyBank(address) ?: continue
+                
+                // 1. Filter by Bank Name (The ultimate source of truth for the user)
+                if (identifiedBank != targetBank) continue
 
-                // Even broader pattern for Nigerian banks
+                // 2. Extract Data using broad patterns
                 val balancePattern = Pattern.compile("(?:Bal|Balance|Avail\\s+Bal|Ledger\\s+Bal|Amt)(?:\\s*:|\\s+is|\\s*-)?\\s*(?:NGN|₦)?\\s*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE)
-                // Broad pattern to capture account mask (last 4 digits)
                 val acctPattern = Pattern.compile("(?:Acct|Ac|Acc|A/c|Account)\\s*[:\\s]*[\\w\\.\\*]*(\\d{4})", Pattern.CASE_INSENSITIVE)
                 
                 val balMatcher = balancePattern.matcher(body)
@@ -323,18 +325,23 @@ class MainActivity : ComponentActivity() {
                     val balanceStr = balMatcher.group(1) ?: ""
                     val balance = balanceStr.replace(",", "").toDoubleOrNull()
                     
-                    val mask = if (acctMatcher.find()) acctMatcher.group(1) ?: "XXXX" else "XXXX"
+                    val foundMask = if (acctMatcher.find()) acctMatcher.group(1) ?: "XXXX" else "XXXX"
 
-                    Log.d("MainActivity", "Scanning SMS from $address: Found Bal Match: $balanceStr, Mask: $mask")
+                    Log.d("MainActivity", "Identified $identifiedBank alert. Found Bal: $balanceStr, Mask in SMS: $foundMask")
 
-                    // If targetMask is provided and not empty, we check for a match
-                    if (targetMask.isNotEmpty() && targetMask != "XXXX" && mask != targetMask) {
+                    // 3. Robust Validation:
+                    // If targetMask is provided (e.g. 9543) and foundMask is also provided (e.g. 1234) and they DON'T match:
+                    // We skip this message because it belongs to a DIFFERENT account at the same bank.
+                    if (foundMask != "XXXX" && targetMask.isNotEmpty() && targetMask != "XXXX" && foundMask != targetMask) {
                         continue
                     }
+                    
+                    // IF SMS has NO mask ("XXXX"), we accept it as the latest balance for this specific bank (User's request).
+                    // OR if masks match perfectly.
 
                     if (balance != null) {
-                        Log.i("MainActivity", "Extracted $bankName Balance: $balance for account $mask")
-                        return SmsScanResult(balance, mask, date, bankName)
+                        Log.i("MainActivity", "SUCCESS: Found latest balance for $identifiedBank: $balance")
+                        return SmsScanResult(balance, if (foundMask == "XXXX") targetMask else foundMask, date, identifiedBank)
                     }
                 }
             }

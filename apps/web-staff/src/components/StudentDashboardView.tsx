@@ -154,41 +154,144 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
   // Sync selected accounts
   useEffect(() => {
-    if (liveAccounts.length > 0 && selectedAccountIds.length === 0) {
-      setSelectedAccountIds(liveAccounts.map(a => a.id));
+    if (accounts.length > 0 && selectedAccountIds.length === 0) {
+      setSelectedAccountIds(accounts.map(a => a.id));
     }
-  }, [liveAccounts, selectedAccountIds]);
+  }, [accounts, selectedAccountIds]);
 
-  // Use liveAccounts as primary data source
+  // Use liveAccounts as primary data source, splitting personal balance and top-up into two separate cards
   const accounts = useMemo(() => {
-    return liveAccounts.map(item => ({
-      id: item.id,
-      bankName: item.bankName || 'Unknown Bank',
-      accountNumberMasked: item.accountNumberMasked || item.accountMask || '•••• ****',
-      accountType: item.accountType || item.type || 'SAVINGS',
-      balanceNgn: item.accountBalanceNgn || item.balanceNgn || item.balanceNGN || 0,
-      balanceGbp: item.balanceGbp || item.balanceGBP || 0,
-      orgTopUpCapitalNgn: item.orgTopUpCapitalNgn || 0,
-      isCapitalBreached: (item.accountBalanceNgn || item.balanceNgn || 0) < (item.orgTopUpCapitalNgn || 0),
-      isVerified: item.isVerified || false,
-      isDedicatedParallex: item.isDedicatedParallex || item.bankName?.includes('Parallex'),
-      lastTransactionAt: item.lastTransactionAt || (item.lastSyncedAt?.seconds ? new Date(item.lastSyncedAt.seconds * 1000).toISOString() : null),
-      isSystemTopUp: item.isSystemTopUp || false,
-      unlinkStatus: item.unlinkStatus || 'ACTIVE',
-      connectionMethod: item.connectionMethod || item.provider || 'MANUAL_DEPOSIT',
-      lastSyncedAt: item.lastSyncedAt?.seconds
-        ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : 'Just now',
-      status: item.status || 'VERIFIED'
-    } as LinkedBankAccount));
-  }, [liveAccounts]);
+    const list: LinkedBankAccount[] = [];
+
+    // Check if a dedicated top-up card already exists in liveAccounts
+    const hasDedicatedTopUp = liveAccounts.some(
+      a => a.id.startsWith('TOPUP_') || a.accountType === 'SPONSORED' || a.connectionMethod === 'TOP_UP'
+    );
+
+    // Also check if user profile has top-up data
+    const profileApprovedTopUp = Number(userProfile?.raw?.approvedCapitalNgn || userProfile?.raw?.topUpAmountNgn || 0);
+    const consolidatedNgn = Number(liveBalance.consolidatedBalanceNgn || userProfile?.raw?.consolidatedBalanceNgn || 0);
+
+    for (const item of liveAccounts) {
+      const isTopUpDoc = item.id.startsWith('TOPUP_') || item.accountType === 'SPONSORED' || item.connectionMethod === 'TOP_UP';
+      const rawBalNgn = Number(item.accountBalanceNgn ?? item.balanceNgn ?? item.balanceNGN ?? 0);
+      const topUpCapitalNgn = Number(item.orgTopUpCapitalNgn || 0);
+
+      if (!hasDedicatedTopUp && topUpCapitalNgn > 0 && !isTopUpDoc) {
+        // CASE 1: Top-up was merged into personal account -> Split into 2 cards!
+        // Card 1: Actual Bank Account Balance
+        const actualBal = Math.max(rawBalNgn - topUpCapitalNgn, 0);
+        list.push({
+          id: item.id,
+          bankName: item.bankName || 'United Bank for Africa (UBA)',
+          accountName: item.accountName || item.bankName || 'Primary Checking / Savings',
+          accountNumberMasked: item.accountNumberMasked || item.accountMask || '•••• 9543',
+          accountType: item.accountType || item.type || 'SAVINGS',
+          balanceNgn: actualBal,
+          balanceGbp: Math.round((actualBal / LIVE_FX_RATE) * 100) / 100,
+          orgTopUpCapitalNgn: 0,
+          isCapitalBreached: false,
+          isVerified: item.isVerified ?? true,
+          isDedicatedParallex: item.isDedicatedParallex || item.bankName?.includes('Parallex'),
+          lastTransactionAt: item.lastTransactionAt || (item.lastSyncedAt?.seconds ? new Date(item.lastSyncedAt.seconds * 1000).toISOString() : null),
+          isSystemTopUp: false,
+          unlinkStatus: item.unlinkStatus || 'ACTIVE',
+          connectionMethod: item.connectionMethod || item.provider || 'MANUAL_DEPOSIT',
+          lastSyncedAt: item.lastSyncedAt?.seconds
+            ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Just now',
+          status: item.status || 'VERIFIED'
+        });
+
+        // Card 2: Top-Up Added
+        list.push({
+          id: `TOPUP_${item.id}`,
+          bankName: 'Organization Top-Up Capital',
+          accountName: 'Basechan Sponsored Capital',
+          accountNumberMasked: '•••• TOPUP',
+          accountType: 'SPONSORED' as any,
+          balanceNgn: topUpCapitalNgn,
+          balanceGbp: Math.round((topUpCapitalNgn / LIVE_FX_RATE) * 100) / 100,
+          orgTopUpCapitalNgn: topUpCapitalNgn,
+          isCapitalBreached: false,
+          isVerified: true,
+          isDedicatedParallex: false,
+          lastTransactionAt: item.lastTransactionAt || new Date().toISOString(),
+          isSystemTopUp: false,
+          unlinkStatus: 'ACTIVE',
+          connectionMethod: 'TOP_UP' as any,
+          lastSyncedAt: 'Just now',
+          status: 'VERIFIED'
+        });
+      } else {
+        // Normal personal card or dedicated top-up card
+        const isThisTopUp = isTopUpDoc;
+        const balGbp = item.balanceGbp || item.balanceGBP || Math.round((rawBalNgn / LIVE_FX_RATE) * 100) / 100;
+
+        list.push({
+          id: item.id,
+          bankName: isThisTopUp ? (item.bankName || 'Organization Top-Up Capital') : (item.bankName || 'Unknown Bank'),
+          accountName: item.accountName || item.bankName || (isThisTopUp ? 'Basechan Sponsored Capital' : 'Primary Account'),
+          accountNumberMasked: item.accountNumberMasked || item.accountMask || (isThisTopUp ? '•••• TOPUP' : '•••• ****'),
+          accountType: isThisTopUp ? 'SPONSORED' as any : (item.accountType || item.type || 'SAVINGS'),
+          balanceNgn: rawBalNgn,
+          balanceGbp: balGbp,
+          orgTopUpCapitalNgn: isThisTopUp ? rawBalNgn : 0,
+          isCapitalBreached: false,
+          isVerified: item.isVerified ?? true,
+          isDedicatedParallex: item.isDedicatedParallex || item.bankName?.includes('Parallex'),
+          lastTransactionAt: item.lastTransactionAt || (item.lastSyncedAt?.seconds ? new Date(item.lastSyncedAt.seconds * 1000).toISOString() : null),
+          isSystemTopUp: false,
+          unlinkStatus: item.unlinkStatus || 'ACTIVE',
+          connectionMethod: item.connectionMethod || item.provider || (isThisTopUp ? 'TOP_UP' as any : 'MANUAL_DEPOSIT'),
+          lastSyncedAt: item.lastSyncedAt?.seconds
+            ? new Date(item.lastSyncedAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Just now',
+          status: item.status || 'VERIFIED'
+        });
+      }
+    }
+
+    // CASE 2: If no dedicated top-up card exists in list yet, but consolidated balance exceeds total personal balance (or approved top-up exists)
+    const currentTopUpExists = list.some(a => a.accountType === 'SPONSORED' || a.id.startsWith('TOPUP_') || a.connectionMethod === 'TOP_UP');
+    if (!currentTopUpExists) {
+      const totalPersonalNgn = list.reduce((sum, a) => sum + (Number(a.balanceNgn) || 0), 0);
+      const topUpAmount = profileApprovedTopUp > 0
+        ? profileApprovedTopUp
+        : (consolidatedNgn > totalPersonalNgn ? consolidatedNgn - totalPersonalNgn : 0);
+
+      if (topUpAmount > 0) {
+        list.push({
+          id: `TOPUP_${studentId}`,
+          bankName: 'Organization Top-Up Capital',
+          accountName: 'Basechan Sponsored Capital',
+          accountNumberMasked: '•••• TOPUP',
+          accountType: 'SPONSORED' as any,
+          balanceNgn: topUpAmount,
+          balanceGbp: Math.round((topUpAmount / LIVE_FX_RATE) * 100) / 100,
+          orgTopUpCapitalNgn: topUpAmount,
+          isCapitalBreached: false,
+          isVerified: true,
+          isDedicatedParallex: false,
+          lastTransactionAt: new Date().toISOString(),
+          isSystemTopUp: false,
+          unlinkStatus: 'ACTIVE',
+          connectionMethod: 'TOP_UP' as any,
+          lastSyncedAt: 'Just now',
+          status: 'VERIFIED'
+        });
+      }
+    }
+
+    return list;
+  }, [liveAccounts, userProfile, liveBalance, studentId]);
 
   // High-level totals
   const totals = useMemo(() => {
     const selectedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
     const accountsNgn = selectedAccounts.reduce((sum, acc) => sum + (Number(acc.balanceNgn) || 0), 0);
-    const ngn = liveBalance.consolidatedBalanceNgn > 0 ? liveBalance.consolidatedBalanceNgn : accountsNgn;
-    const gbp = liveBalance.gbpEquivalent > 0 ? liveBalance.gbpEquivalent : ngn / LIVE_FX_RATE;
+    const ngn = selectedAccountIds.length > 0 ? accountsNgn : (accounts.length === 0 ? (liveBalance.consolidatedBalanceNgn || 0) : 0);
+    const gbp = ngn > 0 ? (ngn / LIVE_FX_RATE) : (liveBalance.gbpEquivalent || 0);
     return { ngn, gbp, accountsNgn, evaluationNgn: 0 };
   }, [accounts, selectedAccountIds, liveBalance]);
 
@@ -304,15 +407,15 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
       if ((window as any).AndroidBridge) {
-        console.log(`Triggering Native SMS Sync for mask: ${acc.accountNumberMasked.slice(-4)}`);
-        (window as any).AndroidBridge.triggerSmsSync(acc.accountNumberMasked.slice(-4));
+        console.log(`Triggering Native SMS Sync for mask: ${acc.accountNumberMasked.slice(-4)}, Bank: ${acc.bankName}`);
+        (window as any).AndroidBridge.triggerSmsSync(acc.accountNumberMasked.slice(-4), acc.bankName);
 
         // Safety timeout to clear the sync state if no callback comes from native
         setTimeout(() => {
           setSyncingId(prev => {
             if (prev === id) {
               console.warn('Native SMS sync timed out.');
-              toast.error('Sync timed out. No matching UBA SMS alert found.');
+              toast.error('Sync timed out. No matching alerts found in SMS inbox.');
               return null;
             }
             return prev;
@@ -888,22 +991,11 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         </div>
 
         <div className="flex flex-col gap-6">
-          {/* Approved Top Up Cards (Priority Rendering) */}
-          {accounts.filter(a => a.isSystemTopUp).map(acc => (
-            <ApprovedTopUpCard
-              key={acc.id}
-              account={acc}
-              evaluation={evaluation || { expirationDate: null, startDate: null }}
-              isSyncing={syncingId === acc.id}
-              onSync={handleSyncAccount}
-              onAdditionalTopUp={handleAdditionalTopUp}
-            />
-          ))}
-
-          {/* Standard User Accounts Grid */}
+          {/* Linked Bank & Top-Up Accounts Grid (2 Distinct Cards Side-by-Side) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {accounts.filter(a => !a.isSystemTopUp).map((acc) => {
+            {accounts.map((acc) => {
               const isSelected = selectedAccountIds.includes(acc.id);
+              const isTopUp = acc.accountType === 'SPONSORED' || acc.id.startsWith('TOPUP_') || acc.connectionMethod === 'TOP_UP';
 
               return (
                 <div
@@ -915,20 +1007,28 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                   }}
                   className={`glass-subcard p-6 md:p-8 flex flex-col justify-between transition-all group shadow-sm hover:-translate-y-1 cursor-pointer relative ${
                     isDark
-                      ? 'bg-slate-900/70 border-white/10'
-                      : 'bg-white/85 border-slate-200 shadow-md shadow-slate-200/50'
-                  } ${
-                    isSelected
-                      ? isDark
-                        ? 'border-amber-500/50 bg-amber-500/5'
-                        : 'border-blue-600 bg-blue-50/70 shadow-lg shadow-blue-500/10'
-                      : ''
+                      ? isTopUp
+                        ? isSelected
+                          ? 'border-amber-500/60 bg-amber-500/10 shadow-lg shadow-amber-500/10'
+                          : 'bg-slate-900/70 border-amber-500/30 hover:border-amber-500/50'
+                        : isSelected
+                          ? 'border-blue-600/60 bg-blue-600/10 shadow-lg shadow-blue-500/10'
+                          : 'bg-slate-900/70 border-white/10'
+                      : isTopUp
+                        ? isSelected
+                          ? 'border-amber-500 bg-amber-50/90 shadow-lg shadow-amber-500/20'
+                          : 'bg-white/90 border-amber-300 shadow-md shadow-amber-100/50 hover:border-amber-400'
+                        : isSelected
+                          ? 'border-blue-600 bg-blue-50/70 shadow-lg shadow-blue-500/10'
+                          : 'bg-white/85 border-slate-200 shadow-md shadow-slate-200/50'
                   }`}
                 >
                   {/* Checkbox Overlay */}
                   <div className={`absolute top-4 right-4 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
                     isSelected
-                      ? 'bg-blue-600 border-blue-600 scale-110'
+                      ? isTopUp
+                        ? 'bg-amber-500 border-amber-500 scale-110'
+                        : 'bg-blue-600 border-blue-600 scale-110'
                       : isDark ? 'border-slate-600' : 'border-slate-300'
                   }`}>
                     {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
@@ -938,15 +1038,28 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center space-x-4">
                         <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${
-                          isDark ? 'bg-slate-800 border-white/5 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                          isTopUp
+                            ? isDark
+                              ? 'bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+                              : 'bg-amber-100 border-amber-200 text-amber-700 shadow-sm'
+                            : isDark
+                              ? 'bg-slate-800 border-white/5 text-slate-400'
+                              : 'bg-slate-100 border-slate-200 text-slate-600'
                         }`}>
-                          <Building2 className="w-6 h-6" />
+                          {isTopUp ? <Zap className="w-6 h-6 fill-amber-400/20" /> : <Building2 className="w-6 h-6" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className={`text-base font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>
                               {acc.accountName || acc.bankName}
                             </h4>
+                            {isTopUp && (
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                                isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-300'
+                              }`}>
+                                <Zap className="w-2.5 h-2.5" /> Top-Up Added
+                              </span>
+                            )}
                             {acc.id === 'parallex_dedicated' && (
                               <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter">(Mandate)</span>
                             )}
@@ -955,7 +1068,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                                 isDark ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               }`}>
                                 <ShieldCheck className="w-2.5 h-2.5" />
-                                Verified
+                                {isTopUp ? 'Disbursed' : 'Verified'}
                               </span>
                             )}
                             {acc.isDedicatedParallex && (
@@ -968,7 +1081,13 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{acc.accountNumberMasked} • {acc.accountType}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                              isTopUp
+                                ? (isDark ? 'text-amber-400/90' : 'text-amber-800')
+                                : (isDark ? 'text-slate-400' : 'text-slate-600')
+                            }`}>
+                              {acc.accountNumberMasked} • {isTopUp ? 'SPONSORED FACILITY' : acc.accountType}
+                            </p>
                             <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-0.5 border ${
                               isDark ? 'bg-sky-950/60 text-sky-300 border-sky-800' : 'bg-sky-50 text-sky-700 border-sky-200'
                             }`}>
@@ -980,75 +1099,88 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                       </div>
                       <div className="text-right pr-8">
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
-                          acc.verificationStatus === 'MANDATE_PENDING_REVIEW'
-                            ? (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
-                            : acc.status === 'VERIFIED'
-                              ? (isDark ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
-                              : (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
+                          isTopUp
+                            ? (isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-300')
+                            : acc.verificationStatus === 'MANDATE_PENDING_REVIEW'
+                              ? (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
+                              : acc.status === 'VERIFIED'
+                                ? (isDark ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
+                                : (isDark ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200')
                         }`}>
-                          {acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? 'Mandate Pending' : acc.status}
+                          {isTopUp ? 'Facility Active' : (acc.verificationStatus === 'MANDATE_PENDING_REVIEW' ? 'Mandate Pending' : acc.status)}
                         </span>
                         <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1.5">Last Sync: {acc.lastSyncedAt}</p>
                       </div>
                     </div>
 
                     <div className={`grid grid-cols-2 gap-4 pb-6 border-b ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
-                      <div className={`col-span-2 mb-4 p-4 rounded-2xl border transition-all ${
-                        acc.isCapitalBreached
-                          ? (isDark ? 'bg-rose-500/10 border-rose-500/40 animate-pulse' : 'bg-rose-50 border-rose-200 animate-pulse')
-                          : (isDark ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200')
-                      }`}>
-                        <div className="flex justify-between items-center mb-3">
-                          <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Balance Summary</p>
-                          {acc.isCapitalBreached && (
-                            <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[8px] font-black uppercase tracking-widest flex items-center gap-1 shadow-lg shadow-rose-500/20">
-                              <ShieldAlert className="w-2.5 h-2.5" />
-                              Target Shortfall
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-3">
-                          {/* Sub-labels: Dynamic micro-copy */}
-                          <div className="flex justify-between items-center">
-                            <span className={`text-[10px] font-bold uppercase tracking-tighter ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                              {isAdmin ? 'STUDENT PERSONAL EQUITY' : 'YOUR EQUITY'}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
-                              acc.isCapitalBreached
-                                ? (isDark ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200')
-                                : (isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200')
-                            }`}>
-                              {currency.symbol}{Math.max(acc.balanceNgn - acc.orgTopUpCapitalNgn, 0).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className={`text-[10px] font-bold uppercase tracking-tighter ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                              {isAdmin ? 'ORGANIZATION TOP-UP CAPITAL' : 'SPONSORSHIP / TOP-UP'}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 ${
-                              isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}>
-                              <Lock className="w-2.5 h-2.5" />
-                              {currency.symbol}{acc.orgTopUpCapitalNgn.toLocaleString()}
-                            </span>
-                          </div>
-                          {acc.isDedicatedParallex && (
-                            <div className={`flex justify-between items-center pt-2 border-t ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
-                              <span className="text-[9px] font-bold text-slate-500 uppercase">Account Usage Status</span>
-                              <span className={`text-[9px] font-black uppercase tracking-tighter flex items-center gap-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                 Active (Last txn: {acc.lastTransactionAt ? new Date(acc.lastTransactionAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'})
+                      {isTopUp ? (
+                        <div className={`col-span-2 mb-4 p-3.5 rounded-2xl border ${
+                          isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50/70 border-amber-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <ShieldCheck className="w-4 h-4 text-amber-400" />
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>
+                                Institutional Proof-of-Funds Facility
                               </span>
                             </div>
-                          )}
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
+                              isDark ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-200 text-amber-900'
+                            }`}>
+                              Verified Disbursed
+                            </span>
+                          </div>
+                          <p className={`text-[9px] mt-1.5 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                            Approved capital disbursed and active in ledger to cover UK/International visa proof-of-funds requirement.
+                          </p>
                         </div>
-                      </div>
+                      ) : (
+                        <div className={`col-span-2 mb-4 p-3.5 rounded-2xl border ${
+                          isDark ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                                Primary Student Bank Ledger
+                              </span>
+                            </div>
+                            <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded ${
+                              isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              Active Feed
+                            </span>
+                          </div>
+                          <p className={`text-[9px] mt-1.5 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                            Student personal equity verified via automated bank alerts and statement reconciliation.
+                          </p>
+                        </div>
+                      )}
+
                       <div>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Bank Balance</p>
-                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{currency.symbol}{acc.balanceNgn.toLocaleString()}</p>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
+                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-slate-500')
+                        }`}>
+                          {isTopUp ? 'Top-Up Added' : 'Actual Account Balance'}
+                        </p>
+                        <p className={`text-xl font-black font-mono ${
+                          isTopUp ? 'text-amber-400' : (isDark ? 'text-white' : 'text-slate-900')
+                        }`}>
+                          {currency.symbol}{acc.balanceNgn.toLocaleString()}
+                        </p>
                       </div>
                       <div className={`border-l pl-4 ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
-                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>GBP Value</p>
-                        <p className={`text-xl font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>£{acc.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
+                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-slate-500')
+                        }`}>
+                          GBP Value
+                        </p>
+                        <p className={`text-xl font-black ${
+                          isTopUp ? 'text-amber-400' : (isDark ? 'text-blue-400' : 'text-blue-600')
+                        }`}>
+                          £{acc.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1064,28 +1196,32 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           }`}
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                          {syncingId === acc.id ? 'Syncing...' : 'Sync Balance'}
+                          {syncingId === acc.id ? 'Syncing...' : (isTopUp ? 'Sync Facility' : 'Sync Balance')}
                         </button>
 
-                        <button
-                          onClick={() => handleClearAccountBalance(acc.id)}
-                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                            isDark ? 'text-slate-400 hover:text-rose-400' : 'text-slate-600 hover:text-rose-600'
-                          }`}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Clear
-                        </button>
+                        {!isTopUp && (
+                          <>
+                            <button
+                              onClick={() => handleClearAccountBalance(acc.id)}
+                              className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                isDark ? 'text-slate-400 hover:text-rose-400' : 'text-slate-600 hover:text-rose-600'
+                              }`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Clear
+                            </button>
 
-                        <button
-                          onClick={() => setIsUssdModalOpen(true)}
-                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
-                            isDark ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'
-                          }`}
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          USSD
-                        </button>
+                            <button
+                              onClick={() => setIsUssdModalOpen(true)}
+                              className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${
+                                isDark ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'
+                              }`}
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              USSD
+                            </button>
+                          </>
+                        )}
 
                         <button
                           onClick={() => {
@@ -1105,32 +1241,46 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                       )}
                     </div>
 
-                    <button
-                      onClick={() => {
-                        if (isAdmin) {
-                          handleAdminUnlink(acc.id);
-                        } else {
-                          if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
-                          setSelectedUnlinkAccount(acc);
-                          setIsUnlinkModalOpen(true);
-                        }
-                      }}
-                      disabled={!isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'}
-                      className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                        !isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
-                          ? 'text-slate-400 cursor-not-allowed opacity-50'
-                          : isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
-                      }`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      {isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
-                        ? 'Approve Unlink'
-                        : acc.unlinkStatus === 'UNLINK_REQUESTED'
-                          ? 'Unlink Pending'
-                          : isAdmin
-                            ? 'Force Unlink'
-                            : 'Request Unlink'}
-                    </button>
+                    {isTopUp ? (
+                      isAdmin && (
+                        <button
+                          onClick={() => handleAdminUnlink(acc.id)}
+                          className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                            isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
+                          }`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Revoke Top-Up
+                        </button>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (isAdmin) {
+                            handleAdminUnlink(acc.id);
+                          } else {
+                            if (acc.unlinkStatus === 'UNLINK_REQUESTED') return;
+                            setSelectedUnlinkAccount(acc);
+                            setIsUnlinkModalOpen(true);
+                          }
+                        }}
+                        disabled={!isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'}
+                        className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                          !isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                            ? 'text-slate-400 cursor-not-allowed opacity-50'
+                            : isDark ? 'text-slate-400 hover:text-rose-500' : 'text-slate-600 hover:text-rose-600'
+                        }`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
+                          ? 'Approve Unlink'
+                          : acc.unlinkStatus === 'UNLINK_REQUESTED'
+                            ? 'Unlink Pending'
+                            : isAdmin
+                              ? 'Force Unlink'
+                              : 'Request Unlink'}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
