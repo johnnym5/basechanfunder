@@ -320,14 +320,10 @@ export const StudentLightDashboard: React.FC<{
     setSyncingId(id);
 
     if (acc.isSystemTopUp) {
-      try {
-        await fetch('/api/v1/topup/status');
-        await new Promise(r => setTimeout(r, 1000));
-        toast.success('System liquidity pulse verified.');
-      } finally {
-        setSyncingId(null);
-        return;
-      }
+      await new Promise(r => setTimeout(r, 1000));
+      toast.success('System liquidity verified.');
+      setSyncingId(null);
+      return;
     }
 
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {

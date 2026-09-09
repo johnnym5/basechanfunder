@@ -43,7 +43,6 @@ import { toast } from 'sonner';
 // --- Constants & Types ---
 
 const TOP_LEVEL_COLLECTIONS = [
-  'firebase_auth', // Virtual collection for Auth users
   'users',
   'financial_accounts',
   'pof_evaluations',
@@ -278,48 +277,8 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
       setLoading(false);
     });
 
-    if (activeCollection === 'users') {
-      fetchAuthUsers();
-    }
-
     return unsub;
   }, [activeCollection]);
-
-  const fetchAuthUsersAsDocs = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/v1/admin/auth/users');
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = data.map((u: any) => ({
-          id: u.uid,
-          label: `${u.email} (${u.displayName || 'No Name'})`,
-          data: u
-        }));
-        setDocuments(mapped);
-        setAuthUsers(data);
-      }
-    } catch (err) {
-      console.error("Auth fetch failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAuthUsers = async () => {
-    setLoadingAuth(true);
-    try {
-      const res = await fetch('/api/v1/admin/auth/users');
-      if (res.ok) {
-        const data = await res.json();
-        setAuthUsers(data);
-      }
-    } catch (err) {
-      console.error("Auth fetch failed:", err);
-    } finally {
-      setLoadingAuth(false);
-    }
-  };
 
   const filteredDocs = useMemo(() => {
     const q = searchTerm.toLowerCase();
@@ -398,24 +357,12 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
     const batch = writeBatch(db);
 
     try {
-      if (activeCollection === 'users' || activeCollection === 'firebase_auth') {
-        const deleteAuthPromises = selectedDocIds.map(uid =>
-          fetch(`/api/v1/admin/auth/users/${uid}`, { method: 'DELETE' })
-            .catch(err => console.error(`Failed to delete auth user ${uid}`, err))
-        );
-        await Promise.all(deleteAuthPromises);
-      }
-
-      if (activeCollection === 'firebase_auth') {
-        selectedDocIds.forEach(id => { batch.delete(doc(db, 'users', id)); });
-        await batch.commit();
-      } else {
-        selectedDocIds.forEach(id => { batch.delete(doc(db, activeCollection!, id)); });
-        await batch.commit();
-      }
+      selectedDocIds.forEach(id => {
+        batch.delete(doc(db, activeCollection!, id));
+      });
+      await batch.commit();
 
       setSelectedDocIds([]);
-      if (activeCollection === 'firebase_auth') fetchAuthUsersAsDocs();
       toast.success(`${selectedDocIds.length} items deleted from system`);
     } catch (err: any) {
       toast.error(err.message);
@@ -797,9 +744,6 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-black text-main dark:text-white uppercase tracking-tighter truncate">{selectedDoc.label}</h2>
-                  {activeCollection === 'users' && authUsers.find(au => au.uid === selectedDoc.id) && (
-                    <span className="px-2 py-0.5 rounded bg-blue-600 text-[8px] font-black uppercase">Auth Synced</span>
-                  )}
                 </div>
                 <p className="text-[10px] font-mono text-slate-500 uppercase truncate mt-1">Cloud Path: {activeCollection}/{selectedDoc.id}</p>
               </div>
@@ -812,53 +756,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
           </header>
 
           <div className="flex-1 overflow-y-auto no-scrollbar pb-20 min-h-0 touch-pan-y">
-            {activeCollection === 'users' && (
-              <div className="mx-8 mt-6 p-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 space-y-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-blue-500" />
-                  <h4 className="text-xs font-black uppercase tracking-widest text-blue-400">Firebase Auth Identity</h4>
-                </div>
-                {loadingAuth ? (
-                   <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                     <Loader2 className="w-3 h-3 animate-spin" /> Fetching Auth Cluster...
-                   </div>
-                ) : authUsers.find(au => au.uid === selectedDoc.id) ? (() => {
-                  const au = authUsers.find(au => au.uid === selectedDoc.id);
-                  return (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      <div>
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Auth Email</p>
-                        <p className="text-[11px] font-bold text-white truncate">{au.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Providers</p>
-                        <div className="flex gap-1 mt-1">
-                          {au.providers.map((p: string) => (
-                            <span key={p} className="px-1.5 py-0.5 rounded bg-white/5 text-[7px] font-black uppercase">{p}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Created</p>
-                        <p className="text-[11px] font-bold text-white">{new Date(au.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Last Login</p>
-                        <p className="text-[11px] font-bold text-white">{au.lastLoginAt ? new Date(au.lastLoginAt).toLocaleDateString() : 'Never'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Auth Status</p>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${au.disabled ? 'bg-rose-500/20 text-rose-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
-                          {au.disabled ? 'Disabled' : 'Enabled'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <p className="text-[10px] text-rose-500 font-bold uppercase italic">Warning: No matching record in Firebase Auth system.</p>
-                )}
-              </div>
-            )}
+            <div className="mx-8 mt-6">
             {selectedDoc && Object.entries(selectedDoc.data)
               .sort(([ka], [kb]) => {
                 const core = ['uid', 'userId', 'email', 'role', 'createdAt', 'updatedAt'];
@@ -876,6 +774,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
                   onDelete={() => handleDeleteField(key)}
                 />
             ))}
+            </div>
           </div>
         </div>
       )}

@@ -167,15 +167,41 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
       }
 
       if (requestType === 'TOP_UP') {
-        const result = await submitTopUpPaymentClaim({
+        const requestId = `TOPUP_${Date.now()}`;
+
+        // 1. Create Top-Up Claim Document
+        await setDoc(doc(db, 'topup_requests', requestId), {
+          requestId,
           userId: currentUser.uid,
-          topUpAmountNgn: amount,
-          serviceFeeNgn: calculatedFee,
+          userName: appUser?.displayName || 'Student',
+          userEmail: currentUser.email,
+          topUpAmountNgn: Number(amount),
+          serviceFeeNgn: Number(calculatedFee),
           paymentReference: paymentRef,
-          accountNumber: evaluation?.accountNumber || ''
+          status: 'PENDING_ADMIN_VERIFICATION',
+          createdAt: new Date().toISOString(),
+          updatedAt: serverTimestamp()
         });
 
-        if (result.success === false) throw new Error(result.error);
+        // 2. Atomic Status Update on Student Document
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          status: 'TOPUP_PENDING',
+          topUpStatus: 'REQUEST_PENDING',
+          hasPendingTopUp: true,
+          activeTopUpRequestId: requestId,
+          setupCompleted: true,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        // 3. System Notification
+        await addDoc(collection(db, 'notifications'), {
+          userId: currentUser.uid,
+          title: 'Top-Up Claim Logged',
+          message: `Your claim for ₦${amount.toLocaleString()} is awaiting verification.`,
+          type: 'INFO',
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
       } else {
         await addDoc(collection(db, 'liquidity_requests'), {
           userId: currentUser.uid,

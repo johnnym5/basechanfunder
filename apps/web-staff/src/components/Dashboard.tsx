@@ -843,21 +843,18 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         try {
           const uid = selectedStudent.userId || selectedStudent.id;
 
-          // Use the backend Soft-Archive endpoint
-          const response = await fetch(`/api/v1/admin/users/${uid}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
+          // Perform Soft-Archive directly via Firestore
+          await updateDoc(doc(db, 'users', uid), {
+            status: 'DELETED',
+            isArchived: true,
+            hardDeleted: true,
+            archivedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
 
-          const result = await response.json();
-
-          if (result.success || result.status === 'SUCCESS') {
-            toast.success('Student archived and access revoked.', { id: t });
-            setSelectedStudent(null);
-            setIsProfileDrawerOpen(false);
-          } else {
-            throw new Error(result.message || 'Archive failed');
-          }
+          toast.success('Student archived and access revoked.', { id: t });
+          setSelectedStudent(null);
+          setIsProfileDrawerOpen(false);
         } catch (err: any) {
           toast.error('Operation failed: ' + err.message, { id: t });
         } finally {

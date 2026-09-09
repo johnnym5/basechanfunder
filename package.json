@@ -2,12 +2,16 @@
   "name": "basechanfunder-root",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n \"SERVER,STAFF-WEB\" -c \"blue,emerald\" \"npm run dev --workspace=@basechanfunder/server\" \"npm run dev --workspace=@basechanfunder/web-staff\"",
+    "dev": "npm run dev --workspace=@basechanfunder/web-staff",
     "admin": "npm run dev --workspace=@basechanfunder/web-admin",
-    "deploy:rules": "firebase deploy --only storage"
+    "build": "npm run build --workspace=@basechanfunder/web-staff",
+    "deploy:rules": "firebase deploy --only storage,firestore:rules",
+    "deploy:hosting": "firebase deploy --only hosting"
   },
   "workspaces": [
-    "apps/*",
+    "apps/web-staff",
+    "apps/web-admin",
+    "apps/mobile-android",
     "services/*"
   ],
   "devDependencies": {

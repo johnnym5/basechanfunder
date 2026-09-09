@@ -26,6 +26,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTheme } from '../context/ThemeContext';
 import { StorageUsageBar } from './ui/StorageUsageBar';
+import { ref, listAll, getMetadata, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
+import { storage, db } from '../firebase';
 
 interface StorageItem {
   name: string;
@@ -49,15 +52,45 @@ export const StorageExplorer: React.FC = () => {
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const updateMetrics = async (bytesChange: number) => {
+    const metricsRef = doc(db, 'system', 'storage_metrics');
+    try {
+      await updateDoc(metricsRef, {
+        totalBytesUsed: increment(bytesChange)
+      });
+    } catch (e) {
+      // If doc doesn't exist, initialize it
+      await setDoc(metricsRef, { totalBytesUsed: Math.max(0, bytesChange) }, { merge: true });
+    }
+  };
+
   const fetchItems = async (prefix: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/admin/storage/list?prefix=${encodeURIComponent(prefix)}`);
-      if (!res.ok) throw new Error('Failed to fetch storage items');
-      const data = await res.json();
+      const storageRef = ref(storage, prefix);
+      const res = await listAll(storageRef);
+
+      const folders = res.prefixes.map(p => ({
+        name: p.name + '/',
+        path: p.fullPath + '/',
+        type: 'folder'
+      }));
+
+      const fileItems = await Promise.all(res.items.map(async (item) => {
+        const metadata = await getMetadata(item);
+        return {
+          name: item.name,
+          path: item.fullPath,
+          size: metadata.size,
+          type: metadata.contentType || 'application/octet-stream',
+          updated: metadata.updated,
+          isImage: (metadata.contentType || '').startsWith('image/')
+        };
+      }));
+
       setItems({
-        folders: data.folders || [],
-        files: data.files || []
+        folders,
+        files: fileItems
       });
       setSelectedPaths([]);
     } catch (err) {
@@ -104,17 +137,17 @@ export const StorageExplorer: React.FC = () => {
 
     const t = toast.loading(`Deleting ${selectedPaths.length} items...`);
     try {
-      const res = await fetch('/api/v1/admin/storage/batch-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths: selectedPaths })
-      });
-      if (res.ok) {
-        toast.success('Items deleted successfully', { id: t });
-        fetchItems(currentPrefix);
-      } else {
-        throw new Error();
-      }
+      let totalBytesDeleted = 0;
+      await Promise.all(selectedPaths.map(async (path) => {
+        const fileRef = ref(storage, path);
+        const metadata = await getMetadata(fileRef);
+        totalBytesDeleted += metadata.size;
+        await deleteObject(fileRef);
+      }));
+
+      await updateMetrics(-totalBytesDeleted);
+      toast.success('Items deleted successfully', { id: t });
+      fetchItems(currentPrefix);
     } catch (err) {
       toast.error('Deletion failed', { id: t });
     }
@@ -124,8 +157,8 @@ export const StorageExplorer: React.FC = () => {
     setPreviewItem(item);
     setLoadingUrl(true);
     try {
-      const res = await fetch(`/api/v1/admin/storage/url?path=${encodeURIComponent(item.path)}`);
-      const { url } = await res.json();
+      const fileRef = ref(storage, item.path);
+      const url = await getDownloadURL(fileRef);
       setPreviewUrl(url);
     } catch (err) {
       toast.error('Failed to get preview URL');
@@ -140,23 +173,18 @@ export const StorageExplorer: React.FC = () => {
 
     setUploading(true);
     const t = toast.loading(`Uploading ${files.length} files...`);
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
-    }
-    formData.append('prefix', currentPrefix);
 
     try {
-      const res = await fetch('/api/v1/admin/storage/upload', {
-        method: 'POST',
-        body: formData
-      });
-      if (res.ok) {
-        toast.success('Upload complete', { id: t });
-        fetchItems(currentPrefix);
-      } else {
-        throw new Error();
-      }
+      let totalBytesUploaded = 0;
+      await Promise.all(Array.from(files).map(async (file) => {
+        const storageRef = ref(storage, currentPrefix + file.name);
+        await uploadBytes(storageRef, file);
+        totalBytesUploaded += file.size;
+      }));
+
+      await updateMetrics(totalBytesUploaded);
+      toast.success('Upload complete', { id: t });
+      fetchItems(currentPrefix);
     } catch (err) {
       toast.error('Upload failed', { id: t });
     } finally {

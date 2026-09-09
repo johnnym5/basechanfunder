@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldAlert, HardDrive, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface StorageMetrics {
   usedBytes: number;
@@ -12,23 +14,31 @@ export const StorageUsageBar: React.FC = () => {
   const [metrics, setMetrics] = useState<StorageMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchMetrics = async () => {
-    try {
-      const res = await fetch('/api/v1/admin/storage/metrics');
-      const data = await res.json();
-      setMetrics(data);
-    } catch (err) {
-      console.error('Failed to fetch storage metrics:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchMetrics();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchMetrics, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const unsub = onSnapshot(doc(db, 'system', 'storage_metrics'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const usedBytes = data.totalBytesUsed || 0;
+        const limitBytes = 1073741824; // 1 GB
+        const usagePercentage = Math.round((usedBytes / limitBytes) * 10000) / 100;
+
+        setMetrics({
+          usedBytes,
+          limitBytes,
+          usagePercentage
+        });
+      } else {
+        // Default empty state
+        setMetrics({
+          usedBytes: 0,
+          limitBytes: 1073741824,
+          usagePercentage: 0
+        });
+      }
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, []);
 
   if (loading) {

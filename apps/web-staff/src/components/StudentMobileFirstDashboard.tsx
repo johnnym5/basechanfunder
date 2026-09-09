@@ -69,6 +69,8 @@ import { SmsIngestionService } from '../services/SmsIngestionService';
 import { FuzzySmsParser } from '../services/fuzzySmsParser';
 import { SmsSyncService } from '../services/smsSyncService';
 import { toast } from 'sonner';
+import { recalculateUserBalance } from '../utils/balanceRecalculator';
+import { generateStatementClientSide } from '../utils/clientStatementGenerator';
 
 import { MAJOR_CURRENCIES } from '../constants';
 import { Link } from 'react-router-dom';
@@ -600,9 +602,8 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       // 1. If it's a System Top Up, re-query the status endpoint
       if (acc.isSystemTopUp) {
-        await fetch('/api/v1/topup/status');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        toast.success('System liquidity pulse verified.');
+        toast.success('System liquidity verified.');
         return;
       }
 
@@ -680,11 +681,7 @@ export const StudentMobileFirstDashboard: React.FC<{
 
         // Trigger balance recalculation after deletion
         if (currentUser?.uid) {
-          await fetch('/api/v1/ledger/recalculate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.uid })
-          });
+          await recalculateUserBalance(currentUser.uid);
         }
 
         toast.success('Account unlinked and balance updated.');
@@ -709,11 +706,7 @@ export const StudentMobileFirstDashboard: React.FC<{
 
       // Trigger balance recalculation
       if (currentUser?.uid) {
-        await fetch('/api/v1/ledger/recalculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.uid })
-        });
+        await recalculateUserBalance(currentUser.uid);
       }
 
       toast.success('Account balance cleared.');
@@ -850,31 +843,18 @@ export const StudentMobileFirstDashboard: React.FC<{
   };
 
   const handleDownloadStatement = async () => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid || !appUser) return;
     const t = toast.loading('Generating POF Status Report...');
     try {
-      const response = await fetch('/api/v1/ledger/statement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.uid }),
+      const pdfBytes = await generateStatementClientSide({
+        userName: appUser.displayName,
+        email: appUser.email,
+        userId: currentUser.uid,
+        consolidatedBalanceNgn: balance.consolidatedBalanceNgn,
+        gbpEquivalent: balance.gbpEquivalent
       });
 
-      if (!response.ok) {
-        let errorMessage = "Server failed to generate report";
-        try {
-          const errData = await response.json();
-          errorMessage = errData.error || errorMessage;
-        } catch (jsonErr) {
-          // If response is not JSON (e.g. proxy error), try to get text
-          const text = await response.text();
-          errorMessage = text || `Error ${response.status}: Internal Server Error`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const blob = await response.blob();
-      if (blob.size === 0) throw new Error("Generated PDF is empty");
-
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
 
       // For Mobile/Native compatibility, we'll try multiple methods

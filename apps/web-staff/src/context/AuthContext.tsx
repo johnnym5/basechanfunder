@@ -112,13 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 2. Setup real-time listener for user profile
           const userRef = doc(db, 'users', firebaseUser.uid);
 
-          // 2b. Sync Claims with Backend (Fire and forget or check result)
-          fetch('/api/v1/auth/sync-claims', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, email: firebaseUser.email })
-          }).catch(err => console.warn("Claims sync deferred:", err));
-
           profileUnsub = onSnapshot(userRef, async (snap) => {
             if (snap.exists()) {
               const data = snap.data() as any;

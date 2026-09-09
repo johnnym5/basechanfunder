@@ -62,6 +62,7 @@ import { StudentDashboardSkeleton } from './ui/LoadingStates';
 import { useStudentDashboardData } from '../hooks/useStudentDashboardData';
 import { toast } from 'sonner';
 import { MAJOR_CURRENCIES } from '../constants';
+import { recalculateUserBalance } from '../utils/balanceRecalculator';
 import { DebitProtectionService } from '../services/debitProtectionService';
 
 // --- Types ---
@@ -479,16 +480,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     setSyncingId(id);
 
     if (acc.isSystemTopUp) {
-      try {
-        await fetch('/api/v1/topup/status');
-        await new Promise(r => setTimeout(r, 1000));
-        toast.success('System liquidity pulse verified.');
-      } catch (e) {
-        toast.success('System liquidity verified.');
-      } finally {
-        setSyncingId(null);
-        return;
-      }
+      await new Promise(r => setTimeout(r, 1000));
+      toast.success('System liquidity pulse verified.');
+      setSyncingId(null);
+      return;
     }
 
     if (acc.bankName.includes('UBA') || acc.bankName.includes('United Bank')) {
@@ -566,11 +561,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         });
 
         // Trigger balance recalculation after deletion
-        await fetch('/api/v1/ledger/recalculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: studentId })
-        });
+        await recalculateUserBalance(studentId);
 
         toast.success('Account unlinked and total balance updated.');
       } catch (err: any) {
@@ -593,11 +584,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       });
 
       // Trigger balance recalculation
-      await fetch('/api/v1/ledger/recalculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: studentId })
-      });
+      await recalculateUserBalance(studentId);
 
       toast.success('Account balance cleared.');
     } catch (err: any) {

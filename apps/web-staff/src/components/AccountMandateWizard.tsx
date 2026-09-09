@@ -11,6 +11,10 @@ import { MandateSignatureUpload } from './MandateSignatureUpload';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { FormConsent } from './ui/FormConsent';
+import { generateMandateOverlayClientSide, stampMandateTemplate } from '../utils/clientMandateGenerator';
+import { compileStudentPackageClientSide } from '../utils/clientPdfCompiler';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface AccountMandateWizardProps {
   isOpen: boolean;
@@ -83,23 +87,13 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
     if (!currentUser) return;
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/v1/mandate/generate-overlay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ...formData,
-            userId: currentUser.uid,
-            passportPhotoBase64: files.passport_photo
-        }),
+      const url = await generateMandateOverlayClientSide({
+        ...formData,
+        userId: currentUser.uid,
+        passportPhotoBase64: files.passport_photo
       });
-
-      const result = await response.json();
-      if (result.status === 'SUCCESS') {
-        setOverlayUrl(result.downloadUrl);
-        toast.success("Precise overlay generated! You can now preview and print.");
-      } else {
-        throw new Error(result.message);
-      }
+      setOverlayUrl(url);
+      toast.success("Precise overlay generated! You can now preview and print.");
     } catch (e: any) {
       toast.error("Overlay generation failed: " + e.message);
     } finally {
@@ -110,15 +104,12 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
   const downloadDraft = async () => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/v1/mandate/generate-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, passportPhotoBase64: files.passport_photo }),
+      const pdfBytes = await stampMandateTemplate('/templates/Upgrade_Form.pdf', {
+        ...formData,
+        passportPhotoBase64: files.passport_photo
       });
 
-      if (!response.ok) throw new Error("Failed to generate PDF");
-
-      const blob = await response.blob();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -137,30 +128,24 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
   const submitFinalPackage = async () => {
     if (!currentUser) return;
     setIsSubmitting(true);
+    const t = toast.loading('Compiling regulatory package...');
     try {
-      const response = await fetch('/api/v1/mandate/submit-package', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.uid,
-          signedMandateBase64: signedMandate,
-          mandateData: formData,
-          supportingDocs: [
-            files.id_data_page,
-            files.utility_bill,
-            files.nin_doc,
-            files.bvn_doc
-          ]
-        }),
-      });
+      const filesToCompile = [
+        { id: 'signed_upgrade_form', value: signedMandate!, fileType: 'image/jpeg', fileName: 'signed_mandate.jpg' },
+        { id: 'passport_photo', value: files.passport_photo, fileType: 'image/jpeg', fileName: 'passport.jpg' },
+        { id: 'id_data_page', value: files.id_data_page, fileType: 'image/jpeg', fileName: 'id_page.jpg' },
+        { id: 'utility_bill', value: files.utility_bill, fileType: 'image/jpeg', fileName: 'utility.jpg' },
+        { id: 'nin_doc', value: files.nin_doc, fileType: 'image/jpeg', fileName: 'nin.jpg' },
+        { id: 'bvn_doc', value: files.bvn_doc, fileType: 'image/jpeg', fileName: 'bvn.jpg' }
+      ];
 
-      if (!response.ok) throw new Error("Submission failed");
+      await compileStudentPackageClientSide(currentUser.uid, filesToCompile);
 
-      toast.success("Mandate package submitted successfully! Awaiting regulatory review.");
+      toast.success("Mandate package submitted successfully! Awaiting regulatory review.", { id: t });
       if (onComplete) onComplete();
       onClose();
     } catch (e) {
-      toast.error("Final submission failed.");
+      toast.error("Final submission failed.", { id: t });
     } finally {
       setIsSubmitting(false);
     }

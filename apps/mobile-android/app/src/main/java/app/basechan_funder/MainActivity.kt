@@ -272,8 +272,6 @@ class MainActivity : ComponentActivity() {
                 val result = scanInboxForBankBalance(mask, bankName)
                 if (result != null) {
                     updateSmsBalance(result.balance, result.mask, result.timestamp)
-                    // Requirement: Post to backend
-                    postSmsSyncToBackend(result)
                 } else {
                     webView.post {
                         webView.evaluateJavascript("window.onSmsSyncFailed?.('$mask', 'NOT_FOUND')", null)
@@ -362,37 +360,6 @@ class MainActivity : ComponentActivity() {
             sender.contains("Kuda", true) -> "Kuda MFB"
             else -> null
         }
-    }
-
-    private fun postSmsSyncToBackend(result: SmsScanResult) {
-        // Implementation for posting to /api/v1/accounts/sms-sync
-        // Using a simple thread for demo purposes
-        Thread {
-            try {
-                val url = Uri.parse("http://10.0.2.2:3000/api/v1/accounts/sms-sync") // Emulator localhost
-                val connection = java.net.URL(url.toString()).openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.doOutput = true
-
-                val jsonPayload = """
-                    {
-                        "accountMask": "${result.mask}",
-                        "balanceNgn": ${result.balance},
-                        "bankName": "${result.bankName}",
-                        "source": "SMS_INGESTION",
-                        "timestamp": "${java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date(result.timestamp))}"
-                    }
-                """.trimIndent()
-
-                connection.outputStream.write(jsonPayload.toByteArray())
-                val responseCode = connection.responseCode
-                Log.d("MainActivity", "Backend Post Status: $responseCode")
-                connection.disconnect()
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to post SMS sync to backend", e)
-            }
-        }.start()
     }
 
     fun updateSmsBalance(balance: Double, mask: String, timestamp: Long) {

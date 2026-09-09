@@ -9,7 +9,8 @@ import {
   XCircle
 } from 'lucide-react';
 import { getPlatformType } from '../utils/deviceDetection';
-import { useNotificationModal } from '../context/NotificationContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface AppVersionInfo {
   version: string;
@@ -33,10 +34,10 @@ export const AppUpdateModal: React.FC = () => {
 
     const checkVersion = async () => {
       try {
-        const response = await fetch('/api/v1/app/latest-version');
-        if (!response.ok) return;
+        const snap = await getDoc(doc(db, 'system_config', 'app_version'));
+        if (!snap.exists()) return;
 
-        const data = await response.json();
+        const data = snap.data() as AppVersionInfo;
 
         // Get current version from bridge
         let currentVersionCode = 0;

@@ -10,7 +10,8 @@ import {
   serverTimestamp,
   addDoc,
   deleteDoc,
-  limit
+  limit,
+  runTransaction
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -135,30 +136,65 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const handleApproveRequest = async () => {
     if (!activeRequest || !studentId) return;
     setIsSubmitting(true);
+    const t = toast.loading('Synchronizing Dual-Ledger Facility...');
     try {
-        const response = await fetch('/api/v1/topup/approve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                requestId: activeRequest.id,
-                userId: studentId,
-                approvedCapitalNgn: modifiedCapital,
-                adminServiceFeeNgn: Math.round(modifiedCapital * (pricingForm.feePercentage / 100))
-            })
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', studentId);
+        const requestRef = doc(db, 'topup_requests', activeRequest.id);
+        const facilityRef = doc(db, 'financial_accounts', `TOPUP_${studentId}`);
+
+        // 1. Update Request Status
+        transaction.update(requestRef, {
+          status: 'APPROVED',
+          approvedAt: serverTimestamp(),
+          approvedCapitalNgn: modifiedCapital,
+          adminServiceFeeNgn: Math.round(modifiedCapital * (pricingForm.feePercentage / 100))
         });
 
-        const result = await response.json();
-        if (result.status === 'SUCCESS') {
-            toast.success('Top-Up approved successfully!');
-            setIsOverrideModalOpen(false);
-            setIsModifying(false);
-        } else {
-            throw new Error(result.message);
+        // 2. Initialize or Update Top-Up Facility
+        const LIVE_FX_RATE = 1945.50;
+        transaction.set(facilityRef, {
+          userId: studentId,
+          accountName: 'Basechan Sponsored Capital',
+          bankName: 'Organization Top-Up Capital',
+          accountNumberMasked: '•••• TOPUP',
+          accountType: 'SPONSORED',
+          balanceNgn: modifiedCapital,
+          balanceGbp: Math.round((modifiedCapital / LIVE_FX_RATE) * 100) / 100,
+          status: 'VERIFIED',
+          isVerified: true,
+          connectionMethod: 'TOP_UP',
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        // 3. Update Student Root Record
+        transaction.update(userRef, {
+          status: 'CLEARED',
+          topUpStatus: 'APPROVED',
+          hasPendingTopUp: false,
+          isApproved: true,
+          updatedAt: serverTimestamp()
+        });
+
+        // 4. Update Evaluation if exists
+        const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', studentId));
+        const evalSnap = await getDocs(evalQ);
+        if (!evalSnap.empty) {
+          transaction.update(evalSnap.docs[0].ref, {
+            status: 'CLEARED',
+            isApproved: true,
+            updatedAt: serverTimestamp()
+          });
         }
+      });
+
+      toast.success('Top-Up approved successfully!', { id: t });
+      setIsOverrideModalOpen(false);
+      setIsModifying(false);
     } catch (err: any) {
-        toast.error(<TroubleshootingToast message={err.message} />);
+      toast.error('Transaction failed: ' + err.message, { id: t });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -168,28 +204,32 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
     if (reason === null) return; // Cancelled
 
     setIsSubmitting(true);
+    const t = toast.loading('Denying claim...');
     try {
-        const response = await fetch('/api/v1/topup/deny', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                requestId: activeRequest.id,
-                userId: studentId,
-                rejectionReason: reason || 'Information mismatch'
-            })
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', studentId);
+        const requestRef = doc(db, 'topup_requests', activeRequest.id);
+
+        transaction.update(requestRef, {
+          status: 'REJECTED',
+          rejectionReason: reason || 'Information mismatch',
+          rejectedAt: serverTimestamp()
         });
 
-        const result = await response.json();
-        if (result.status === 'SUCCESS') {
-            toast.success('Request denied.');
-            setIsOverrideModalOpen(false);
-        } else {
-            throw new Error(result.message);
-        }
+        transaction.update(userRef, {
+          topUpStatus: 'REJECTED',
+          hasPendingTopUp: false,
+          status: 'ACTION_REQUIRED',
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      toast.success('Request denied.', { id: t });
+      setIsOverrideModalOpen(false);
     } catch (err: any) {
-        toast.error(<TroubleshootingToast message={err.message} />);
+      toast.error('Failed: ' + err.message, { id: t });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 

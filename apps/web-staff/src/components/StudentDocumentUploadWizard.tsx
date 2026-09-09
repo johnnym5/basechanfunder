@@ -24,6 +24,7 @@ import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from 'sonner';
+import { compileStudentPackageClientSide } from '../utils/clientPdfCompiler';
 
 interface RequirementItem {
   id: string;
@@ -77,14 +78,10 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
   const handleDownloadTemplate = async () => {
     const t = toast.loading('Connecting to compliance engine...');
     try {
-      let res = await fetch('/api/v1/mandate/template/upgrade-form');
+      const response = await fetch('/templates/Upgrade_Form.pdf');
 
-      if (!res.ok && window.location.hostname === 'localhost') {
-         res = await fetch('http://localhost:3000/api/v1/mandate/template/upgrade-form');
-      }
-
-      if (!res.ok) throw new Error(`Template not found (Error ${res.status})`);
-      const blob = await res.blob();
+      if (!response.ok) throw new Error(`Template not found (Error ${response.status})`);
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -112,28 +109,20 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
         'bvn_doc'
       ];
 
-      const supportingDocs = await Promise.all(
-        requiredIds.map(async (id) => {
-          const sub = submissions[id];
-          if (!sub || !sub.value) throw new Error(`Missing ${id.replace(/_/g, ' ')}`);
-          const base64 = await fetchBase64(sub.value);
-          return { id, base64, fileType: sub.fileType || 'image/jpeg' };
-        })
-      );
-
-      const response = await fetch('/api/v1/mandate/compile-package', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.uid,
-          supportingDocs
-        }),
+      const filesToCompile = requiredIds.map(id => {
+        const sub = submissions[id];
+        if (!sub || !sub.value) throw new Error(`Missing ${id.replace(/_/g, ' ')}`);
+        return {
+          id,
+          value: sub.value,
+          fileType: sub.fileType,
+          fileName: sub.fileName
+        };
       });
 
-      if (!response.ok) throw new Error("Assembly pipeline failed");
-      const result = await response.json();
+      const downloadUrl = await compileStudentPackageClientSide(currentUser.uid, filesToCompile);
 
-      setCompiledPdfUrl(result.url);
+      setCompiledPdfUrl(downloadUrl);
       toast.success("Master package compiled successfully!", { id: t });
       setCurrentStage(5);
     } catch (e: any) {

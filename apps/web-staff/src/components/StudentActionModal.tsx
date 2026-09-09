@@ -80,26 +80,25 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
 
   const handleDelete = async () => {
     setIsSubmitting(true);
-    const t = toast.loading(`Deleting records for ${student.name}...`);
+    const t = toast.loading(`Archiving records for ${student.name}...`);
     try {
-      const uid = student.userId;
+      const uid = student.userId || student.id;
 
-      // 1. Call Backend Hard Delete
-      const res = await fetch(`/api/v1/admin/users/${uid}`, {
-        method: 'DELETE'
+      // Direct Firestore Soft-Archive
+      await updateDoc(doc(db, 'users', uid), {
+        status: 'DELETED',
+        isArchived: true,
+        hardDeleted: true,
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Server failed to delete user');
-      }
-
-      toast.success('Student records successfully deleted', { id: t });
+      toast.success('Student records successfully archived', { id: t });
       onSuccess();
       onClose();
     } catch (e: any) {
       console.error('Delete error:', e);
-      toast.error(`Delete failed: ${e.message}`, { id: t });
+      toast.error(`Archive failed: ${e.message}`, { id: t });
     } finally {
       setIsSubmitting(false);
     }

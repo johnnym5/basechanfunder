@@ -397,14 +397,14 @@ export const StudentOnboardingWizard: React.FC<Props> = ({ onComplete }) => {
         }
       } else {
         try {
-          await fetch('/api/v1/support/ingestion-failure', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: currentUser?.uid,
-              bankName: profile.hasParallexAccount ? 'Parallex Bank' : profile.bankName,
-              accountNumber: profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber,
-            }),
+          await addDoc(collection(db, 'support_tickets'), {
+            userId: currentUser?.uid,
+            studentName: profile.firstName + ' ' + profile.lastName,
+            type: 'INGESTION_FAILURE',
+            bankName: profile.hasParallexAccount ? 'Parallex Bank' : profile.bankName,
+            accountNumber: profile.hasParallexAccount ? profile.parallexAccountNumber : profile.accountNumber,
+            status: 'OPEN',
+            createdAt: serverTimestamp()
           });
         } catch {
           // Ignored

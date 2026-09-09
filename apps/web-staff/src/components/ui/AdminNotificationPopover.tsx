@@ -133,18 +133,34 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch('/api/v1/admin/notifications/inactivity-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: notif.userId,
-          notificationId: notif.id,
-          action
-        })
+      if (action === 'DELETE') {
+        // reuse the cascading delete logic client-side
+        await updateDoc(doc(db, 'users', notif.userId), {
+          status: 'DELETED',
+          isArchived: true,
+          hardDeleted: true,
+          archivedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        const userRef = doc(db, 'users', notif.userId);
+        const userSnap = await getDoc(userRef);
+        const currentLevel = userSnap.data()?.inactivityReminderLevel || 30;
+        await updateDoc(userRef, {
+          inactivityReminderLevel: currentLevel === 30 ? 60 : 90,
+          lastInactivityAction: 'LEAVE',
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // Mark notification as read and processed
+      await updateDoc(doc(db, 'notifications', notif.id), {
+        isRead: true,
+        actionTaken: action,
+        updatedAt: serverTimestamp()
       });
 
-      if (!res.ok) throw new Error("Action failed");
-      toast.success(action === 'DELETE' ? 'User records purged' : 'Reminder scheduled');
+      toast.success(action === 'DELETE' ? 'User records archived' : 'Reminder scheduled');
     } catch (e) {
       toast.error("Failed to process inactivity action");
     }

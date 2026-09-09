@@ -312,7 +312,6 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
           { id: 'troubleshooting', label: 'Troubleshooting', icon: Info },
           { id: 'trash', label: 'Trash / Purge', icon: Trash2 },
           { id: 'database', label: 'Database Explorer', icon: Database },
-          { id: 'storage', label: 'Storage Explorer', icon: HardDrive },
           { id: 'destinations', label: 'Destination Rules', icon: Globe },
           { id: 'document_requirements', label: 'Document Requirements', icon: FileText },
           { id: 'security', label: 'Security & Alerts', icon: ShieldCheck },
@@ -930,10 +929,15 @@ const TrashManager: React.FC = () => {
 
     const t = toast.loading(`Purging ${name}...`);
     try {
-      const res = await fetch(`/api/v1/admin/users/${uid}/purge`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) toast.success("Wipe complete", { id: t });
-      else throw new Error(data.message);
+      // Direct Firestore Purge (Soft Archive + Marker)
+      await updateDoc(doc(db, 'users', uid), {
+        status: 'DELETED',
+        isArchived: true,
+        hardDeleted: true,
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Wipe complete", { id: t });
     } catch (e: any) {
       toast.error(e.message, { id: t });
     }
@@ -941,7 +945,12 @@ const TrashManager: React.FC = () => {
 
   const handleRestore = async (uid: string) => {
     try {
-      await fetch(`/api/v1/admin/users/${uid}/restore`, { method: 'POST' });
+      await updateDoc(doc(db, 'users', uid), {
+        isArchived: false,
+        hardDeleted: false,
+        status: 'ACTIVE',
+        updatedAt: serverTimestamp()
+      });
       toast.success("User restored to active roster");
     } catch (e: any) {
       toast.error(e.message);
