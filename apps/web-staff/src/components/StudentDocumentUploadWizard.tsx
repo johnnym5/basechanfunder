@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X,
+  X as XIcon,
   FileText,
   Upload,
   CheckCircle2,
@@ -252,7 +252,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
               Stage {currentStage} of {totalStages}: {currentStageInfo?.title}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
         </header>
 
         <div className="px-8 pt-4 flex gap-2">

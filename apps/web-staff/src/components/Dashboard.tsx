@@ -31,7 +31,7 @@ import {
   ChevronDown,
   Activity,
   BarChart3,
-  X,
+  X as XIcon,
   FileText,
   CheckCircle2,
   AlertCircle,
@@ -205,7 +205,7 @@ const HistoryLogModal: React.FC<{ isOpen: boolean; onClose: () => void; student:
             <h3 className={`text-xl font-black uppercase tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Audit Trail: {student?.name}</h3>
           </div>
           <button onClick={onClose} className={`p-2 rounded-xl transition-all ${theme === 'dark' ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
-            <X className="w-6 h-6" />
+            <XIcon className="w-6 h-6" />
           </button>
         </div>
 
@@ -1228,7 +1228,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
               <button onClick={() => setSelectedStudent(null)} className={`p-2.5 rounded-xl transition-all ${
                 theme === 'dark' ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
               }`}>
-                <X className="w-5 h-5" />
+                <XIcon className="w-5 h-5" />
               </button>
             </div>
 

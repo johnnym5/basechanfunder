@@ -89,6 +89,11 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
   }, []);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+  const hasFreshNotification = useMemo(() => {
+    // A notification is "fresh" if unread AND arrived in the last 60 seconds
+    const nowInSeconds = Date.now() / 1000;
+    return notifications.some(n => !n.isRead && n.rawTime?.seconds && (nowInSeconds - n.rawTime.seconds) < 60);
+  }, [notifications]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -239,10 +244,17 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
         className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all depth-btn-glass relative ${
           isOpen
             ? 'bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-            : 'bg-white/5 border-white/5 text-slate-300 hover:text-white'
+            : hasFreshNotification
+              ? 'bg-blue-500/10 border-blue-500/40 text-blue-500 animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+              : unreadCount > 0
+                ? 'bg-amber-500/10 border-amber-500/40 text-amber-500 animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+                : 'bg-white/5 border-white/5 text-slate-300 hover:text-white'
         }`}
       >
-        <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+           <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 ${isDark ? 'border-slate-900' : 'border-white'} ${hasFreshNotification ? 'bg-blue-500' : 'bg-amber-500'}`} />
+        )}
       </button>
 
       {/* Popover Window */}

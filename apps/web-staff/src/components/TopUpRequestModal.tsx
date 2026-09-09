@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { modalBackdropVariants, modalBoxVariants } from '../utils/motionPresets';
 import { BouncyButton } from './ui/BouncyButton';
 import {
-  X,
+  X as XIcon,
   Zap,
   Loader2,
   CheckCircle2,
@@ -239,7 +239,7 @@ export const TopUpRequestModal: React.FC<TopUpRequestModalProps> = ({
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Submit adjustment for review</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

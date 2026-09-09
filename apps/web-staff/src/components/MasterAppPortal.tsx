@@ -29,7 +29,7 @@ import {
   ShieldAlert,
   ArrowLeft,
   Bell,
-  X,
+  X as XIcon,
   Database,
   Briefcase,
   User,
@@ -527,7 +527,7 @@ export const MasterAppPortal: React.FC = () => {
                   <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Support Governance Desk</h3>
                 </div>
                 <BouncyButton onClick={() => { setIsAdminSupportOpen(false); setActiveTab('dashboard'); }} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
-                  <X className="w-6 h-6" />
+                  <XIcon className="w-6 h-6" />
                 </BouncyButton>
               </div>
               <div className="flex-1 overflow-hidden p-4 md:p-8">
@@ -564,7 +564,7 @@ export const MasterAppPortal: React.FC = () => {
                   <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Settings</h3>
                 </div>
                 <BouncyButton onClick={() => { setIsSettingsOpen(false); setActiveTab('dashboard'); }} className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
-                  <X className="w-6 h-6" />
+                  <XIcon className="w-6 h-6" />
                 </BouncyButton>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">

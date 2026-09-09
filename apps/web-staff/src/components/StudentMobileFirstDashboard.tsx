@@ -31,7 +31,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
-  X,
+  X as XIcon,
   CreditCard,
   CheckCircle2,
   AlertCircle,
@@ -1277,7 +1277,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                                 onClick={() => handleClearAccountBalance(acc.id)}
                                 className="flex items-center gap-1.5 text-slate-400 hover:text-rose-400 transition-colors"
                               >
-                                <X className="w-3 h-3" />
+                                <XIcon className="w-3 h-3" />
                                 <span>Clear</span>
                               </button>
 
@@ -1376,7 +1376,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                 <h3 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>System Alerts & Logs</h3>
               </div>
               <button onClick={() => setIsNotificationsOpen(false)} aria-label="Close notifications" className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
+                <XIcon className="w-5 h-5" />
               </button>
             </div>
             <div className={`max-h-80 overflow-y-auto divide-y p-2 no-scrollbar ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
@@ -1481,7 +1481,7 @@ export const StudentMobileFirstDashboard: React.FC<{
                 </div>
               </div>
               <button onClick={handleCancelConnect} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
+                <XIcon className="w-5 h-5" />
               </button>
             </div>
 

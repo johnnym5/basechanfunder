@@ -27,7 +27,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
-  X,
+  X as XIcon,
   CreditCard,
   CheckCircle2,
   AlertCircle,
@@ -152,12 +152,11 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
     if (liveEvaluation) setEvaluation(liveEvaluation);
   }, [liveEvaluation]);
 
-  // Sync selected accounts
   useEffect(() => {
-    if (accounts.length > 0 && selectedAccountIds.length === 0) {
-      setSelectedAccountIds(accounts.map(a => a.id));
+    if (liveAccounts.length > 0 && selectedAccountIds.length === 0) {
+      setSelectedAccountIds(liveAccounts.map(a => a.id));
     }
-  }, [accounts, selectedAccountIds]);
+  }, [liveAccounts, selectedAccountIds]);
 
   // Use liveAccounts as primary data source, splitting personal balance and top-up into two separate cards
   const accounts = useMemo(() => {
@@ -1207,7 +1206,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                                 isDark ? 'text-slate-400 hover:text-rose-400' : 'text-slate-600 hover:text-rose-600'
                               }`}
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <XIcon className="w-3.5 h-3.5" />
                               Clear
                             </button>
 
@@ -1302,7 +1301,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             }`}>
               <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Connect your bank account</h3>
               <button onClick={handleCancelConnect} className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
-                <X className="w-6 h-6 text-slate-500" />
+                <XIcon className="w-6 h-6 text-slate-500" />
               </button>
             </div>
 
@@ -1472,7 +1471,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
              <div className={`p-8 border-b flex justify-between items-center ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                 <h3 className={`text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Request Account Unlink</h3>
                 <button onClick={() => setIsUnlinkModalOpen(false)} className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
-                  <X className="w-5 h-5 text-slate-500" />
+                  <XIcon className="w-5 h-5 text-slate-500" />
                 </button>
              </div>
              <div className="p-8 space-y-6">
