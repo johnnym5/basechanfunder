@@ -1,6 +1,8 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger, Get } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger, Get, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { StorageService } from '../services/storage.service';
 
 export const PRE_APPROVED_COUNSELORS = [
   { name: "Peter", email: "peter.basechaninternational@gmail.com" },
@@ -16,6 +18,8 @@ export const PRE_APPROVED_COUNSELORS = [
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
+  constructor(private readonly storageService: StorageService) {}
+
   private get db() {
     return getFirestore(admin.app(), 'basechanfunder');
   }
@@ -23,6 +27,33 @@ export class AuthController {
   @Get('health')
   healthCheck() {
     return { status: 'OK', timestamp: new Date().toISOString() };
+  }
+
+  @Get('storage/metrics')
+  async getStorageMetrics() {
+    return this.storageService.getStorageMetrics();
+  }
+
+  @Get('storage/list')
+  async listStorageItems(@Query('prefix') prefix: string) {
+    return this.storageService.listItems(prefix || '');
+  }
+
+  @Post('storage/batch-delete')
+  @HttpCode(HttpStatus.OK)
+  async batchDeleteStorage(@Body() body: { paths: string[] }) {
+    return this.storageService.batchDelete(body.paths);
+  }
+
+  @Get('storage/url')
+  async getStorageSignedUrl(@Query('path') path: string) {
+    return this.storageService.getSignedUrl(path);
+  }
+
+  @Post('storage/upload')
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadStorageFiles(@UploadedFiles() files: any[], @Body('prefix') prefix: string) {
+    return this.storageService.uploadFiles(files, prefix || '');
   }
 
   @Post('sync-claims')

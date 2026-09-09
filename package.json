@@ -2,7 +2,7 @@
   "name": "basechanfunder-root",
   "private": true,
   "scripts": {
-    "dev": "npm run dev --workspace=@basechanfunder/web-staff",
+    "dev": "concurrently -n \"SERVER,STAFF-WEB\" -c \"blue,emerald\" \"npm run dev --workspace=@basechanfunder/server\" \"npm run dev --workspace=@basechanfunder/web-staff\"",
     "admin": "npm run dev --workspace=@basechanfunder/web-admin",
     "deploy:rules": "firebase deploy --only storage"
   },
@@ -11,6 +11,7 @@
     "services/*"
   ],
   "devDependencies": {
+    "concurrently": "^10.0.5",
     "firebase-tools": "^13.31.0",
     "vite-plugin-pwa": "^1.3.0"
   }

@@ -58,6 +58,7 @@ import { StudentProfileModal } from './StudentProfileModal';
 import { StudentDocumentUploadWizard } from './StudentDocumentUploadWizard';
 import { AdminStudentProfileDrawer } from './AdminStudentProfileDrawer';
 import { ApprovedTopUpCard } from './ApprovedTopUpCard';
+import { StudentDashboardSkeleton } from './ui/LoadingStates';
 import { useStudentDashboardData } from '../hooks/useStudentDashboardData';
 import { toast } from 'sonner';
 import { MAJOR_CURRENCIES } from '../constants';
@@ -684,14 +685,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   };
 
   if (dataLoading && accounts.length === 0) {
-    return (
-      <div className={`w-full min-h-screen flex flex-col items-center justify-center space-y-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-        <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
-        <p className="text-xs font-black text-amber-500 uppercase tracking-widest">
-          {isAdmin ? 'Loading Student Profile...' : 'Loading Dashboard...'}
-        </p>
-      </div>
-    );
+    return <StudentDashboardSkeleton />;
   }
 
   return (
@@ -747,19 +741,19 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                     <p className={`text-[10px] md:text-xs font-black uppercase tracking-[0.25em] mb-2 opacity-90 truncate ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                       {effectiveStudentName}
                     </p>
-                    <h2 className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-none break-all ${isDark ? 'text-white text-depth-header' : 'text-slate-900'}`}>
+                    <h2 className={`text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-none break-all ${isDark ? 'text-white text-depth-header' : 'text-main'}`}>
                       £{totals.gbp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h2>
-                    <div className={`flex justify-between text-[8px] md:text-[10px] font-mono mt-4 border-t pt-2 uppercase tracking-tight ${isDark ? 'border-white/5 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
+                    <div className={`flex justify-between text-[8px] md:text-[10px] font-mono mt-4 border-t pt-2 uppercase tracking-tight ${isDark ? 'border-white/5 text-slate-400' : 'border-slate-200 text-muted'}`}>
                        <span>CURRENT: £{Math.round(totals.gbp).toLocaleString()}</span>
                        <span>TARGET: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (NOT SET)'}</span>
                     </div>
                     <div className="mt-3 flex items-center gap-2 md:gap-3">
-                       <p className={`text-lg md:text-xl font-bold uppercase tracking-tight ${isDark ? 'text-slate-400 text-depth-header' : 'text-slate-600'}`}>
+                       <p className={`text-lg md:text-xl font-bold uppercase tracking-tight ${isDark ? 'text-slate-400 text-depth-header' : 'text-muted'}`}>
                          {currency.symbol}{totals.ngn.toLocaleString()}
                        </p>
                        <span className={`px-2 py-0.5 rounded text-[8px] md:text-[10px] font-black uppercase tracking-widest border ${
-                         isDark ? 'bg-white/5 text-slate-400 border-white/5' : 'bg-slate-100 text-slate-600 border-slate-200'
+                         isDark ? 'bg-white/5 text-slate-400 border-white/5' : 'bg-slate-100 text-muted border-slate-200'
                        }`}>
                          {currency.code}
                        </span>
@@ -769,12 +763,12 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
                 <div className={`flex flex-wrap items-center justify-between gap-4 pt-4 border-t ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-6">
-                    <div className={`flex items-center space-x-2 text-[9px] md:text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <div className={`flex items-center space-x-2 text-[9px] md:text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-muted'}`}>
                       <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                      <span>LINKED: <span className={`ml-1 ${isDark ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{selectedAccountIds.length} / {accounts.length}</span></span>
+                      <span>LINKED: <span className={`ml-1 ${isDark ? 'text-white' : 'text-main font-extrabold'}`}>{selectedAccountIds.length} / {accounts.length}</span></span>
                     </div>
                     <div className={`hidden sm:block w-px h-4 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
-                    <div className={`flex items-center space-x-2 text-[9px] md:text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <div className={`flex items-center space-x-2 text-[9px] md:text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-muted'}`}>
                       <Building2 className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
                       <span className="truncate max-w-[140px] sm:max-w-none">Bank: <span className={`ml-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600 font-extrabold'}`}>
                         {selectedAccountIds.length === 0
@@ -841,14 +835,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           <h3 className="text-3xl md:text-5xl font-black tracking-tight text-rose-500 uppercase">Window Expired</h3>
                         ) : (
                           <>
-                            <h3 className={`text-5xl md:text-7xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{expiryInfo.daysLeft}</h3>
-                            <span className={`text-2xl font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Days</span>
-                            <span className={`text-xs font-black uppercase tracking-widest ml-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>REMAINING</span>
+                            <h3 className={`text-5xl md:text-7xl font-black tracking-tight ${isDark ? 'text-white' : 'text-main'}`}>{expiryInfo.daysLeft}</h3>
+                            <span className={`text-2xl font-bold uppercase ${isDark ? 'text-slate-400' : 'text-muted'}`}>Days</span>
+                            <span className={`text-xs font-black uppercase tracking-widest ml-4 ${isDark ? 'text-slate-500' : 'text-subtle'}`}>REMAINING</span>
                           </>
                         )
                       ) : (
                         <div className="flex items-baseline space-x-3 opacity-60">
-                          <h3 className={`text-3xl md:text-5xl font-black tracking-tight uppercase ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>NO WINDOW SET</h3>
+                          <h3 className={`text-3xl md:text-5xl font-black tracking-tight uppercase ${isDark ? 'text-slate-500' : 'text-subtle'}`}>NO WINDOW SET</h3>
                         </div>
                       )}
                     </div>
@@ -865,7 +859,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           style={{ width: targetGBP > 0 ? `${progressPercent}%` : '0%' }}
                         />
                       </div>
-                      <div className={`flex justify-between text-xs font-mono mt-3 uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                      <div className={`flex justify-between text-xs font-mono mt-3 uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-muted'}`}>
                         <span>Current: £{Math.round(totals.gbp).toLocaleString()}</span>
                         <span>Target: {targetGBP > 0 ? `£${targetGBP.toLocaleString()}` : '£0 (Not Set)'}</span>
                       </div>
@@ -874,10 +868,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 </div>
 
                 <div className={`pt-4 border-t flex flex-wrap items-center justify-between gap-4 ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
-                   <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                   <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-muted'}`}>
                       {evaluation?.startDate ? (
                         <>
-                          STATUTORY COMPLIANCE WINDOW: <span className={`ml-2 ${isDark ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{new Date(evaluation.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span> - <span className={isDark ? 'text-white' : 'text-slate-900 font-extrabold'}>{new Date(evaluation.expirationDate || new Date(new Date(evaluation.startDate).getTime() + 28 * 24 * 60 * 60 * 1000)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          STATUTORY COMPLIANCE WINDOW: <span className={`ml-2 ${isDark ? 'text-white' : 'text-main font-extrabold'}`}>{new Date(evaluation.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span> - <span className={isDark ? 'text-white' : 'text-main font-extrabold'}>{new Date(evaluation.expirationDate || new Date(new Date(evaluation.startDate).getTime() + 28 * 24 * 60 * 60 * 1000)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </>
                       ) : (
                         <span className="text-rose-500 animate-pulse">Waiting for Admin to initialize evaluation window</span>
@@ -945,10 +939,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       {/* Compliance Section: Dynamic copy & role-gated modals */}
       <section className="space-y-4">
         <div className="px-1">
-          <h3 className={`text-lg md:text-xl uppercase font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <h3 className={`text-lg md:text-xl uppercase font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-main'}`}>
             {isAdmin ? 'COMPLIANCE DOCUMENTS & VERIFICATION' : 'VERIFICATION & UPGRADES'}
           </h3>
-          <p className={`text-[10px] md:text-[11px] font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          <p className={`text-[10px] md:text-[11px] font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-400' : 'text-muted'}`}>
             {isAdmin ? 'Review student identity uploads & mandate package' : 'Verify your documents to unlock full features'}
           </p>
         </div>
@@ -971,14 +965,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                  )}
               </div>
               <div className="min-w-0">
-                 <h4 className={`text-base md:text-lg font-black uppercase tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                 <h4 className={`text-base md:text-lg font-black uppercase tracking-tight leading-tight ${isDark ? 'text-white' : 'text-main'}`}>
                    {effectiveMandateStatus === 'MANDATE_APPROVED'
                      ? 'Compliance Verification Cleared'
                      : effectiveMandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL'
                        ? 'Package Awaiting Verification'
                        : 'Upgrade Account'}
                  </h4>
-                 <p className={`text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1.5 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                 <p className={`text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1.5 leading-relaxed ${isDark ? 'text-slate-400' : 'text-muted'}`}>
                    {effectiveMandateStatus === 'MANDATE_APPROVED'
                      ? 'Regulatory account mandate has been fully verified and approved.'
                      : effectiveMandateStatus === 'MANDATE_SUBMITTED_AWAITING_APPROVAL'
@@ -1019,10 +1013,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       <section className="space-y-6">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 px-1">
           <div className="min-w-0">
-            <h3 className={`text-lg md:text-xl uppercase font-extrabold tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h3 className={`text-lg md:text-xl uppercase font-extrabold tracking-tight leading-tight ${isDark ? 'text-white' : 'text-main'}`}>
               {isAdmin ? 'LINKED BANK ACCOUNTS (AUDIT TRAIL)' : 'LINKED BANK ACCOUNTS'}
             </h3>
-            <p className={`text-[10px] md:text-[11px] font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className={`text-[10px] md:text-[11px] font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-400' : 'text-muted'}`}>
               Select accounts to include in total asset calculation
             </p>
           </div>
@@ -1033,7 +1027,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 text-[9px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-xl border ${
                  isDark
                    ? 'border-white/10 hover:bg-white/5 text-slate-400 hover:text-white'
-                   : 'border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+                   : 'border-slate-200 hover:bg-slate-100 text-muted hover:text-main'
                }`}
              >
                <CheckSquare className="w-3.5 h-3.5" />
@@ -1045,7 +1039,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 text-[9px] font-black uppercase tracking-widest transition-all px-3 py-2 rounded-xl border ${
                  isDark
                    ? 'border-white/10 hover:bg-white/5 text-slate-400 hover:text-white'
-                   : 'border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+                   : 'border-slate-200 hover:bg-slate-100 text-muted hover:text-main'
                }`}
              >
                <Square className="w-3.5 h-3.5" />
@@ -1145,7 +1139,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className={`text-base font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            <h4 className={`text-base font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-main'}`}>
                               {acc.accountName || acc.bankName}
                             </h4>
                             {isTopUp && (
@@ -1253,24 +1247,24 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
                       <div>
                         <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
-                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-slate-500')
+                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-muted')
                         }`}>
                           {isTopUp ? 'Top-Up Added' : 'Actual Account Balance'}
                         </p>
                         <p className={`text-xl font-black font-mono ${
-                          isTopUp ? 'text-amber-400' : (isDark ? 'text-white' : 'text-slate-900')
+                          isTopUp ? 'text-amber-400' : (isDark ? 'text-white' : 'text-main')
                         }`}>
                           {currency.symbol}{acc.balanceNgn.toLocaleString()}
                         </p>
                       </div>
                       <div className={`border-l pl-4 ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
                         <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
-                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-slate-500')
+                          isTopUp ? (isDark ? 'text-amber-400/90' : 'text-amber-800') : (isDark ? 'text-slate-400' : 'text-muted')
                         }`}>
                           GBP Value
                         </p>
                         <p className={`text-xl font-black ${
-                          isTopUp ? 'text-amber-400' : (isDark ? 'text-blue-400' : 'text-blue-600')
+                          isTopUp ? 'text-amber-400' : (isDark ? 'text-blue-400' : 'text-accent-blue')
                         }`}>
                           £{acc.balanceGbp.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </p>
@@ -1286,7 +1280,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           disabled={syncingId === acc.id}
                           title={isTopUp ? 'Sync Facility' : 'Sync Balance'}
                           className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all disabled:opacity-50 ${
-                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-amber-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-amber-600'
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-amber-400' : 'bg-slate-100 border-slate-200 text-muted hover:text-amber-600'
                           }`}
                         >
                           <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
@@ -1298,7 +1292,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                               onClick={(e) => { e.stopPropagation(); handleClearAccountBalance(acc.id); }}
                               title="Clear Balance"
                               className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
-                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
+                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-400' : 'bg-slate-100 border-slate-200 text-muted hover:text-rose-600'
                               }`}
                             >
                               <XIcon className="w-4 h-4" />
@@ -1308,7 +1302,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                               onClick={(e) => { e.stopPropagation(); setIsUssdModalOpen(true); }}
                               title="USSD Codes"
                               className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
-                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-blue-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-blue-600'
+                                isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-blue-400' : 'bg-slate-100 border-slate-200 text-muted hover:text-blue-600'
                               }`}
                             >
                               <Phone className="w-4 h-4" />
@@ -1324,7 +1318,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           }}
                           title="View Statement"
                           className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
-                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-cyan-400' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-cyan-600'
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-cyan-400' : 'bg-slate-100 border-slate-200 text-muted hover:text-cyan-600'
                           }`}
                         >
                           <FileText className="w-4 h-4" />
@@ -1341,7 +1335,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                           onClick={(e) => { e.stopPropagation(); handleAdminUnlink(acc.id); }}
                           title="Revoke Top-Up"
                           className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
-                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
+                            isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-muted hover:text-rose-600'
                           }`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1370,7 +1364,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
                           !isAdmin && acc.unlinkStatus === 'UNLINK_REQUESTED'
                             ? 'text-slate-400 cursor-not-allowed opacity-50'
-                            : isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-rose-600'
+                            : isDark ? 'bg-slate-800 border-white/5 text-slate-400 hover:text-rose-500' : 'bg-slate-100 border-slate-200 text-muted hover:text-rose-600'
                         }`}
                       >
                         <Trash2 className="w-4 h-4" />

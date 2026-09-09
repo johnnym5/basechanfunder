@@ -1,13 +1,43 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile, Get, Delete, Param, Logger } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile, Get, Delete, Param, Logger, Query, UploadedFiles } from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import * as admin from 'firebase-admin';
+import { StorageService } from '../services/storage.service';
 
 @Controller('api/v1/admin')
 export class AdminController {
   private readonly logger = new Logger(AdminController.name);
 
+  constructor(private readonly storageService: StorageService) {}
+
   private get db() {
     return admin.firestore();
+  }
+
+  @Get('storage/metrics')
+  async getStorageMetrics() {
+    return this.storageService.getStorageMetrics();
+  }
+
+  @Get('storage/list')
+  async listStorageItems(@Query('prefix') prefix: string) {
+    return this.storageService.listItems(prefix || '');
+  }
+
+  @Post('storage/batch-delete')
+  @HttpCode(HttpStatus.OK)
+  async batchDeleteStorage(@Body() body: { paths: string[] }) {
+    return this.storageService.batchDelete(body.paths);
+  }
+
+  @Get('storage/url')
+  async getStorageSignedUrl(@Query('path') path: string) {
+    return this.storageService.getSignedUrl(path);
+  }
+
+  @Post('storage/upload')
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadStorageFiles(@UploadedFiles() files: any[], @Body('prefix') prefix: string) {
+    return this.storageService.uploadFiles(files, prefix || '');
   }
 
   @Get('auth/users')

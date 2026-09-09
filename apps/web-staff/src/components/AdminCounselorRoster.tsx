@@ -21,6 +21,7 @@ import {
 import { db } from '../firebase';
 import { PRE_APPROVED_COUNSELORS } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { TableSkeletonLoader } from './ui/LoadingStates';
 
 interface CounselorStats {
   id: string;
@@ -74,12 +75,7 @@ export const AdminCounselorRoster: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="h-64 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Syncing Staff Registry...</p>
-      </div>
-    );
+    return <TableSkeletonLoader rows={6} />;
   }
 
   return (

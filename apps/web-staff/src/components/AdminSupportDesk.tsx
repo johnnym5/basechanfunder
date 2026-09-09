@@ -318,7 +318,7 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
                   <div key={req.id} className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-3">
                      <div className="flex justify-between items-start">
                         <div>
-                           <p className="text-[11px] font-bold text-white uppercase">{req.bankName}</p>
+                           <p className="text-[11px] font-bold text-main dark:text-white uppercase">{req.bankName}</p>
                            <p className="text-[9px] font-medium text-rose-300 uppercase tracking-tighter">Request by: {req.userEmail || 'User'}</p>
                         </div>
                      </div>
@@ -395,7 +395,7 @@ export const AdminSupportDesk: React.FC<{ initialStudentId?: string | null }> = 
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-extrabold uppercase text-slate-900 dark:text-white">{selectedThread?.name}</h4>
+                    <h4 className={`text-sm font-extrabold uppercase ${isDark ? 'text-white' : 'text-main'}`}>{selectedThread?.name}</h4>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded border ${
                       selectedThread?.role === 'COUNSELOR' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
                     }`}>

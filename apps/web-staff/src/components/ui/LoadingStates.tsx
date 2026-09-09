@@ -57,35 +57,66 @@ export const TableSkeletonLoader: React.FC<{ rows?: number }> = ({ rows = 5 }) =
 
 export const DashboardSkeleton: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#030712] p-6 md:p-10 space-y-8 animate-pulse">
-      {/* Header Skeleton */}
+    <div className="w-full h-full space-y-8 animate-pulse">
+      {/* Metrics Row Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-32 bg-slate-900/40 rounded-2xl border border-white/5 p-5">
+            <div className="w-8 h-8 rounded-lg bg-slate-800/50 mb-4"></div>
+            <div className="h-4 w-12 bg-slate-800/50 rounded mb-2"></div>
+            <div className="h-2 w-20 bg-slate-800/30 rounded"></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Title & Action Area Skeleton */}
       <div className="flex justify-between items-center">
-        <div className="space-y-3">
-          <div className="h-10 w-48 bg-slate-900 rounded-xl"></div>
-          <div className="h-4 w-64 bg-slate-900/60 rounded-lg"></div>
-        </div>
-        <div className="w-12 h-12 rounded-full bg-slate-900"></div>
-      </div>
-
-      {/* Hero Card Skeleton */}
-      <div className="h-64 w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 p-10">
-        <div className="space-y-4">
-          <div className="h-4 w-32 bg-slate-800 rounded"></div>
-          <div className="h-16 w-64 bg-slate-800 rounded-2xl"></div>
-          <div className="h-6 w-48 bg-slate-800/60 rounded"></div>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="h-48 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
-        <div className="h-48 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+        <div className="h-8 w-64 bg-slate-900/60 rounded-xl"></div>
+        <div className="h-10 w-40 bg-slate-900 rounded-xl"></div>
       </div>
 
       {/* Table Area */}
+      <div className="glass-card !bg-slate-900/20 !border-white/5 p-2">
+        <div className="space-y-4">
+          <div className="h-10 w-full bg-slate-900/40 rounded-xl"></div>
+          <TableSkeletonLoader rows={6} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const StudentDashboardSkeleton: React.FC = () => {
+  return (
+    <div className="w-full h-full space-y-8 animate-pulse">
+      {/* Hero Metric Card Skeleton */}
+      <div className="h-64 w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 p-10">
+        <div className="space-y-6">
+          <div className="h-4 w-32 bg-slate-800/50 rounded"></div>
+          <div className="h-16 w-1/2 bg-slate-800 rounded-2xl"></div>
+          <div className="flex gap-4">
+            <div className="h-8 w-40 bg-slate-800/40 rounded-xl"></div>
+            <div className="h-8 w-40 bg-slate-800/40 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Documents Area Skeleton */}
       <div className="space-y-4">
-        <div className="h-6 w-48 bg-slate-900 rounded-lg"></div>
-        <TableSkeletonLoader rows={3} />
+        <div className="h-6 w-48 bg-slate-900/60 rounded-lg ml-2"></div>
+        <div className="h-32 w-full bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+      </div>
+
+      {/* Ledger Grid Skeleton */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center px-2">
+          <div className="h-6 w-40 bg-slate-900/60 rounded-lg"></div>
+          <div className="h-8 w-32 bg-slate-900 rounded-lg"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="h-80 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+          <div className="h-80 bg-slate-900/40 rounded-[2rem] border border-white/5"></div>
+        </div>
       </div>
     </div>
   );

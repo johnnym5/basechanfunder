@@ -168,7 +168,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
         {/* Modal Header */}
         <div className="p-8 border-b border-white/5 flex justify-between items-center">
           <div>
-            <h3 className="text-2xl font-black text-white">Add Student</h3>
+            <h3 className="text-2xl font-black text-main dark:text-white uppercase tracking-tight">Add Student</h3>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Start checking a student</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
@@ -240,7 +240,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
                           {user.displayName?.[0] || 'U'}
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-bold text-white leading-tight">{user.displayName || user.username || 'User'}</p>
+                          <p className="text-sm font-bold text-main dark:text-white leading-tight">{user.displayName || user.username || 'User'}</p>
                           <p className="text-[10px] font-mono text-slate-500">{user.email}</p>
                         </div>
                       </div>

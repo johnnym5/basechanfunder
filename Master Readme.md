@@ -1,36 +1,57 @@
-# **Basechanfunder — Proof of Funds (POF) Verification & Liquidity Compliance Platform**
+# 🛡️ Basechanfunder Master Portal — Enterprise Compliance & POF Governance
 
-**Basechanfunder** is an enterprise-grade automated Proof of Funds (POF) tracking, financial verification, and compliance management platform designed for international students, skilled workers, and immigrants originating from Nigeria and high-risk financial corridors.
+**Basechanfunder** is a high-integrity financial compliance ecosystem engineered to automate **Proof of Funds (POF)** verification for international visa applicants. The platform solves the critical challenge of maintaining continuous bank balances required by global regulatory bodies (UKVI, IRCC, USCIS) through automated monitoring, mathematical validation, and risk orchestration.
 
-The platform continuously monitors liquid balances, validates holding periods against strict embassy regulatory criteria (UKVI, IRCC, German Foreign Office, USCIS), detects unverified lump-sum deposits ("funds parking"), and provides verifiable source-of-funds documentation tools.
+---
 
-## **🚀 Key Features**
+## 🚀 Core Engine Capabilities
 
-* **Dynamic Regulatory Matrix**: Dynamic evaluation of statutory minimum balances against foreign exchange rates (OANDA) with built-in volatility buffers.  
-* **Continuous Holding Engine**: Real-time mathematical verification of unbroken holding windows (e.g., UKVI 28-day uninterrupted rule).  
-* **Multi-Channel Financial Ingestion**:  
-  * **Open Banking Aggregation**: Direct API linkage via Mono and Okra.  
-  * **Native Client SMS Ingestion**: Foreground/background Android SMS alert parsing for instant transaction logging.  
-  * **MyBankStatement (MBS) Verification**: Protocol integration for official eStatement authentication and ticket validation.  
-* **Anomaly & Anti-Funds Parking Detection**: Algorithmic flag generation for unverified credit entries exceeding historic baseline standard deviations.  
-* **Forensic Document Inspection**: Automated checks on uploaded eStatements for layer editing, metadata manipulation, and font mismatching.  
-* **Multi-Portal Ecosystem**: Custom interfaces for Visa Applicants (Mobile App), Compliance Officers (Staff Web Console), and System Operations (Admin Governance Console).
+*   **Continuous Statutory Monitoring**: Real-time tracking of the **28-Day Uninterrupted Rule**, providing instant maturity alerts and risk-breach notifications.
+*   **Hybrid Financial Ingestion**: 
+    *   **Native SMS Ingestion**: On-device Kotlin-based parsing of encrypted bank alerts for UBA, GTB, Zenith, and Parallex.
+    *   **Regulatory Ledger**: Real-time Firestore document store that synchronizes balances across mobile and desktop web environments.
+*   **Branded Document Assembly**: A server-side pipeline that stamps student data onto official bank mandate templates and compiles identity proofs into multi-page regulatory packages.
+*   **Dynamic Risk Orchestration**: Platform-wide configuration of FX volatility buffers, global pricing caps, and study-destination parameters.
+*   **Privacy-First Governance**: Automated hourly purge of support conversations (24h window) and cascading hard-deletion of archived user data (7d grace period).
 
-## **🛠 Tech Stack Summary**
+---
+
+## 🛠 Technology Stack
 
 | Domain | Technology |
-| :---- | :---- |
-| **Mobile App** | Flutter (Dart) & Native Kotlin (Android Background Service) |
-| **Web Portals** | React.js, TypeScript, Tailwind CSS |
-| **Backend Runtime** | Go (High-concurrency mathematical matrix calculations) & Node.js (NestJS microservices) |
-| **API Gateway** | Kong Gateway / Envoy Proxy (OAuth2, mTLS, TLS 1.3) |
-| **Event Streaming** | Apache Kafka |
-| **Database & Cache** | PostgreSQL 16+ (Row-Level Security, JSONB) & Redis Cluster |
-| **Secrets & Storage** | HashiCorp Vault & AWS S3 (AES-256 Encrypted) |
+| :--- | :--- |
+| **Monorepo Management** | NPM Workspaces |
+| **Frontend / Portals** | React.js, Vite, Tailwind CSS, Framer Motion |
+| **Mobile Foundation** | Native Android (Kotlin) + Capacitor Bridge |
+| **API & Service Layer** | NestJS (TypeScript) |
+| **Data & Real-time Persistence** | Firebase Firestore |
+| **Identity & Access (RBAC)** | Firebase Auth (Google OAuth2 Integration) |
+| **Secure Document Vault** | Firebase Storage |
+| **Push Orchestration** | FCM + Capacitor Push Notifications |
+| **PDF Engineering** | PDF-Lib (Server-Side Stamping & Assembly) |
 
-## **📂 Project Documentation Structure**
+---
 
-* [ARCHITECTURE.md](http://docs.google.com/ARCHITECTURE.md) — Infrastructure topology, microservice architecture, security, and PostgreSQL schemas.  
-* [COMPLIANCE\_ENGINE.md](http://docs.google.com/COMPLIANCE_ENGINE.md) — Mathematical formulas, state machine logic, and country-specific statutory rules.  
-* [INGESTION\_SPECIFICATION.md](http://docs.google.com/INGESTION_SPECIFICATION.md) — Open Banking webhooks, Android Kotlin SMS regex specification, and MBS ticket protocols.  
-* [TASK\_ROADMAP.md](http://docs.google.com/TASK_ROADMAP.md) — Step-by-step feature execution matrix for AI agents and developer workflows.
+## 🏗 System Topology
+
+```text
+Basechanfunder Root/
+├── apps/
+│   ├── web-staff/          # Unified Portal: Students, Counselors, and Auditing
+│   ├── web-admin/          # Governance Dashboard: Global Parameters & Roster
+│   ├── server/             # NestJS API: PDF Compiler, Purge Engine, and Auth Sync
+│   └── mobile-android/     # Native Wrapper: Background SMS Parser & WebKit Bridge
+├── .artifacts/             # Technical Implementation Plans & Compliance Research
+└── package.json            # Workspace Configuration & Global Dependencies
+```
+
+---
+
+## 📂 Documentation & Reference
+
+*   [ARCHITECTURE.md](file:///C:/Users/HP/Documents/CODING/Basechanfunder/ARCHITECTURE.md) — Detailed system topology, JS Bridge specifications, and data flow diagrams.
+*   [README.md](file:///C:/Users/HP/Documents/CODING/Basechanfunder/README.md) — General project overview and local development setup instructions.
+
+---
+
+© 2026 Basechanfunder. High-Stakes Compliance Engineering.

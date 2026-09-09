@@ -245,14 +245,14 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
         className="glass-card w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <header className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
+        <header className="p-8 border-b border-surface-glass-border flex justify-between items-center bg-slate-950/10 dark:bg-slate-950/20">
           <div>
-            <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-none">Compliance Node</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">
+            <h3 className="text-2xl font-black text-main dark:text-white uppercase tracking-tight leading-none">Compliance Node</h3>
+            <p className="text-[10px] text-muted dark:text-slate-500 font-bold uppercase tracking-widest mt-2">
               Stage {currentStage} of {totalStages}: {currentStageInfo?.title}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 dark:hover:bg-slate-800 rounded-xl transition-colors text-subtle"><XIcon className="w-6 h-6" /></button>
         </header>
 
         <div className="px-8 pt-4 flex gap-2">
@@ -274,15 +274,15 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                 <FileText className="w-12 h-12" />
               </div>
               <div className="max-w-md mx-auto space-y-3">
-                <h3 className="text-3xl font-black text-white uppercase tracking-tight leading-tight">Step 1: Get Template</h3>
-                <p className="text-sm font-medium text-slate-400 leading-relaxed">
+                <h3 className="text-3xl font-black text-main dark:text-white uppercase tracking-tight leading-tight">Step 1: Get Template</h3>
+                <p className="text-sm font-medium text-muted dark:text-slate-400 leading-relaxed">
                   Download the blank Upgrade Form template. You must fill it out manually, sign it, and scan it back for the next stage.
                 </p>
               </div>
 
               <div className="p-6 rounded-3xl bg-blue-600/5 border border-blue-500/20 max-w-sm mx-auto flex items-start gap-4 text-left">
                 <ShieldCheck className="w-6 h-6 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-[11px] font-medium text-slate-400 leading-relaxed uppercase tracking-tighter">
+                <p className="text-[11px] font-medium text-muted leading-relaxed uppercase tracking-tighter">
                   Ensure all information matches your official ID documents exactly to avoid compliance delays.
                 </p>
               </div>
@@ -314,11 +314,11 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                     <div className="flex items-start justify-between mb-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">{req.type}</p>
+                          <p className="text-[8px] font-black text-subtle uppercase tracking-[0.2em]">{req.type}</p>
                           <span className="px-1.5 py-0.5 rounded bg-rose-500 text-white text-[6px] font-black uppercase">Mandatory</span>
                         </div>
-                        <h4 className="text-base font-black text-white uppercase tracking-tight leading-tight truncate">{req.label}</h4>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">{req.description}</p>
+                        <h4 className="text-base font-black text-main dark:text-white uppercase tracking-tight leading-tight truncate">{req.label}</h4>
+                        <p className="text-[10px] text-muted font-medium leading-relaxed mt-1">{req.description}</p>
                       </div>
                       {submission && (
                         <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase shrink-0 ${
@@ -339,8 +339,8 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                                  {req.type === 'IMAGE' ? <ImageIcon className="w-5 h-5" /> : <FileIcon className="w-5 h-5" />}
                               </div>
                               <div className="min-w-0">
-                                 <p className="text-[10px] font-bold text-white uppercase truncate">{submission.fileName || 'Document Node'}</p>
-                                 <p className="text-[8px] text-slate-500 font-mono uppercase">Synced: {submission.updatedAt?.seconds ? new Date(submission.updatedAt.seconds * 1000).toLocaleString() : 'Just now'}</p>
+                                 <p className="text-[10px] font-bold text-main dark:text-white uppercase truncate">{submission.fileName || 'Document Node'}</p>
+                                 <p className="text-[8px] text-subtle font-mono uppercase">Synced: {submission.updatedAt?.seconds ? new Date(submission.updatedAt.seconds * 1000).toLocaleString() : 'Just now'}</p>
                               </div>
                            </div>
                            {submission.status !== 'APPROVED' && (
@@ -367,8 +367,8 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 mb-3 shadow-lg">
                                   <Upload className="w-6 h-6" />
                                </div>
-                               <p className="text-[10px] font-black uppercase text-white tracking-widest">Upload Document</p>
-                               <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">IMAGE OR PDF • MAX 10MB</p>
+                               <p className="text-[10px] font-black uppercase text-main dark:text-white tracking-widest">Upload Document</p>
+                               <p className="text-[8px] text-subtle font-bold uppercase mt-1">IMAGE OR PDF • MAX 10MB</p>
                              </>
                            )}
                            <input type="file" className="hidden" accept="image/*,application/pdf" onChange={e => e.target.files?.[0] && handleFileUpload(req.id, e.target.files[0])} />
@@ -387,16 +387,16 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                   <Layers className="w-12 h-12" />
                </div>
                <div className="space-y-3">
-                  <h3 className="text-3xl font-black text-white uppercase tracking-tight leading-tight">Package Assembly</h3>
-                  <p className="text-sm font-medium text-slate-400 max-w-sm mx-auto leading-relaxed">
+                  <h3 className="text-3xl font-black text-main dark:text-white uppercase tracking-tight leading-tight">Package Assembly</h3>
+                  <p className="text-sm font-medium text-muted dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
                     We will now merge your completed Upgrade Form and all 5 supporting documents into a single, multi-page master PDF.
                   </p>
                </div>
 
-               <div className="bg-white/5 border border-white/10 rounded-3xl p-6 text-left space-y-4 max-w-md mx-auto">
+               <div className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-6 text-left space-y-4 max-w-md mx-auto">
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    <span className="text-[10px] font-black uppercase text-slate-300">Unified Multi-Page Compiler Engine</span>
+                    <span className="text-[10px] font-black uppercase text-main dark:text-slate-300">Unified Multi-Page Compiler Engine</span>
                   </div>
                   <ul className="space-y-2">
                     {[
@@ -407,7 +407,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                       'NIN Slip (Page 5)',
                       'BVN Record (Page 6)'
                     ].map((item, i) => (
-                      <li key={i} className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                      <li key={i} className="flex items-center gap-2 text-[9px] font-bold text-muted uppercase tracking-widest">
                         <div className="w-1 h-1 rounded-full bg-blue-600" />
                         {item}
                       </li>
@@ -432,8 +432,8 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                 <div className="w-20 h-20 rounded-[2rem] bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mx-auto shadow-2xl shadow-blue-500/10">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
-                <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight">Review Master Package</h3>
-                <p className="text-sm font-medium text-slate-400 max-w-md mx-auto leading-relaxed">
+                <h3 className="text-2xl font-black text-main dark:text-white uppercase tracking-tight leading-tight">Review Master Package</h3>
+                <p className="text-sm font-medium text-muted dark:text-slate-400 max-w-md mx-auto leading-relaxed">
                   Your 6-page regulatory package is assembled and ready. Please review it before final dispatch to our governance queue.
                 </p>
               </div>
@@ -458,9 +458,9 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
                   </div>
                 </div>
               ) : (
-                <div className="aspect-[4/5] w-full rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center space-y-4">
+                <div className="aspect-[4/5] w-full rounded-3xl border-2 border-dashed border-slate-200 dark:border-white/10 flex flex-col items-center justify-center space-y-4">
                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                   <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Fetching Assembled Package...</p>
+                   <p className="text-xs font-black text-muted uppercase tracking-widest">Fetching Assembled Package...</p>
                 </div>
               )}
 
@@ -485,7 +485,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
           )}
         </div>
 
-        <footer className="p-8 border-t border-white/5 bg-slate-950/40 flex gap-4">
+        <footer className="p-8 border-t border-surface-glass-border bg-slate-950/10 dark:bg-slate-950/40 flex gap-4">
            {currentStage > 1 && currentStage < 5 && (
              <button
                onClick={() => setCurrentStage(s => s - 1)}

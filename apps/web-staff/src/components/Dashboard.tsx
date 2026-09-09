@@ -45,7 +45,7 @@ import {
   Eye,
   ArrowUpRight
 } from 'lucide-react';
-import { ProfessionalSpinner } from './ui/LoadingStates';
+import { DashboardSkeleton } from './ui/LoadingStates';
 import { ManualOverrideModal } from './ManualOverrideModal';
 import { AdminTimerModal } from './AdminTimerModal';
 import { AddStudentModal } from './AddStudentModal';
@@ -360,8 +360,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
   // 1b. Subscribe to all users (Filter out those who haven't started setup to avoid polluting the roster)
   useEffect(() => {
-    // Only fetch users who have at least started setup and are NOT archived
-    const q = query(collection(db, 'users'), where('isArchived', '!=', true));
+    // Fetch all users and filter archived ones in JS to avoid Firestore missing-field omission
+    const q = query(collection(db, 'users'));
     const unsub = onSnapshot(q, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -395,7 +395,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     // Start with existing student evaluations
     const merged: Student[] = students.filter(s => {
       const userProfile = allUsers.find(u => u.uid === s.userId || u.email === s.email);
-      return !userProfile || !userProfile.hardDeleted;
+      // Skip deleted or archived users
+      if (userProfile?.hardDeleted || userProfile?.isArchived === true) return false;
+      return true;
     }).map(s => {
       const studentAccs = accounts.filter(a => a.userId === s.userId || a.userEmail === s.email);
 
@@ -462,6 +464,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     // Add users who are NOT in pof_evaluations yet
     allUsers.forEach(u => {
       const uid = u.id || u.uid;
+
+      // Skip archived or deleted users
+      if (u.isArchived === true || u.hardDeleted === true) return;
 
       const isAlreadyIn = merged.some(s => s.userId === uid || s.email === u.email);
       const isStudentRole = u.role === 'STUDENT' || (!u.email?.endsWith('@basechaninternational.com') && !u.email?.endsWith('.basechaninternational@gmail.com'));
@@ -896,11 +901,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const activeStat = statConfigs.find(c => c.filterId === filter) || statConfigs[0];
 
   if (loading) {
-    return (
-      <div className="h-[60vh] flex items-center justify-center">
-        <ProfessionalSpinner message="Loading please wait..." />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -920,7 +921,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
               </div>
               <div className="text-left">
                 <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{activeStat.label}</p>
-                <p className="text-xl font-black text-white leading-none mt-1">{activeStat.value}</p>
+                <p className="text-xl font-black text-main dark:text-white leading-none mt-1">{activeStat.value}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400">
@@ -1008,7 +1009,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                   <SearchX className="w-12 h-12" />
                 </div>
                 <div className="space-y-2 max-w-sm mx-auto">
-                   <p className="text-sm font-black text-white uppercase tracking-tight">No match found</p>
+                   <p className="text-sm font-black text-main dark:text-white uppercase tracking-tight">No match found</p>
                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                      No students match your current search or filter criteria. Try expanding your parameters or resetting the filters.
                    </p>
@@ -1255,8 +1256,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                            <span className="text-[9px] font-mono text-slate-500">{new Date(selectedStudent.pendingRequest.createdAt?.seconds * 1000).toLocaleDateString()}</span>
                         </div>
 
-                        <div className="p-4 rounded-2xl bg-slate-950/20 border border-white/5 space-y-2">
-                          <p className="text-xs font-bold text-white">
+                        <div className="p-4 rounded-2xl bg-slate-950/5 dark:bg-slate-950/20 border border-slate-200 dark:border-white/5 space-y-2">
+                          <p className="text-xs font-bold text-main dark:text-white">
                             Requested: {selectedStudent.pendingRequest.type === 'TOP_UP' ? `£${selectedStudent.pendingRequest.amountGBP}` : `${selectedStudent.pendingRequest.daysRequested} Days`}
                           </p>
                           {selectedStudent.pendingRequest.reason && (

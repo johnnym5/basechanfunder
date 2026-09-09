@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import { StudentDashboardView } from './StudentDashboardView';
 import { MAJOR_CURRENCIES } from '../constants';
+import { TroubleshootingToast } from './ui/TroubleshootingToast';
+import { StudentDashboardSkeleton } from './ui/LoadingStates';
 
 interface StaffStudentViewModeProps {
   studentId: string;
@@ -154,7 +156,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
             throw new Error(result.message);
         }
     } catch (err: any) {
-        toast.error('Approval failed: ' + err.message);
+        toast.error(<TroubleshootingToast message={err.message} />);
     } finally {
         setIsSubmitting(false);
     }
@@ -185,7 +187,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
             throw new Error(result.message);
         }
     } catch (err: any) {
-        toast.error('Denial failed: ' + err.message);
+        toast.error(<TroubleshootingToast message={err.message} />);
     } finally {
         setIsSubmitting(false);
     }
@@ -260,12 +262,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   };
 
   if (loading) {
-    return (
-      <div className="h-screen bg-[#030712] flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
-        <p className="text-xs font-black text-amber-500 uppercase tracking-widest">Syncing Student Settings...</p>
-      </div>
-    );
+    return <StudentDashboardSkeleton />;
   }
 
   return (
@@ -287,7 +284,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
            <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 border-b border-white/5 flex justify-between items-center bg-amber-500/5">
                  <div>
-                    <h3 className="text-xl font-black text-amber-500 uppercase tracking-tight">Student Top-Up Settings</h3>
+                    <h3 className="text-xl font-black text-main dark:text-amber-500 uppercase tracking-tight">Student Top-Up Settings</h3>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure pricing and limits for this profile</p>
                  </div>
                  <button onClick={() => setIsOverrideModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
@@ -323,7 +320,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                               <CheckCheck className="w-8 h-8 text-emerald-500" />
                            </div>
                            <div className="space-y-1">
-                              <p className="text-xs font-black uppercase tracking-widest text-white opacity-40">No pending claims</p>
+                              <p className="text-xs font-black uppercase tracking-widest text-main dark:text-white opacity-40">No pending claims</p>
                               <button
                                  onClick={() => setModalTab('history')}
                                  className="text-[9px] font-bold text-blue-400 uppercase tracking-widest hover:underline"
@@ -352,7 +349,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                                           />
                                        </div>
                                     ) : (
-                                       <h4 className="text-3xl font-black text-white leading-none">₦{activeRequest.topUpAmountNgn?.toLocaleString()}</h4>
+                                       <h4 className="text-3xl font-black text-main dark:text-white leading-none">₦{activeRequest.topUpAmountNgn?.toLocaleString()}</h4>
                                     )}
                                  </div>
 
@@ -421,7 +418,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                              <div key={req.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3 relative overflow-hidden group">
                                 <div className="flex justify-between items-start">
                                    <div>
-                                      <p className="text-[10px] font-black text-white uppercase tracking-tight">₦{req.topUpAmountNgn?.toLocaleString()}</p>
+                                      <p className="text-[10px] font-black text-main dark:text-white uppercase tracking-tight">₦{req.topUpAmountNgn?.toLocaleString()}</p>
                                       <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">{new Date(req.createdAt).toLocaleDateString()}</p>
                                    </div>
                                    <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${

@@ -7,7 +7,6 @@ import { AuthController } from './controllers/auth.controller';
 import { MandateController } from './controllers/mandate.controller';
 import { LedgerController } from './controllers/ledger.controller';
 import { BankLedgerController } from './controllers/bankLedger.controller';
-import { StorageController } from './controllers/storage.controller';
 import { NotificationService } from './services/notificationService';
 import { EmailService } from './services/emailService';
 import { MilestoneService } from './services/milestone.service';
@@ -28,8 +27,7 @@ import { StorageService } from './services/storage.service';
     AuthController,
     MandateController,
     LedgerController,
-    BankLedgerController,
-    StorageController
+    BankLedgerController
   ],
   providers: [
     NotificationService,

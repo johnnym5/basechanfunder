@@ -137,7 +137,21 @@ export const MasterAppPortal: React.FC = () => {
     };
 
     window.addEventListener('app:navigate:student' as any, handleNavEvent);
-    return () => window.removeEventListener('app:navigate:student' as any, handleNavEvent);
+
+    const handleOpenSettings = (e: any) => {
+      setIsSettingsOpen(true);
+      // Pass tab info if available
+      if (e.detail?.tab) {
+        // We'll need to pass this to SettingsConsole
+        (window as any)._pendingSettingsTab = e.detail.tab;
+      }
+    };
+    window.addEventListener('app:open-settings' as any, handleOpenSettings);
+
+    return () => {
+      window.removeEventListener('app:navigate:student' as any, handleNavEvent);
+      window.removeEventListener('app:open-settings' as any, handleOpenSettings);
+    };
   }, [currentUser?.uid]);
 
   // Determine user status for routing

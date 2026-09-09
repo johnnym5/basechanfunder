@@ -28,6 +28,7 @@ import {
   Zap,
   Calendar
 } from 'lucide-react';
+import { DashboardSkeleton } from './ui/LoadingStates';
 
 // --- Types ---
 
@@ -165,11 +166,7 @@ export const CounselorPortal: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#090D16] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

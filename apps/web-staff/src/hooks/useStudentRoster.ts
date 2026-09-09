@@ -104,9 +104,9 @@ export function useStudentRoster() {
     return unsub;
   }, []);
 
-  // 2. Subscribe to all users (Filter out archived ones)
+  // 2. Subscribe to all users
   useEffect(() => {
-    const q = query(collection(db, 'users'), where('isArchived', '!=', true));
+    const q = query(collection(db, 'users'));
     const unsub = onSnapshot(q, (snap) => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -138,7 +138,9 @@ export function useStudentRoster() {
 
     const merged: Student[] = evaluations.filter(s => {
       const userProfile = allUsers.find(u => u.uid === s.userId || u.email === s.email);
-      return !userProfile || !userProfile.hardDeleted;
+      // Filter out hard deleted OR archived users
+      if (userProfile?.hardDeleted || userProfile?.isArchived === true) return false;
+      return true;
     }).map(s => {
       const studentAccs = accounts.filter(a => a.userId === s.userId || a.userEmail === s.email);
       const accountsTotalGbp = studentAccs.reduce((sum, curr) =>
@@ -197,6 +199,9 @@ export function useStudentRoster() {
     // Add users not in pof_evaluations yet
     allUsers.forEach(u => {
       const uid = u.id || u.uid;
+      // Skip archived or deleted users
+      if (u.isArchived === true || u.hardDeleted === true) return;
+
       const isAlreadyIn = merged.some(s => s.userId === uid || s.email === u.email);
       const isStudentRole = u.role === 'STUDENT' || (!u.email?.endsWith('@basechaninternational.com') && !u.email?.endsWith('.basechaninternational@gmail.com'));
 

@@ -96,6 +96,7 @@ async function bootstrap() {
   // and some have @Controller('api/v1').
   // Let's check AdminController again.
 
+  // Triggering server reload to register new storage routes...
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
   Logger.log(`🚀 Server running on http://0.0.0.0:${port}`, 'Bootstrap');

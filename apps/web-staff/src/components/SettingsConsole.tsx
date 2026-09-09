@@ -20,16 +20,31 @@ import {
   X,
   Edit3,
   FileText,
-  Trash2
+  Trash2,
+  HardDrive,
+  UserCheck,
+  ZapOff,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  writeBatch
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FirestoreDatabaseExplorer } from './FirestoreDatabaseExplorer';
 import { StorageExplorer } from './StorageExplorer';
 import { IncidentEngine, SystemIncident } from '../services/incidentEngine';
-import { collection, query, where, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 import { MAJOR_CURRENCIES } from '../constants';
@@ -87,9 +102,22 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
   const { theme } = useTheme();
   const { role } = useAuth();
   const isDark = theme === 'dark';
-  const [activeTab, setActiveTab] = useState<SettingTab>(initialTab || 'risk');
+  const [activeTab, setActiveTab] = useState<SettingTab>(initialTab || (window as any)._pendingSettingsTab || 'risk');
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Clear the pending tab after consumption
+  useEffect(() => {
+    if ((window as any)._pendingSettingsTab) {
+       (window as any)._pendingSettingsTab = null;
+    }
+
+    const handleSwitch = (e: any) => {
+      if (e.detail) setActiveTab(e.detail);
+    };
+    window.addEventListener('app:settings:switch', handleSwitch);
+    return () => window.removeEventListener('app:settings:switch', handleSwitch);
+  }, []);
 
   // Form States
   const [risk, setRisk] = useState<RiskConfig>({
@@ -281,11 +309,12 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
       }`}>
         {[
           { id: 'risk', label: 'Risk & FX Buffers', icon: Sliders },
+          { id: 'troubleshooting', label: 'Troubleshooting', icon: Info },
+          { id: 'trash', label: 'Trash / Purge', icon: Trash2 },
           { id: 'database', label: 'Database Explorer', icon: Database },
           { id: 'storage', label: 'Storage Explorer', icon: HardDrive },
           { id: 'destinations', label: 'Destination Rules', icon: Globe },
           { id: 'document_requirements', label: 'Document Requirements', icon: FileText },
-          { id: 'api', label: 'API & Banking Keys', icon: Key },
           { id: 'security', label: 'Security & Alerts', icon: ShieldCheck },
         ].map((tab) => (
           <button
@@ -624,6 +653,14 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
           </div>
         )}
 
+        {activeTab === 'trash' && (
+          <TrashManager />
+        )}
+
+        {activeTab === 'troubleshooting' && (
+          <TroubleshootingHub />
+        )}
+
         {activeTab === 'security' && (
           <div className="max-w-2xl space-y-6">
             {[
@@ -713,7 +750,7 @@ const RequirementItemModal: React.FC<{
       <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
           <div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Document Requirement</h3>
+            <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Document Requirement</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure structural check item</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
@@ -820,7 +857,7 @@ const ManualEditDestinationModal: React.FC<{
       <div className="glass-card w-full max-w-md animate-in zoom-in-95 duration-300 flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
           <div>
-            <h3 className="text-xl font-black text-white uppercase tracking-tight">Edit Rule: {destination.code}</h3>
+            <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">Edit Rule: {destination.code}</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Manual Parameter Override</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
@@ -865,3 +902,154 @@ const ManualEditDestinationModal: React.FC<{
 };
 
 export default SettingsConsole;
+
+const TrashManager: React.FC = () => {
+  const [archivedUsers, setArchivedUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for isArchived flag OR status: ARCHIVED for backward compatibility
+    const q = query(collection(db, 'users'), where('isArchived', '==', true));
+    const unsub = onSnapshot(q, (snap) => {
+      setArchivedUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const calculateDaysLeft = (archivedAt: any) => {
+    if (!archivedAt) return 7;
+    const start = archivedAt instanceof Timestamp ? archivedAt.toMillis() : new Date(archivedAt).getTime();
+    const expiry = start + (7 * 24 * 60 * 60 * 1000); // 7 day window
+    const diff = expiry - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  const handlePurge = async (uid: string, name: string) => {
+    if (!window.confirm(`PERMANENT DATA WIPE: Are you sure you want to completely erase ${name}? This cannot be undone.`)) return;
+
+    const t = toast.loading(`Purging ${name}...`);
+    try {
+      const res = await fetch(`/api/v1/admin/users/${uid}/purge`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) toast.success("Wipe complete", { id: t });
+      else throw new Error(data.message);
+    } catch (e: any) {
+      toast.error(e.message, { id: t });
+    }
+  };
+
+  const handleRestore = async (uid: string) => {
+    try {
+      await fetch(`/api/v1/admin/users/${uid}/restore`, { method: 'POST' });
+      toast.success("User restored to active roster");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center">
+        <div>
+           <h4 className="text-sm font-black uppercase text-main dark:text-white tracking-tight">System Recycle Bin</h4>
+           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Soft-archived profiles awaiting hard deletion</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-amber-500" /></div>
+      ) : archivedUsers.length === 0 ? (
+        <div className="py-20 text-center opacity-20 flex flex-col items-center gap-4">
+           <Trash2 className="w-12 h-12" />
+           <p className="text-xs font-black uppercase tracking-[0.2em]">Trash is Empty</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           {archivedUsers.map(user => {
+             const daysLeft = calculateDaysLeft(user.archivedAt);
+             return (
+               <div key={user.id} className="p-6 rounded-3xl bg-slate-950/40 border border-white/5 space-y-4 relative overflow-hidden group">
+                  <div className="flex justify-between items-start">
+                     <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-amber-500 shrink-0">
+                           <Archive className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                           <p className="text-sm font-bold text-white uppercase truncate">{user.displayName || 'Unknown Student'}</p>
+                           <p className="text-[9px] font-mono text-slate-500 truncate">{user.email}</p>
+                        </div>
+                     </div>
+                     <div className="flex gap-2">
+                        <button
+                           onClick={() => handleRestore(user.id)}
+                           title="Restore User"
+                           className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/10"
+                        >
+                           <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
+                           onClick={() => handlePurge(user.id, user.displayName)}
+                           title="Permanent Wipe"
+                           className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-lg shadow-rose-500/10"
+                        >
+                           <Trash2 className="w-4 h-4" />
+                        </button>
+                     </div>
+                  </div>
+                  <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
+                        daysLeft <= 2 ? 'bg-rose-500/20 text-rose-400 animate-pulse' : 'bg-amber-500/10 text-amber-500'
+                     }`}>
+                        <Clock className="w-2.5 h-2.5" />
+                        {daysLeft} Days Left to Restore
+                     </span>
+                     <p className="text-[8px] font-bold text-slate-600 uppercase">Archived: {user.archivedAt?.seconds ? new Date(user.archivedAt.seconds * 1000).toLocaleDateString() : 'N/A'}</p>
+                  </div>
+               </div>
+             );
+           })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TroubleshootingHub: React.FC = () => {
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div>
+         <h4 className="text-sm font-black uppercase text-main dark:text-white tracking-tight">Technical Knowledge Base</h4>
+         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Past incidents and verified resolution strategies</p>
+      </div>
+
+      <div className="space-y-4">
+         {[
+           { code: 'AUTH_SESSION_EXPIRED', pattern: 'invalid_rapt', res: 'Run "gcloud auth application-default login" in terminal.' },
+           { code: 'TEMPLATE_MISSING', pattern: 'Upgrade_Form.pdf 404', res: 'Ensure file is in apps/server/assets folder with correct underscore naming.' },
+           { code: 'CORS_PROTOCOL_BLOCK', pattern: 'Mixed Content', res: 'Synchronize HTTPS/HTTP between frontend and backend in .env.' },
+           { code: 'DB_INDEX_REQUIRED', pattern: 'needs an index', res: 'Click the Firebase link in the error console to auto-generate.' },
+         ].map(issue => (
+           <div key={issue.code} className="p-6 rounded-3xl bg-blue-600/5 border border-blue-500/20 space-y-3">
+              <div className="flex justify-between items-center">
+                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{issue.code}</span>
+                 <span className="text-[8px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono italic">Match: {issue.pattern}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-slate-950 border border-white/5 space-y-2">
+                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Resolution Steps</p>
+                 <p className="text-xs font-bold text-white">{issue.res}</p>
+              </div>
+           </div>
+         ))}
+
+         <div className="p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-100/40 dark:bg-slate-900/40 text-center space-y-4">
+            <ShieldAlert className="w-10 h-10 text-amber-500 mx-auto" />
+            <div>
+               <p className="text-xs font-black text-main dark:text-white uppercase tracking-widest">New Incident Encountered?</p>
+               <p className="text-[10px] text-slate-500 font-medium leading-relaxed max-w-xs mx-auto mt-2 italic">"If you see an error not listed above, please paste the code here and we will build a recovery protocol for it."</p>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+};
