@@ -102,15 +102,15 @@ export const AuthPage: React.FC = () => {
   React.useEffect(() => {
     if (isNative) {
       (window as any).onNativeGoogleLoginSuccess = async (idToken: string) => {
-        console.log("Native Google Login Success. Processing with Firebase.");
+        console.log("Native Google Login Success. Exchanging ID Token...");
         setGoogleLoading(true);
         try {
           const credential = GoogleAuthProvider.credential(idToken);
-          const cred = await signInWithCredential(auth, credential);
-          await handlePostAuth(cred.user);
-        } catch (err) {
+          await signInWithCredential(auth, credential);
+          console.log("Native Credential synced with Firebase Auth.");
+        } catch (err: any) {
+          console.error("Native Credential sync failed:", err);
           setError(friendly(err as AuthError));
-        } finally {
           setGoogleLoading(false);
         }
       };
@@ -132,37 +132,13 @@ export const AuthPage: React.FC = () => {
   React.useEffect(() => {
     const checkRedirect = async () => {
       try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          await handlePostAuth(result.user);
-        }
+        await getRedirectResult(auth);
       } catch (err) {
         setError(friendly(err as AuthError));
       }
     };
     checkRedirect();
   }, []);
-
-  const handlePostAuth = async (user: any) => {
-    // Ensure profile exists in Firestore immediately
-    const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
-
-    if (!snap.exists()) {
-      const { role, name: whitelistedName } = deriveRole(user.email || '');
-
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: whitelistedName || user.displayName || user.email?.split('@')[0] || 'User',
-        photoURL: user.photoURL || '',
-        username: user.email?.split('@')[0] || user.uid,
-        role,
-        isApproved: role !== 'STUDENT',
-        createdAt: serverTimestamp(),
-      });
-    }
-  };
 
   const friendly = (err: AuthError) => {
     switch (err.code) {
@@ -316,24 +292,31 @@ export const AuthPage: React.FC = () => {
     setError('');
     setSuccess('');
     setGoogleLoading(true);
+
+    const platform = getPlatformType();
+    const isNative = platform === 'NATIVE_ANDROID';
+    const hasBridge = !!(window as any).AndroidBridge;
+    const hasMethod = !!(window as any).AndroidBridge?.triggerNativeGoogleLogin;
+
+    console.log(`[GoogleAuth] Platform: ${platform}, Bridge: ${hasBridge}, Method: ${hasMethod}`);
+
     try {
       // For Native Android WebView, use the bridge to trigger native picker
-      // This bypasses 400 errors and disallowed user agent blocks.
-      if (isNative && (window as any).AndroidBridge?.triggerNativeGoogleLogin) {
+      if (isNative && hasMethod) {
+        console.log("[GoogleAuth] Triggering Native Bridge Login...");
         (window as any).AndroidBridge.triggerNativeGoogleLogin();
         return;
       }
 
+      console.log("[GoogleAuth] Falling back to Firebase SDK Auth...");
       if (isNative) {
-        const cred = await signInWithPopup(auth, googleProvider);
-        await handlePostAuth(cred.user);
+        await signInWithPopup(auth, googleProvider);
       } else {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         if (isMobile) {
           await signInWithRedirect(auth, googleProvider);
         } else {
-          const cred = await signInWithPopup(auth, googleProvider);
-          await handlePostAuth(cred.user);
+          await signInWithPopup(auth, googleProvider);
         }
       }
     } catch (err: any) {

@@ -107,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
 
           // 1. Set initial local state immediately to avoid flicker/blank screens
+          console.log(`[AuthContext] User detected: ${firebaseUser.email} (${firebaseUser.uid})`);
           setAppUser(resolvedAppUser);
 
           // 2. Setup real-time listener for user profile
@@ -115,35 +116,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profileUnsub = onSnapshot(userRef, async (snap) => {
             if (snap.exists()) {
               const data = snap.data() as any;
+              console.log("[AuthContext] Firestore Profile loaded. OnboardingComplete:", data.onboardingComplete);
 
               // KILL-SWITCH: If user is marked for hard delete, force logout immediately
               if (data.hardDeleted === true) {
-                console.warn("Account has been deleted by Admin. Logging out...");
+                console.warn("[AuthContext] Account deleted by admin. Logging out...");
                 await signOut(auth);
                 return;
               }
 
-              // If we find a profile, merge it with our local resolved user
-              setAppUser(prev => ({ ...resolvedAppUser, ...prev, ...data }));
+              // Merge Firestore data into local appUser
+              setAppUser(prev => {
+                const next = { ...resolvedAppUser, ...prev, ...data };
+                return next;
+              });
             } else {
-              // OPTIONAL: If the doc is missing and we aren't in the middle of a deletion,
-              // we can create it, but let's be more careful to avoid the "ghost" user loop.
-              // For now, only create if we just logged in.
+              console.log("[AuthContext] Profile does not exist yet. Initializing...");
+              // For new users, ensure they start with the onboarding state
+              setAppUser(resolvedAppUser);
             }
           }, (err) => {
-            console.error("Firestore Profile Listener Error:", err);
+            console.error("[AuthContext] Firestore Listener Error:", err);
+            // If we hit a permission error (e.g. newly signed in user, rules not ready)
+            // we keep the basic resolvedAppUser so they don't get stuck on a spinner.
+            setAppUser(resolvedAppUser);
           });
 
-          // Create user profile in Firestore if it doesn't exist (Only once on login)
-          const profileSnap = await getDoc(userRef);
-          if (!profileSnap.exists()) {
-            await setDoc(userRef, {
-              ...resolvedAppUser,
-              createdAt: serverTimestamp(),
-            }).catch((e) => {
-              console.warn('Firestore user profile creation deferred:', e.message);
-            });
-          }
+          // Ensure profile exists in Firestore (Lazy creation)
+          // We wrap this in a timeout to allow rules to propagate if needed
+          setTimeout(async () => {
+            try {
+              const profileSnap = await getDoc(userRef);
+              if (!profileSnap.exists()) {
+                await setDoc(userRef, {
+                  ...resolvedAppUser,
+                  createdAt: serverTimestamp(),
+                });
+                console.log("[AuthContext] Initial profile provisioned.");
+              }
+            } catch (e: any) {
+              console.warn('[AuthContext] Lazy profile check deferred:', e.message);
+            }
+          }, 500);
 
           // 3. Handle FCM (Async, non-blocking)
           try {

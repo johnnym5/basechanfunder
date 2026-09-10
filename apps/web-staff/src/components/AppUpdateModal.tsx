@@ -11,6 +11,7 @@ import {
 import { getPlatformType } from '../utils/deviceDetection';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useNotificationModal } from '../context/NotificationContext';
 
 interface AppVersionInfo {
   version: string;

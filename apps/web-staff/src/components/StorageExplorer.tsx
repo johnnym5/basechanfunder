@@ -20,15 +20,16 @@ import {
   Loader2,
   HardDrive,
   Grid,
-  List as ListIcon
+  List as ListIcon,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTheme } from '../context/ThemeContext';
 import { StorageUsageBar } from './ui/StorageUsageBar';
 import { ref, listAll, getMetadata, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
-import { storage, db } from '../firebase';
+import { doc, updateDoc, increment, setDoc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { storage, db, auth } from '../firebase';
 
 interface StorageItem {
   name: string;
@@ -37,6 +38,7 @@ interface StorageItem {
   size?: number;
   updated?: string;
   isImage?: boolean;
+  displayName?: string; // Resolved student name
 }
 
 export const StorageExplorer: React.FC = () => {
@@ -51,6 +53,27 @@ export const StorageExplorer: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+
+  // --- 1. Load Student Names for ID Resolution ---
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const userSnap = await getDocs(collection(db, 'users'));
+        const mapping: Record<string, string> = {};
+        userSnap.docs.forEach(d => {
+          mapping[d.id] = d.data().displayName || d.data().email || d.id;
+        });
+        setUserMap(mapping);
+        // After loading names, refresh the list to apply names to folders
+        fetchItems(currentPrefix);
+      } catch (e) {
+        console.warn("User name mapping failed:", e);
+      }
+    };
+    loadUsers();
+  }, []); // Run once on mount
 
   const updateMetrics = async (bytesChange: number) => {
     const metricsRef = doc(db, 'system', 'storage_metrics');
@@ -64,17 +87,120 @@ export const StorageExplorer: React.FC = () => {
     }
   };
 
+  // ─── Metrics Synchronisation Engine ───
+  const syncStorageMetrics = async () => {
+    const t = toast.loading('Synchronising bucket metrics...');
+    try {
+      let totalBytes = 0;
+      const calculateSize = async (prefix: string) => {
+        const storageRef = ref(storage, prefix);
+        const res = await listAll(storageRef);
+
+        // Add file sizes
+        for (const item of res.items) {
+          const meta = await getMetadata(item);
+          totalBytes += meta.size;
+        }
+
+        // Recurse into folders
+        for (const folder of res.prefixes) {
+          await calculateSize(folder.fullPath);
+        }
+      };
+
+      await calculateSize(''); // Start from root
+      const metricsRef = doc(db, 'system', 'storage_metrics');
+      await setDoc(metricsRef, {
+        totalBytesUsed: totalBytes,
+        lastSyncedAt: serverTimestamp()
+      }, { merge: true });
+
+      toast.success(`Metrics synced: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB found.`, { id: t });
+    } catch (err: any) {
+      console.error('Sync Error:', err);
+      toast.error('Sync failed: ' + err.message, { id: t });
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const folderName = prompt('Enter folder name:');
+    if (!folderName) return;
+
+    const cleanName = folderName.replace(/[^a-zA-Z0-9_-]/g, '');
+    const t = toast.loading(`Creating virtual node: ${cleanName}`);
+    try {
+      // In Firebase Storage, folders don't technically exist without a file.
+      // We create a hidden .keep file to instantiate the path.
+      const placeholderRef = ref(storage, `${currentPrefix}${cleanName}/.keep`);
+      await uploadBytes(placeholderRef, new Blob(['placeholder'], { type: 'text/plain' }));
+
+      toast.success('Directory created', { id: t });
+      fetchItems(currentPrefix);
+    } catch (err: any) {
+      toast.error('Failed to create folder: ' + err.message, { id: t });
+    }
+  };
+
+  const handleRename = async (item: StorageItem) => {
+    const newName = prompt(`Enter new name for ${item.type}:`, item.displayName || item.name);
+    if (!newName || newName === (item.displayName || item.name)) return;
+
+    const t = toast.loading(`Moving ${item.type} resources...`);
+    try {
+      if (item.type === 'folder') {
+        // Recursive Folder Move (Copy all files + Delete originals)
+        const oldPrefix = item.path;
+        const newPrefix = item.path.replace(item.name.replace('/', ''), newName.replace('/', ''));
+
+        const moveFolder = async (currentOldPath: string, currentNewPath: string) => {
+          const list = await listAll(ref(storage, currentOldPath));
+          // Move files
+          for (const file of list.items) {
+             const blob = await fetch(await getDownloadURL(file)).then(r => r.blob());
+             const newFileRef = ref(storage, file.fullPath.replace(currentOldPath, currentNewPath));
+             await uploadBytes(newFileRef, blob);
+             await deleteObject(file);
+          }
+          // Recurse subfolders
+          for (const folder of list.prefixes) {
+            await moveFolder(folder.fullPath, folder.fullPath.replace(currentOldPath, currentNewPath));
+          }
+        };
+
+        await moveFolder(oldPrefix, newPrefix);
+      } else {
+        // Simple File Move
+        const oldRef = ref(storage, item.path);
+        const newPath = item.path.replace(item.name, newName);
+        const newRef = ref(storage, newPath);
+
+        const blob = await fetch(await getDownloadURL(oldRef)).then(r => r.blob());
+        await uploadBytes(newRef, blob);
+        await deleteObject(oldRef);
+      }
+
+      toast.success('Rename complete', { id: t });
+      fetchItems(currentPrefix);
+    } catch (err: any) {
+      toast.error('Rename failed: ' + err.message, { id: t });
+    }
+  };
+
   const fetchItems = async (prefix: string) => {
     setLoading(true);
     try {
       const storageRef = ref(storage, prefix);
       const res = await listAll(storageRef);
 
-      const folders = res.prefixes.map(p => ({
-        name: p.name + '/',
-        path: p.fullPath + '/',
-        type: 'folder'
-      }));
+      const folders = res.prefixes.map(p => {
+        const id = p.name.replace('/', '');
+        return {
+          name: p.name + '/',
+          displayName: userMap[id] ? `${userMap[id]} (${id.substring(0, 6)})/` : p.name + '/',
+          path: p.fullPath + '/',
+          type: 'folder'
+        };
+      });
 
       const fileItems = await Promise.all(res.items.map(async (item) => {
         const metadata = await getMetadata(item);
@@ -104,7 +230,7 @@ export const StorageExplorer: React.FC = () => {
 
   useEffect(() => {
     fetchItems(currentPrefix);
-  }, [currentPrefix]);
+  }, [currentPrefix, userMap]);
 
   const handleFolderClick = (path: string) => {
     setCurrentPrefix(path);
@@ -123,33 +249,50 @@ export const StorageExplorer: React.FC = () => {
   };
 
   const toggleSelectAll = () => {
-    const allFilePaths = items.files.map(f => f.path);
-    if (selectedPaths.length === allFilePaths.length) {
+    const allPaths = [...items.folders.map(f => f.path), ...items.files.map(f => f.path)];
+    if (selectedPaths.length === allPaths.length) {
       setSelectedPaths([]);
     } else {
-      setSelectedPaths(allFilePaths);
+      setSelectedPaths(allPaths);
     }
   };
 
   const handleDelete = async () => {
     if (selectedPaths.length === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedPaths.length} items?`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedPaths.length} items? This includes all contents of selected folders.`)) return;
 
-    const t = toast.loading(`Deleting ${selectedPaths.length} items...`);
+    const t = toast.loading(`Deleting ${selectedPaths.length} resources...`);
     try {
       let totalBytesDeleted = 0;
-      await Promise.all(selectedPaths.map(async (path) => {
-        const fileRef = ref(storage, path);
-        const metadata = await getMetadata(fileRef);
-        totalBytesDeleted += metadata.size;
-        await deleteObject(fileRef);
-      }));
+
+      const deleteRecursive = async (path: string) => {
+        const storageRef = ref(storage, path);
+        if (path.endsWith('/')) {
+          // It's a folder prefix
+          const list = await listAll(storageRef);
+          for (const item of list.items) {
+            const meta = await getMetadata(item);
+            totalBytesDeleted += meta.size;
+            await deleteObject(item);
+          }
+          for (const prefix of list.prefixes) {
+            await deleteRecursive(prefix.fullPath + '/');
+          }
+        } else {
+          // It's a file
+          const meta = await getMetadata(storageRef);
+          totalBytesDeleted += meta.size;
+          await deleteObject(storageRef);
+        }
+      };
+
+      await Promise.all(selectedPaths.map(path => deleteRecursive(path)));
 
       await updateMetrics(-totalBytesDeleted);
-      toast.success('Items deleted successfully', { id: t });
+      toast.success('Resources deleted', { id: t });
       fetchItems(currentPrefix);
-    } catch (err) {
-      toast.error('Deletion failed', { id: t });
+    } catch (err: any) {
+      toast.error('Deletion failed: ' + err.message, { id: t });
     }
   };
 
@@ -192,7 +335,32 @@ export const StorageExplorer: React.FC = () => {
     }
   };
 
-  const formatSize = (bytes?: number) => {
+  const handleBatchRename = async () => {
+    if (selectedPaths.length === 0) return;
+    const prefix = prompt('Enter prefix to add to selected files:');
+    if (!prefix) return;
+
+    const t = toast.loading(`Renaming ${selectedPaths.length} items...`);
+    try {
+      await Promise.all(selectedPaths.map(async (path) => {
+        const fileRef = ref(storage, path);
+        const fileName = path.split('/').pop() || '';
+        const newPath = path.replace(fileName, `${prefix}${fileName}`);
+        const newRef = ref(storage, newPath);
+
+        const blob = await fetch(await getDownloadURL(fileRef)).then(r => r.blob());
+        await uploadBytes(newRef, blob);
+        await deleteObject(fileRef);
+      }));
+
+      toast.success('Batch rename complete', { id: t });
+      fetchItems(currentPrefix);
+    } catch (err: any) {
+      toast.error('Batch rename failed: ' + err.message, { id: t });
+    }
+  };
+
+  const formatSize = (bytes: number | undefined) => {
     if (bytes === undefined) return '--';
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -220,7 +388,7 @@ export const StorageExplorer: React.FC = () => {
                   onClick={() => setCurrentPrefix('')}
                   className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-400 transition-colors"
                 >
-                  gs://basechanfunder.app
+                  gs://basechanfunder.firebasestorage.app
                 </button>
                 {breadcrumbs.map((part, i) => (
                   <React.Fragment key={i}>
@@ -256,20 +424,51 @@ export const StorageExplorer: React.FC = () => {
              </div>
 
              <button
-               onClick={() => fetchItems(currentPrefix)}
-               className={`p-2.5 rounded-xl border transition-all ${isDark ? 'bg-white/5 border-white/5 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
+               onClick={syncStorageMetrics}
+               title="Sync Storage Metrics"
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'}`}
              >
                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+               <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Sync Metrics</span>
              </button>
 
-             <button
-               onClick={() => document.getElementById('file-upload')?.click()}
-               disabled={uploading}
-               className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
-             >
-               {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-               <span>{uploading ? 'Uploading...' : 'Upload file'}</span>
-             </button>
+             <div className="relative">
+                <button
+                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Resource</span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {isAddMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className={`absolute right-0 top-full mt-2 w-48 rounded-2xl shadow-2xl z-[150] p-1.5 border ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
+                    >
+                      <button
+                        onClick={() => { document.getElementById('file-upload')?.click(); setIsAddMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all ${isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        <FileIcon className="w-3.5 h-3.5" />
+                        <span>Upload Files</span>
+                      </button>
+                      <button
+                        onClick={() => { handleCreateFolder(); setIsAddMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all ${isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        <Folder className="w-3.5 h-3.5" />
+                        <span>New Folder</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+             </div>
+
              <input
                id="file-upload"
                type="file"
@@ -295,6 +494,13 @@ export const StorageExplorer: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={handleBatchRename}
+                  className="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2"
+                >
+                   <Edit3 className="w-3 h-3" />
+                   <span>Bulk Rename</span>
+                </button>
                 <button className="px-4 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2">
                    <Download className="w-3 h-3" />
                    <span>Export ZIP</span>
@@ -357,29 +563,75 @@ export const StorageExplorer: React.FC = () => {
                     </tr>
                   )}
 
-                  {items.folders?.map(folder => (
-                    <tr
-                      key={folder.path}
-                      onClick={() => handleFolderClick(folder.path)}
-                      className="hover:bg-white/5 cursor-pointer group transition-colors"
-                    >
-                      <td className="px-6 py-4"></td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform`}>
-                            <Folder className="w-4 h-4 fill-current opacity-60" />
+                  {items.folders?.map(folder => {
+                    const isSelected = selectedPaths.includes(folder.path);
+                    return (
+                      <tr
+                        key={folder.path}
+                        className={`hover:bg-white/5 cursor-pointer group transition-colors ${isSelected ? 'bg-blue-600/5' : ''}`}
+                      >
+                        <td className="px-6 py-4">
+                           <button
+                             onClick={(e) => { e.stopPropagation(); toggleSelect(folder.path); }}
+                             className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'}`}
+                           >
+                             {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                           </button>
+                        </td>
+                        <td className="px-6 py-4" onClick={() => handleFolderClick(folder.path)}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform`}>
+                              <Folder className="w-4 h-4 fill-current opacity-60" />
+                            </div>
+                            <span className="text-[11px] font-black text-white uppercase tracking-tight">{folder.displayName || folder.name}</span>
                           </div>
-                          <span className="text-[11px] font-black text-white uppercase tracking-tight">{folder.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">--</td>
-                      <td className="px-6 py-4 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Folder</td>
-                      <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">--</td>
-                      <td className="px-6 py-4">
-                        <ChevronRight className="w-4 h-4 text-slate-700 group-hover:translate-x-1 transition-transform" />
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">--</td>
+                        <td className="px-6 py-4 text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Folder</td>
+                        <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">--</td>
+                        <td className="px-6 py-4">
+                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleRename(folder); }}
+                                title="Rename Folder"
+                                className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Delete folder ${folder.name} and all its contents?`)) {
+                                    const t = toast.loading('Deleting folder contents...');
+                                    try {
+                                      const deleteFolder = async (path: string) => {
+                                        const list = await listAll(ref(storage, path));
+                                        for (const file of list.items) {
+                                          await deleteObject(file);
+                                        }
+                                        for (const sub of list.prefixes) {
+                                          await deleteFolder(sub.fullPath);
+                                        }
+                                      };
+                                      await deleteFolder(folder.path);
+                                      toast.success('Folder purged', { id: t });
+                                      fetchItems(currentPrefix);
+                                    } catch (err: any) {
+                                      toast.error('Purge failed: ' + err.message, { id: t });
+                                    }
+                                  }
+                                }}
+                                title="Delete Folder"
+                                className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                              <ChevronRight className="w-4 h-4 text-slate-700" />
+                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {items.files?.map(file => {
                     const isSelected = selectedPaths.includes(file.path);
@@ -389,7 +641,10 @@ export const StorageExplorer: React.FC = () => {
                         className={`hover:bg-white/5 transition-colors group ${isSelected ? 'bg-blue-600/5' : ''}`}
                       >
                         <td className="px-6 py-4">
-                           <button onClick={() => toggleSelect(file.path)} className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'}`}>
+                           <button
+                             onClick={(e) => { e.stopPropagation(); toggleSelect(file.path); }}
+                             className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'}`}
+                           >
                              {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                            </button>
                         </td>
@@ -413,11 +668,36 @@ export const StorageExplorer: React.FC = () => {
                            {file.updated ? new Date(file.updated).toLocaleDateString() : '--'}
                         </td>
                         <td className="px-6 py-4">
-                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 transition-opacity">
-                              <button onClick={() => openPreview(file)} className="p-1.5 text-slate-500 hover:text-white">
+                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                              <button onClick={() => openPreview(file)} title="Preview" className="p-1.5 text-slate-500 hover:text-white transition-colors">
                                 <Eye className="w-4 h-4" />
                               </button>
-                              <button className="p-1.5 text-slate-500 hover:text-white">
+                              <button onClick={() => handleRename(file)} title="Rename" className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Delete ${file.name}?`)) {
+                                    const t = toast.loading('Deleting...');
+                                    await deleteObject(ref(storage, file.path));
+                                    await updateMetrics(-(file.size || 0));
+                                    toast.success('Deleted', { id: t });
+                                    fetchItems(currentPrefix);
+                                  }
+                                }}
+                                title="Delete"
+                                className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const url = await getDownloadURL(ref(storage, file.path));
+                                  window.open(url, '_blank');
+                                }}
+                                title="Download"
+                                className="p-1.5 text-slate-500 hover:text-white transition-colors"
+                              >
                                 <Download className="w-4 h-4" />
                               </button>
                            </div>

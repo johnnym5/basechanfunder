@@ -31,13 +31,15 @@ import {
   doc,
   onSnapshot,
   setDoc,
+  updateDoc,
   serverTimestamp,
   collection,
   query,
   where,
   getDocs,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -929,15 +931,19 @@ const TrashManager: React.FC = () => {
 
     const t = toast.loading(`Purging ${name}...`);
     try {
-      // Direct Firestore Purge (Soft Archive + Marker)
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'DELETED',
-        isArchived: true,
-        hardDeleted: true,
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      toast.success("Wipe complete", { id: t });
+      const batch = writeBatch(db);
+
+      // 1. Delete the root user document
+      batch.delete(doc(db, 'users', uid));
+
+      // 2. Delete linked records if they exist (using common ID patterns)
+      batch.delete(doc(db, 'pof_evaluations', uid));
+      batch.delete(doc(db, 'financial_accounts', `TOPUP_${uid}`));
+
+      // Commit the purge
+      await batch.commit();
+
+      toast.success("Wipe complete. Firestore records erased.", { id: t });
     } catch (e: any) {
       toast.error(e.message, { id: t });
     }
