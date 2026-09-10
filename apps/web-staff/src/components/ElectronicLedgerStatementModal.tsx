@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Search, Download, Calendar, ArrowUpRight,
+  X as XIcon, Search, Download, Calendar, ArrowUpRight,
   ArrowDownLeft, FileText, Loader2, Filter,
   ExternalLink
 } from 'lucide-react';
@@ -108,7 +108,7 @@ export const ElectronicLedgerStatementModal: React.FC<ElectronicLedgerStatementM
             </div>
           </div>
           <button onClick={onClose} className="p-3 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
-            <X className="w-6 h-6" />
+            <XIcon className="w-6 h-6" />
           </button>
         </div>
 

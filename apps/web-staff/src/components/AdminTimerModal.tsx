@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  X,
+  X as XIcon,
   Clock,
   Save,
   Loader2,
@@ -8,7 +8,7 @@ import {
   MessageSquare,
   ShieldAlert
 } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, query, where, getDocs, setDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from 'sonner';
@@ -43,19 +43,35 @@ export const AdminTimerModal: React.FC<AdminTimerModalProps> = ({ isOpen, onClos
   const handleSave = async () => {
     if (!student) return;
     setIsSubmitting(true);
+    const targetUid = student.userId || student.id;
     try {
-      const studentRef = doc(db, 'pof_evaluations', student.id);
-      await updateDoc(studentRef, {
+      const updates = {
         expirationDate: formData.isTimerActive ? formData.expirationDate : null,
         timerCustomMessage: formData.timerCustomMessage || null,
         isTimerActive: formData.isTimerActive,
         updatedAt: serverTimestamp()
-      });
+      };
+
+      const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', targetUid));
+      const evalSnap = await getDocs(evalQ);
+
+      if (!evalSnap.empty) {
+        await updateDoc(doc(db, 'pof_evaluations', evalSnap.docs[0].id), updates);
+      } else {
+        await setDoc(doc(db, 'pof_evaluations', targetUid), {
+          ...updates,
+          userId: targetUid,
+          userName: student.name,
+          userEmail: student.email || '',
+          createdAt: serverTimestamp()
+        });
+      }
+
       toast.success('Evaluation timer updated successfully.');
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Timer update error:', e);
-      toast.error('Failed to update timer.');
+      toast.error('Failed to update timer: ' + e.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +91,7 @@ export const AdminTimerModal: React.FC<AdminTimerModalProps> = ({ isOpen, onClos
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Configure account expiration & lockdown</p>
           </div>
           <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-200'}`}>
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

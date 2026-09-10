@@ -10,7 +10,7 @@ interface StorageMetrics {
   usagePercentage: number;
 }
 
-export const StorageUsageBar: React.FC = () => {
+export const StorageUsageBar: React.FC<{ onSyncRequest?: () => void }> = ({ onSyncRequest }) => {
   const [metrics, setMetrics] = useState<StorageMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -83,15 +83,23 @@ export const StorageUsageBar: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="glass-card p-4 md:p-6 border-white/5 bg-slate-900/40">
+      <div
+        onClick={onSyncRequest}
+        className={`glass-card p-4 md:p-6 border-white/5 bg-slate-900/40 cursor-pointer group hover:bg-slate-900/60 transition-all ${!metrics.usedBytes ? 'border-amber-500/30' : ''}`}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-slate-400">
-            <HardDrive className="w-4 h-4" />
+            <HardDrive className="w-4 h-4 group-hover:text-amber-500 transition-colors" />
             <span className="text-[10px] font-black uppercase tracking-widest">Bucket Infrastructure</span>
           </div>
-          <span className="text-[10px] font-bold font-mono text-white">
-            {formattedUsed} MB / {formattedLimit} GB Used
-          </span>
+          <div className="flex items-center gap-3">
+            {!metrics.usedBytes && (
+              <span className="text-[8px] font-black text-amber-500 uppercase animate-pulse">Click to refresh accurate stats</span>
+            )}
+            <span className="text-[10px] font-bold font-mono text-white">
+              {formattedUsed} MB / {formattedLimit} GB Used
+            </span>
+          </div>
         </div>
 
         <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden border border-white/5">

@@ -42,6 +42,12 @@ const KNOWN_INCIDENTS: Record<string, SystemIncident> = {
     severity: 'CRITICAL',
     symptom: 'Dashboard crashes or goes white when opening modal.',
     resolution: 'Missing import in StaffStudentViewMode.tsx. Ensure "limit" is imported from "firebase/firestore".',
+  },
+  'No document to update': {
+    code: 'FIRESTORE_PATH_MISMATCH',
+    severity: 'CRITICAL',
+    symptom: 'Evaluation setup or timer updates fail with "No document to update" error.',
+    resolution: 'The system tried to update a record using a UID that doesn\'t exist in the evaluations collection yet. Use "Manual Change" first to initialize the student.',
   }
 };
 

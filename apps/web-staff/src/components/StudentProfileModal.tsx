@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Globe, Briefcase, CreditCard, PieChart, ShieldCheck, Mail, Phone, Edit3 } from 'lucide-react';
+import { X as XIcon, Globe, Briefcase, CreditCard, PieChart, ShieldCheck, Mail, Phone, Edit3 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface StudentProfileModalProps {
@@ -40,7 +40,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             onClick={onClose}
             className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all z-10"
           >
-            <X className="w-6 h-6" />
+            <XIcon className="w-6 h-6" />
           </button>
 
           <div className="p-8 md:p-10 space-y-8">

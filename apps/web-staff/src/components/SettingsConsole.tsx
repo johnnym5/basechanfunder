@@ -17,7 +17,7 @@ import {
   Clock,
   TrendingUp,
   Plus,
-  X,
+  X as XIcon,
   Edit3,
   FileText,
   Trash2,
@@ -41,7 +41,8 @@ import {
   writeBatch,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app, { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FirestoreDatabaseExplorer } from './FirestoreDatabaseExplorer';
@@ -555,7 +556,7 @@ export const SettingsConsole: React.FC<{ initialTab?: SettingTab }> = ({ initial
                   isAddingBank ? 'bg-slate-800 text-slate-400' : 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                 }`}
               >
-                {isAddingBank ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {isAddingBank ? <XIcon className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 <span>{isAddingBank ? 'Cancel' : 'Add Bank Provider'}</span>
               </button>
             </div>
@@ -754,7 +755,7 @@ const RequirementItemModal: React.FC<{
             <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Document Requirement</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure structural check item</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
         </div>
         <div className="p-8 space-y-6">
           <div className="space-y-4">
@@ -861,7 +862,7 @@ const ManualEditDestinationModal: React.FC<{
             <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">Edit Rule: {destination.code}</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Manual Parameter Override</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
         </div>
         <div className="p-8 space-y-6">
           <div className="space-y-4">
@@ -927,25 +928,23 @@ const TrashManager: React.FC = () => {
   };
 
   const handlePurge = async (uid: string, name: string) => {
-    if (!window.confirm(`PERMANENT DATA WIPE: Are you sure you want to completely erase ${name}? This cannot be undone.`)) return;
+    if (!window.confirm(`PERMANENT DATA WIPE: Are you sure you want to completely erase ${name}? This will delete their Auth account, Firestore documents, and all Storage files. THIS CANNOT BE UNDONE.`)) return;
 
-    const t = toast.loading(`Purging ${name}...`);
+    const t = toast.loading(`Executing cascading purge for ${name}...`);
     try {
-      const batch = writeBatch(db);
+      const functions = getFunctions(app);
+      const deleteUserFn = httpsCallable(functions, "deleteUserCompletely");
 
-      // 1. Delete the root user document
-      batch.delete(doc(db, 'users', uid));
+      const response: any = await deleteUserFn({ targetUid: uid });
 
-      // 2. Delete linked records if they exist (using common ID patterns)
-      batch.delete(doc(db, 'pof_evaluations', uid));
-      batch.delete(doc(db, 'financial_accounts', `TOPUP_${uid}`));
-
-      // Commit the purge
-      await batch.commit();
-
-      toast.success("Wipe complete. Firestore records erased.", { id: t });
+      if (response.data?.success) {
+        toast.success("System records successfully purged.", { id: t });
+      } else {
+        throw new Error(response.data?.message || "Purge failed");
+      }
     } catch (e: any) {
-      toast.error(e.message, { id: t });
+      console.error("Purge failed:", e);
+      toast.error(e.message || "Failed to execute cascading purge.", { id: t });
     }
   };
 

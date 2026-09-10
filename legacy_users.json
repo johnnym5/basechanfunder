@@ -1,0 +1,43 @@
+{"users": [
+{
+  "localId": "9nOt1vcemtNZd45hejLBbBguxxK2",
+  "email": "j@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "bOuZl2T4vYMEPQcpCTuGctd550uDMQX/ik9oh3gxFBC94LIEZqp6lgC+rsFCh85RdqJeMWJpKPUphBCYJBcdLQ==",
+  "salt": "ljE8gB+MEikWxg==",
+  "displayName": "john",
+  "lastSignedInAt": "1789039904468",
+  "createdAt": "1789039904468",
+  "providerUserInfo": []
+},
+{
+  "localId": "BRKKrAJrWzUt4igl6QNVm1Giqyj1",
+  "email": "jegbase3@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "Jayi1dTourObf5jn/HxJQ3Lvrh8J01D2fvZWL60FZK3vodrUiS7LV/Ge7+p8tm81SXVpbMIr/jMqUCU5CHHc/Q==",
+  "salt": "ED/XY/YsuTYRtQ==",
+  "displayName": "Egbase John Mary",
+  "lastSignedInAt": "1789033033455",
+  "createdAt": "1788778076281",
+  "customAttributes": "{\"role\":\"STUDENT\"}",
+  "providerUserInfo": []
+},
+{
+  "localId": "H2T9cFCJBkdxBLHM7UYblLZT1w53",
+  "email": "ithub@basechaninternational.com",
+  "emailVerified": true,
+  "displayName": "Basechan Tech",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKFJ13m5uKVC5ScgsofT3LJDSS0sZTVEvHjZCX-hpu_rhrxWg=s96-c",
+  "lastSignedInAt": "1789035451807",
+  "createdAt": "1788251260602",
+  "customAttributes": "{\"role\":\"ADMIN_GOVERNANCE\"}",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "108366128796866684740",
+      "email": "ithub@basechaninternational.com",
+      "displayName": "Basechan Tech",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKFJ13m5uKVC5ScgsofT3LJDSS0sZTVEvHjZCX-hpu_rhrxWg=s96-c"
+    }
+  ]
+}]}

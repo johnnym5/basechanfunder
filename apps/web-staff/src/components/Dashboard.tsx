@@ -43,7 +43,9 @@ import {
   Sparkles,
   MoreVertical,
   Eye,
-  ArrowUpRight
+  ArrowUpRight,
+  CheckCheck,
+  History
 } from 'lucide-react';
 import { DashboardSkeleton } from './ui/LoadingStates';
 import { ManualOverrideModal } from './ManualOverrideModal';
@@ -56,6 +58,7 @@ import { StudentTableFilters, FilterCriteria } from './StudentTableFilters';
 import { toast } from 'sonner';
 
 import { resolveUserStatus, ComplianceStatus } from '../services/userStatusService';
+import { executeSoftReset } from '../utils/softResetService';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
@@ -533,7 +536,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
 
   const filteredStudents = useMemo(() => {
     const normalize = (val: string) => val.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-    const query = normalize(advancedFilters.searchTerm);
+    const queryStr = normalize(advancedFilters.searchTerm);
 
     return liveStudents.filter(s => {
       // 0. Quick Category Filtering (Stat Cards)
@@ -551,7 +554,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
       if (filter === 'INCOMPLETE' && s.status !== 'PENDING_ONBOARDING') return false;
 
       // 1. Text Search Matching (Multi-field)
-      if (query) {
+      if (queryStr) {
         const fieldsToMatch = [
           s.name,
           s.email,
@@ -560,7 +563,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           ...(s.accountNumbers || []),
           ...(s.parallexAccountNumbers || [])
         ];
-        const isMatch = fieldsToMatch.some(f => normalize(f).includes(query));
+        const isMatch = fieldsToMatch.some(f => normalize(f).includes(queryStr));
         if (!isMatch) return false;
       }
 
@@ -760,7 +763,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
           });
         } else {
           // Days extension: Push start date back to credit days
-          const pofRef = doc(db, 'pof_evaluations', student.id);
           const pofSnap = await getDocs(query(collection(db, 'pof_evaluations'), where('userId', '==', student.userId)));
           if (!pofSnap.empty) {
             const d = pofSnap.docs[0].data();
@@ -806,24 +808,35 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
   const handleSaveEdit = async () => {
     if (!selectedStudent) return;
     setIsSubmitting(true);
+    const targetUid = selectedStudent.userId || selectedStudent.id;
     try {
-      const studentRef = doc(db, 'pof_evaluations', selectedStudent.id);
-
-      // Calculate new start date if days changed
-      const newStart = new Date();
-      newStart.setDate(newStart.getDate() - editFormData.consecutiveDays + 1);
-
-      await updateDoc(studentRef, {
+      const updates = {
         userName: editFormData.name,
         targetGBP: editFormData.targetGbp,
         currentBalanceGBP: editFormData.balanceGbp,
-        startDate: newStart.toISOString().split('T')[0],
+        startDate: new Date(new Date().setDate(new Date().getDate() - editFormData.consecutiveDays + 1)).toISOString().split('T')[0],
         updatedAt: serverTimestamp()
-      });
+      };
+
+      const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', targetUid));
+      const evalSnap = await getDocs(evalQ);
+
+      if (!evalSnap.empty) {
+        await updateDoc(doc(db, 'pof_evaluations', evalSnap.docs[0].id), updates);
+      } else {
+        await setDoc(doc(db, 'pof_evaluations', targetUid), {
+          ...updates,
+          userId: targetUid,
+          userEmail: selectedStudent.email || '',
+          createdAt: serverTimestamp()
+        });
+      }
 
       setIsEditMode(false);
-    } catch (e) {
+      toast.success('Student evaluation updated');
+    } catch (e: any) {
       console.error('Update error:', e);
+      toast.error('Update failed: ' + e.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -843,18 +856,27 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         try {
           const uid = selectedStudent.userId || selectedStudent.id;
 
-          // Perform Soft-Archive directly via Firestore
-          await updateDoc(doc(db, 'users', uid), {
-            status: 'DELETED',
-            isArchived: true,
-            hardDeleted: true,
-            archivedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+          // Use the backend Soft-Archive endpoint (Standard DELETE)
+          const response = await fetch(`/api/v1/admin/users/${uid}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
           });
 
-          toast.success('Student archived and access revoked.', { id: t });
-          setSelectedStudent(null);
-          setIsProfileDrawerOpen(false);
+          // Defensive parsing: Check if response has content before calling .json()
+          const text = await response.text();
+          let result: any = {};
+          try {
+            if (text) result = JSON.parse(text);
+          } catch (e) {
+            console.warn("Server returned non-JSON response:", text);
+          }
+
+          if (response.ok || result.success || result.status === 'SUCCESS') {
+            toast.success('Student archived and access revoked.', { id: t });
+            setSelectedStudent(null);
+          } else {
+            throw new Error(result.message || 'Archive failed');
+          }
         } catch (err: any) {
           toast.error('Operation failed: ' + err.message, { id: t });
         } finally {
@@ -862,6 +884,25 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
         }
       }
     });
+  };
+
+  const handleSoftReset = async () => {
+    if (!selectedStudent) return;
+    const uid = selectedStudent.userId || selectedStudent.id;
+
+    if (!window.confirm(`SOFT RESET: This will completely wipe all database records and files for ${selectedStudent.name}, but their LOGIN account will remain active. They can log back in to start fresh. Proceed?`)) return;
+
+    setIsSubmitting(true);
+    const t = toast.loading(`Resetting environment for ${selectedStudent.name}...`);
+    try {
+      await executeSoftReset(uid);
+      toast.success('User environment reset. Student can now log in to start fresh.', { id: t });
+      setSelectedStudent(null);
+    } catch (err: any) {
+      toast.error('Reset failed: ' + err.message, { id: t });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const counselors = useMemo(() =>
@@ -1360,6 +1401,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
                         <Trash2 className="w-5 h-5 text-rose-500" />
                       </button>
                     </div>
+
+                    <button
+                      onClick={handleSoftReset}
+                      className={`w-full flex items-center justify-between p-6 border rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-slate-200 hover:bg-amber-500/10 hover:text-amber-500' : 'bg-white border-slate-200 text-slate-700 hover:bg-amber-50 shadow-sm'
+                      }`}
+                    >
+                      <span>Soft Reset Account</span>
+                      <RefreshCw className="w-5 h-5 text-amber-500" />
+                    </button>
 
                     <button
                       onClick={() => setIsHistoryOpen(true)}

@@ -14,7 +14,9 @@ import {
   MoreVertical,
   CheckSquare,
   Square,
-  X,
+  Plus,
+  Edit3,
+  X as XIcon,
   ExternalLink,
   Eye,
   Loader2,
@@ -28,7 +30,16 @@ import { toast } from 'sonner';
 import { useTheme } from '../context/ThemeContext';
 import { StorageUsageBar } from './ui/StorageUsageBar';
 import { ref, listAll, getMetadata, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, increment, setDoc, getDoc, getDocs, collection } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  increment,
+  setDoc,
+  getDoc,
+  getDocs,
+  collection,
+  serverTimestamp
+} from 'firebase/firestore';
 import { storage, db, auth } from '../firebase';
 
 interface StorageItem {
@@ -63,17 +74,17 @@ export const StorageExplorer: React.FC = () => {
         const userSnap = await getDocs(collection(db, 'users'));
         const mapping: Record<string, string> = {};
         userSnap.docs.forEach(d => {
-          mapping[d.id] = d.data().displayName || d.data().email || d.id;
+          const data = d.data();
+          const uid = d.id.trim();
+          mapping[uid] = data.displayName || data.userName || data.email || uid;
         });
         setUserMap(mapping);
-        // After loading names, refresh the list to apply names to folders
-        fetchItems(currentPrefix);
       } catch (e) {
         console.warn("User name mapping failed:", e);
       }
     };
     loadUsers();
-  }, []); // Run once on mount
+  }, []);
 
   const updateMetrics = async (bytesChange: number) => {
     const metricsRef = doc(db, 'system', 'storage_metrics');
@@ -193,10 +204,11 @@ export const StorageExplorer: React.FC = () => {
       const res = await listAll(storageRef);
 
       const folders = res.prefixes.map(p => {
-        const id = p.name.replace('/', '');
+        const id = p.name.replace('/', '').trim();
+        const name = userMap[id] || p.name;
         return {
           name: p.name + '/',
-          displayName: userMap[id] ? `${userMap[id]} (${id.substring(0, 6)})/` : p.name + '/',
+          displayName: userMap[id] ? `${userMap[id]} (${id.substring(0, 10)})/` : p.name + '/',
           path: p.fullPath + '/',
           type: 'folder'
         };
@@ -371,7 +383,7 @@ export const StorageExplorer: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <StorageUsageBar />
+      <StorageUsageBar onSyncRequest={syncStorageMetrics} />
 
       <div className={`rounded-3xl border shadow-2xl overflow-hidden ${
         isDark ? 'bg-[#0D111A] border-white/5' : 'bg-white border-slate-200'
@@ -408,6 +420,15 @@ export const StorageExplorer: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+             {/* 🖴 Sync Metrics Button (More Prominent) */}
+             <button
+               onClick={syncStorageMetrics}
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500/20' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 shadow-sm'}`}
+             >
+               <HardDrive className="w-4 h-4" />
+               <span className="text-[10px] font-black uppercase tracking-widest">Recalculate Storage</span>
+             </button>
+
              <div className={`flex items-center p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
                <button
                  onClick={() => setViewMode('list')}
@@ -423,22 +444,13 @@ export const StorageExplorer: React.FC = () => {
                </button>
              </div>
 
-             <button
-               onClick={syncStorageMetrics}
-               title="Sync Storage Metrics"
-               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'}`}
-             >
-               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-               <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Sync Metrics</span>
-             </button>
-
              <div className="relative">
                 <button
                   onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Resource</span>
+                  <span>ADD RESOURCE</span>
                   <ChevronDown className={`w-3 h-3 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -454,14 +466,21 @@ export const StorageExplorer: React.FC = () => {
                         onClick={() => { document.getElementById('file-upload')?.click(); setIsAddMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all ${isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
                       >
-                        <FileIcon className="w-3.5 h-3.5" />
+                        <File className="w-3.5 h-3.5" />
                         <span>Upload Files</span>
+                      </button>
+                      <button
+                        onClick={() => { document.getElementById('folder-upload')?.click(); setIsAddMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all ${isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
+                      >
+                        <Folder className="w-3.5 h-3.5" />
+                        <span>Upload Folder</span>
                       </button>
                       <button
                         onClick={() => { handleCreateFolder(); setIsAddMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all ${isDark ? 'text-slate-300 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}
                       >
-                        <Folder className="w-3.5 h-3.5" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span>New Folder</span>
                       </button>
                     </motion.div>
@@ -469,10 +488,26 @@ export const StorageExplorer: React.FC = () => {
                 </AnimatePresence>
              </div>
 
+             <button
+               onClick={() => fetchItems(currentPrefix)}
+               className={`p-2.5 rounded-xl border transition-all ${isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
+             >
+               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+             </button>
+
              <input
                id="file-upload"
                type="file"
                multiple
+               className="hidden"
+               onChange={handleUpload}
+             />
+             <input
+               id="folder-upload"
+               type="file"
+               multiple
+               // @ts-ignore
+               webkitdirectory=""
                className="hidden"
                onChange={handleUpload}
              />
@@ -516,7 +551,7 @@ export const StorageExplorer: React.FC = () => {
                   onClick={() => setSelectedPaths([])}
                   className="p-1.5 text-white/60 hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
             </motion.div>
@@ -570,13 +605,10 @@ export const StorageExplorer: React.FC = () => {
                         key={folder.path}
                         className={`hover:bg-white/5 cursor-pointer group transition-colors ${isSelected ? 'bg-blue-600/5' : ''}`}
                       >
-                        <td className="px-6 py-4">
-                           <button
-                             onClick={(e) => { e.stopPropagation(); toggleSelect(folder.path); }}
-                             className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'}`}
-                           >
+                        <td className="px-6 py-4" onClick={(e) => { e.stopPropagation(); toggleSelect(folder.path); }}>
+                           <div className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'} cursor-pointer`}>
                              {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                           </button>
+                           </div>
                         </td>
                         <td className="px-6 py-4" onClick={() => handleFolderClick(folder.path)}>
                           <div className="flex items-center gap-3">
@@ -640,13 +672,10 @@ export const StorageExplorer: React.FC = () => {
                         key={file.path}
                         className={`hover:bg-white/5 transition-colors group ${isSelected ? 'bg-blue-600/5' : ''}`}
                       >
-                        <td className="px-6 py-4">
-                           <button
-                             onClick={(e) => { e.stopPropagation(); toggleSelect(file.path); }}
-                             className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'}`}
-                           >
+                        <td className="px-6 py-4" onClick={(e) => { e.stopPropagation(); toggleSelect(file.path); }}>
+                           <div className={`${isSelected ? 'text-blue-500' : 'text-slate-700 hover:text-slate-500'} cursor-pointer`}>
                              {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                           </button>
+                           </div>
                         </td>
                         <td className="px-6 py-4" onClick={() => openPreview(file)}>
                           <div className="flex items-center gap-3 cursor-pointer">
@@ -710,37 +739,81 @@ export const StorageExplorer: React.FC = () => {
             </div>
           ) : (
              <div className="p-6 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6">
-                {/* Grid View Implementation Placeholder */}
-                {items.folders?.map(folder => (
-                  <div
-                    key={folder.path}
-                    onClick={() => handleFolderClick(folder.path)}
-                    className="flex flex-col items-center gap-2 group cursor-pointer"
-                  >
-                    <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                      <Folder className="w-8 h-8 fill-current opacity-60" />
+                {items.folders?.map(folder => {
+                  const isSelected = selectedPaths.includes(folder.path);
+                  return (
+                    <div
+                      key={folder.path}
+                      onClick={() => handleFolderClick(folder.path)}
+                      className="flex flex-col items-center gap-2 group cursor-pointer relative"
+                    >
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(folder.path); }}
+                        className={`absolute top-0 right-0 p-1 z-10 ${isSelected ? 'text-blue-500' : 'text-slate-700 opacity-0 group-hover:opacity-100'}`}
+                      >
+                        {isSelected ? <CheckSquare className="w-4 h-4 bg-slate-900 rounded" /> : <Square className="w-4 h-4 bg-slate-900 rounded" />}
+                      </button>
+
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                        isSelected ? 'ring-2 ring-blue-500 bg-blue-500/10 text-blue-400' : 'bg-blue-500/10 text-blue-400 group-hover:scale-110'
+                      }`}>
+                        <Folder className="w-8 h-8 fill-current opacity-60" />
+                      </div>
+                      <span className="text-[9px] font-black text-slate-400 uppercase text-center truncate w-full px-1">{folder.displayName || folder.name}</span>
+
+                      {/* Grid Action Overlay */}
+                      <div className="absolute inset-0 bg-slate-950/80 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-all">
+                         <button onClick={(e) => { e.stopPropagation(); handleRename(folder); }} className="p-1.5 bg-white/10 hover:bg-amber-500 rounded text-white transition-colors">
+                           <Edit3 className="w-3.5 h-3.5" />
+                         </button>
+                         <button
+                           onClick={async (e) => {
+                             e.stopPropagation();
+                             if (confirm(`Delete folder ${folder.name}?`)) {
+                               const t = toast.loading('Deleting...');
+                               // (Use existing delete recursive logic here or via handle)
+                               await handleDelete(); // This will use the selected state
+                             }
+                           }}
+                           className="p-1.5 bg-white/10 hover:bg-rose-500 rounded text-white transition-colors"
+                         >
+                           <Trash2 className="w-3.5 h-3.5" />
+                         </button>
+                      </div>
                     </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase text-center truncate w-full px-1">{folder.name}</span>
-                  </div>
-                ))}
-                {items.files?.map(file => (
-                   <div
-                    key={file.path}
-                    onClick={() => openPreview(file)}
-                    className="flex flex-col items-center gap-2 group cursor-pointer relative"
-                   >
-                     <button
-                       onClick={(e) => { e.stopPropagation(); toggleSelect(file.path); }}
-                       className={`absolute top-0 right-0 p-1 z-10 ${selectedPaths.includes(file.path) ? 'text-blue-500' : 'text-slate-700 opacity-0 group-hover:opacity-100'}`}
+                  );
+                })}
+
+                {items.files?.map(file => {
+                   const isSelected = selectedPaths.includes(file.path);
+                   return (
+                     <div
+                      key={file.path}
+                      onClick={() => openPreview(file)}
+                      className="flex flex-col items-center gap-2 group cursor-pointer relative"
                      >
-                       {selectedPaths.includes(file.path) ? <CheckSquare className="w-4 h-4 bg-slate-900 rounded" /> : <Square className="w-4 h-4 bg-slate-900 rounded" />}
-                     </button>
-                     <div className={`w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-white group-hover:scale-110 transition-all ${selectedPaths.includes(file.path) ? 'ring-2 ring-blue-500 bg-blue-500/10' : ''}`}>
-                       {file.isImage ? <ImageIcon className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
+                       <button
+                         onClick={(e) => { e.stopPropagation(); toggleSelect(file.path); }}
+                         className={`absolute top-0 right-0 p-1 z-10 ${isSelected ? 'text-blue-500' : 'text-slate-700 opacity-0 group-hover:opacity-100'}`}
+                       >
+                         {isSelected ? <CheckSquare className="w-4 h-4 bg-slate-900 rounded" /> : <Square className="w-4 h-4 bg-slate-900 rounded" />}
+                       </button>
+                       <div className={`w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-white group-hover:scale-110 transition-all ${isSelected ? 'ring-2 ring-blue-500 bg-blue-500/10' : ''}`}>
+                         {file.isImage ? <ImageIcon className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
+                       </div>
+                       <span className="text-[9px] font-black text-slate-400 uppercase text-center truncate w-full px-1">{file.name}</span>
+
+                       <div className="absolute inset-0 bg-slate-950/80 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-all">
+                          <button onClick={(e) => { e.stopPropagation(); openPreview(file); }} className="p-1.5 bg-white/10 hover:bg-blue-500 rounded text-white transition-colors">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleRename(file); }} className="p-1.5 bg-white/10 hover:bg-amber-500 rounded text-white transition-colors">
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                       </div>
                      </div>
-                     <span className="text-[9px] font-black text-slate-400 uppercase text-center truncate w-full px-1">{file.name}</span>
-                   </div>
-                ))}
+                   );
+                })}
              </div>
           )}
 
@@ -787,7 +860,7 @@ export const StorageExplorer: React.FC = () => {
                    </div>
                 </div>
                 <button onClick={() => { setPreviewItem(null); setPreviewUrl(null); }} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-                  <X className="w-5 h-5 text-slate-500" />
+                  <XIcon className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
 

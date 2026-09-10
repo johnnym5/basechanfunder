@@ -1,60 +1,86 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. User Profiles & Sub-collections
-    // Allow users to manage their own records
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    // Helper: Check if the requester is an active user (not archived/deleted)
+    // or an administrator with elevated privileges.
+    function isActive() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return request.auth != null &&
+             (
+               userDoc.data.role in ['ADMIN_GOVERNANCE', 'COUNSELOR', 'STAFF_AUDITOR'] ||
+               (
+                 (!('isArchived' in userDoc.data) || userDoc.data.isArchived == false) &&
+                 (!('hardDeleted' in userDoc.data) || userDoc.data.hardDeleted == false)
+               )
+             );
     }
 
-    // Allow authenticated staff/admins to read all user records (Simplified check for now)
+    // Helper: Check if requester is Admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN_GOVERNANCE';
+    }
+
+    // 1. User Profiles & Sub-collections
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // Ideally restrict via custom claims
+      // Users can always read their own core profile to detect the kill-switch, but nothing else if archived
+      allow read: if request.auth != null && (request.auth.uid == userId || isActive());
+
+      // Allow creation for new users or post-soft-reset users
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Writes restricted to active sessions
+      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin()) && isActive();
+
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isActive()) && isActive();
+      }
     }
 
     // 2. Global System Metrics & Config
     match /system/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && isActive();
+      allow write: if isAdmin();
     }
 
     match /system_config/{doc=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if request.auth != null && isActive();
+      allow write: if isAdmin();
     }
 
     // 3. Top-Up Requests & Financials
     match /topup_requests/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null && isActive();
     }
 
     match /financial_accounts/{doc=**} {
-      allow read, write: if request.auth != null;
+      // Students can only see their own accounts, staff can see all
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isActive());
+      allow write: if request.auth != null && isActive();
     }
 
     match /pof_evaluations/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isActive());
+      allow write: if request.auth != null && isActive();
     }
 
     // 4. Governance & Communication
     match /notifications/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isActive());
+      allow write: if request.auth != null && isActive();
     }
 
     match /audit_logs/{doc=**} {
-      allow read, create: if request.auth != null;
+      allow read: if request.auth != null && isActive();
+      allow create: if request.auth != null && isActive();
     }
 
     match /support_messages/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null && isActive();
     }
 
     match /liquidity_requests/{doc=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null && isActive();
     }
   }
 }

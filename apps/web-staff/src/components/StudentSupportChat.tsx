@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Send,
   Paperclip,
-  X,
+  X as XIcon,
   User,
   ShieldCheck,
   MoreHorizontal,
@@ -125,7 +125,7 @@ export const StudentSupportChat: React.FC<StudentSupportChatProps> = ({ onClose,
           <div className="flex items-center space-x-1 shrink-0">
             {onClose && (
               <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer">
-                <X className="w-5 h-5" />
+                <XIcon className="w-5 h-5" />
               </button>
             )}
           </div>

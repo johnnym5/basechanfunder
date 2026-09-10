@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { modalBackdropVariants, drawerVariants, modalBoxVariants } from '../utils/motionPresets';
 import { BouncyButton } from './ui/BouncyButton';
 import {
-  X, Flag, CheckCircle2, User, Globe, CreditCard,
+  X as XIcon, Flag, CheckCircle2, User, Globe, CreditCard,
   Save, Loader2, TrendingUp, Sliders, Activity,
   Clock, History, ShieldAlert, ChevronRight, Zap,
   FileText, Plus, Trash2, Edit3, ShieldCheck, Download,
@@ -245,7 +245,7 @@ export const AdminStudentProfileDrawer: React.FC<AdminStudentProfileDrawerProps>
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-0.5">Configuration Mode: {student.name || student.displayName}</p>
             </div>
             <button onClick={onClose} aria-label="Close governance review" className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all shadow-sm">
-              <X className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
           </div>
 
@@ -747,7 +747,7 @@ const RequirementItemModal: React.FC<{
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">{requirement ? 'Edit' : 'Add'} Custom Requirement</h3>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure student-specific check item</p>
               </div>
-              <BouncyButton onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></BouncyButton>
+              <BouncyButton onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></BouncyButton>
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-4">

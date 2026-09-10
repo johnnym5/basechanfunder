@@ -236,7 +236,7 @@ export const StudentDocumentUploadWizard: React.FC<Props> = ({ isOpen, onClose }
       >
         <header className="p-8 border-b border-surface-glass-border flex justify-between items-center bg-slate-950/10 dark:bg-slate-950/20">
           <div>
-            <h3 className="text-2xl font-black text-main dark:text-white uppercase tracking-tight leading-none">Compliance Node</h3>
+            <h3 className="text-2xl font-black text-main dark:text-white uppercase tracking-tight leading-none">Compliance</h3>
             <p className="text-[10px] text-muted dark:text-slate-500 font-bold uppercase tracking-widest mt-2">
               Stage {currentStage} of {totalStages}: {currentStageInfo?.title}
             </p>

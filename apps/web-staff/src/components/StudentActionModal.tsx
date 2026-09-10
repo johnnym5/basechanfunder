@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  X,
+  X as XIcon,
   Settings2,
   Trash2,
   CheckCircle2,
@@ -16,7 +16,12 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  getDocs,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -52,53 +57,76 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    const targetUid = student.userId || student.id;
     try {
-      const studentRef = doc(db, 'pof_evaluations', student.id);
+      const updates: any = {
+        userName: formData.name,
+        targetGBP: formData.targetGbp,
+        currentBalanceGBP: formData.balanceGbp,
+        visaRoute: formData.visaRoute,
+        counselor: formData.counselor,
+        updatedAt: serverTimestamp()
+      };
 
       // Calculate new start date if days changed
       const newStart = new Date();
       newStart.setDate(newStart.getDate() - formData.consecutiveDays + 1);
+      updates.startDate = newStart.toISOString().split('T')[0];
 
-      await updateDoc(studentRef, {
-        userName: formData.name,
-        targetGBP: formData.targetGbp,
-        currentBalanceGBP: formData.balanceGbp,
-        startDate: newStart.toISOString().split('T')[0],
-        visaRoute: formData.visaRoute,
-        counselor: formData.counselor,
-        updatedAt: serverTimestamp()
-      });
+      const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', targetUid));
+      const evalSnap = await getDocs(evalQ);
+
+      if (!evalSnap.empty) {
+        await updateDoc(doc(db, 'pof_evaluations', evalSnap.docs[0].id), updates);
+      } else {
+        await setDoc(doc(db, 'pof_evaluations', targetUid), {
+          ...updates,
+          userId: targetUid,
+          userEmail: student.email || '',
+          createdAt: serverTimestamp()
+        });
+      }
 
       onSuccess();
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Update error:', e);
+      toast.error('Failed to update student: ' + e.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
+    if (!confirm(`Archive Student Profile? Are you sure you want to delete ${student.name}? They will be removed from active rosters and moved to the administrative archive.`)) return;
+
     setIsSubmitting(true);
-    const t = toast.loading(`Archiving records for ${student.name}...`);
+    const t = toast.loading(`Moving ${student.name} to archive...`);
     try {
       const uid = student.userId || student.id;
 
-      // Direct Firestore Soft-Archive
-      await updateDoc(doc(db, 'users', uid), {
-        status: 'DELETED',
-        isArchived: true,
-        hardDeleted: true,
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+      // Call Soft-Archive Endpoint
+      const response = await fetch(`/api/v1/admin/users/${uid}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      toast.success('Student records successfully archived', { id: t });
-      onSuccess();
-      onClose();
+      const text = await response.text();
+      let result: any = {};
+      try {
+        if (text) result = JSON.parse(text);
+      } catch (e) {}
+
+      if (response.ok || result.success) {
+        toast.success('Student archived successfully', { id: t });
+        onSuccess();
+        onClose();
+      } else {
+        throw new Error(result.message || "Archive operation failed");
+      }
     } catch (e: any) {
       console.error('Delete error:', e);
-      toast.error(`Archive failed: ${e.message}`, { id: t });
+      toast.error(`Operation failed: ${e.message}`, { id: t });
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +143,7 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{student.name}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

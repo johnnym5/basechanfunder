@@ -1,12 +1,12 @@
-# 🛡️ Basechanfunder — Proof of Funds & Compliance Portal
+# 🛡️ E6 Elixir — Proof of Funds & Compliance Portal
 
 <p align="center">
-  <img src="apps/web-staff/public/logo.png" alt="Basechanfunder Logo" width="160" />
+  <img src="apps/web-staff/public/logo_new.png" alt="E6 Elixir Logo" width="160" />
 </p>
 
 ## 📖 Overview
 
-**Basechanfunder** is a high-stakes financial technology ecosystem built to automate the **Proof of Funds (PoF)** process for international student visa applicants. It is specifically optimized for the **UKVI 28-Day Rule**, ensuring that bank balances are monitored, buffered against FX volatility, and mathematically validated for regulatory submission.
+**E6 Elixir** is a high-stakes financial technology ecosystem built to automate the **Proof of Funds (PoF)** process for international student visa applicants. It is specifically optimized for the **UKVI 28-Day Rule**, ensuring that bank balances are monitored, buffered against FX volatility, and mathematically validated for regulatory submission.
 
 The platform provides a unified bridge between local Nigerian banking (via SMS/USSD/API) and international compliance standards.
 
@@ -17,7 +17,7 @@ The platform provides a unified bridge between local Nigerian banking (via SMS/U
 The project is structured as a **TypeScript Monorepo** using NPM Workspaces:
 
 ```text
-Basechanfunder/
+E6 Elixir/
 ├── apps/
 │   ├── web-staff/          # Primary React Portal (Students, Counselors & Auditing)
 │   ├── web-admin/          # Governance Dashboard (Global Settings, Counselor Roster)
@@ -72,14 +72,13 @@ Basechanfunder/
 ### Local Development
 1.  **Clone the repository**: `git clone https://github.com/basechanfunder/basechan-funder`
 2.  **Install dependencies**: `npm install`
-3.  **Start the Backend**: `cd apps/server && npm run start:dev`
-4.  **Start the Dashboard**: `cd apps/web-staff && npm run dev`
-5.  **Access the Portal**: Open `https://localhost:3001` (Accept the HTTPS certificate).
+3.  **Start the Dashboard**: `npm run dev`
+4.  **Access the Portal**: Open `https://localhost:3001` (Accept the HTTPS certificate).
 
 ### Android Testing
 Download the latest development build directly to your emulator or physical device:
-👉 **[📲 Download Basechanfunder APK](https://github.com/johnnym5/basechanfunder/raw/main/apps/mobile-android/app/build/outputs/apk/debug/app-debug.apk)**
+👉 **[📲 Download E6 Elixir APK](https://github.com/johnnym5/basechanfunder/raw/main/apps/mobile-android/app/build/outputs/apk/debug/app-debug.apk)**
 
 ---
 
-© 2026 Basechanfunder. Engineered for High-Stakes Financial Compliance.
+© 2026 E6 Elixir. Engineered for High-Stakes Financial Compliance.

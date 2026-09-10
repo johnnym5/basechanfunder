@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  Bell, X, CheckCheck, User, Clock, Zap,
+  Bell, X as XIcon, CheckCheck, User, Clock, Zap,
   ShieldAlert, ShieldCheck, CreditCard, Lock,
   ChevronRight, History, Loader2, Eye
 } from 'lucide-react';
@@ -292,7 +292,7 @@ export const AdminNotificationPopover: React.FC<AdminNotificationPopoverProps> =
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-all"
               >
-                <X className="w-4 h-4" />
+                <XIcon className="w-4 h-4" />
               </button>
             </div>
           </div>

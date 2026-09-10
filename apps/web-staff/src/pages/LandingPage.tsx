@@ -46,9 +46,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, isI
         isDark ? 'bg-slate-950/40 border-white/5' : 'bg-white/80 border-slate-200'
       }`}>
         <div className="flex items-center space-x-3">
-          <img src={isDark ? "/logo_icon_white.png" : "/logo_icon.png"} alt="Basechan Funder Logo" className="w-10 h-10 object-contain" />
+          <img src={isDark ? "/logo_icon_white.png" : "/logo_icon.png"} alt="E6 Elixir Logo" className="w-10 h-10 object-contain" />
           <div>
-            <span className={`text-lg font-black tracking-widest uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>Basechan Funder</span>
+            <span className={`text-lg font-black tracking-widest uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>E6 Elixir</span>
             <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">Compliance Ledger Platform</p>
           </div>
         </div>

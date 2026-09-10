@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  X,
+  X as XIcon,
   TrendingUp,
   TrendingDown,
   Download,
@@ -110,7 +110,7 @@ export const BankStatementView: React.FC<BankStatementViewProps> = ({ isOpen, on
                 Download PDF
              </button>
              <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-               <X className="w-6 h-6 text-slate-500" />
+               <XIcon className="w-6 h-6 text-slate-500" />
              </button>
           </div>
         </header>

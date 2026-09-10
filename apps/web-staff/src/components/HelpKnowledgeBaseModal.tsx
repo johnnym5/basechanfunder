@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X,
+  X as XIcon,
   Search,
   BookOpen,
   HelpCircle,
@@ -133,7 +133,7 @@ export const HelpKnowledgeBaseModal: React.FC<HelpKnowledgeBaseModalProps> = ({
                 aria-label="Close Knowledge Base"
                 className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <XIcon className="w-5 h-5" />
               </BouncyButton>
             </div>
 
@@ -155,7 +155,7 @@ export const HelpKnowledgeBaseModal: React.FC<HelpKnowledgeBaseModalProps> = ({
                     aria-label="Clear search"
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
                   >
-                    <X className="w-4 h-4" />
+                    <XIcon className="w-4 h-4" />
                   </button>
                 )}
               </div>

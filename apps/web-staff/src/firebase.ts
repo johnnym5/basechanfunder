@@ -18,13 +18,13 @@ export const getActionCodeSettings = () => ({
 });
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyCRRpdnvjEuWvGfWXRRlUP88IY2KhJdHOg',
-  authDomain: 'basechanfunder.firebaseapp.com',
-  projectId: 'basechanfunder',
-  storageBucket: 'basechanfunder.firebasestorage.app',
-  messagingSenderId: '1053228569213',
-  appId: '1:1053228569213:web:e4ca60dd767a73fc9e5714',
-  measurementId: 'G-MP683BDWSZ',
+  apiKey: "AIzaSyA00qF-qfcgYJTELOc-vbeMTMRSrVnaY3o",
+  authDomain: "e6elixir.firebaseapp.com",
+  projectId: "e6elixir",
+  storageBucket: "e6elixir.firebasestorage.app",
+  messagingSenderId: "73436010834",
+  appId: "1:73436010834:web:5c1e14ccd6af339c90028b",
+  measurementId: "G-ZZC16KXPDX"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -35,7 +35,7 @@ export const auth = initializeAuth(app, {
   popupRedirectResolver: browserPopupRedirectResolver,
 });
 
-export const db = getFirestore(app, 'basechanfunder');
+export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });

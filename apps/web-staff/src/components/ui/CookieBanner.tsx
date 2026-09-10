@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck, X as XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const CookieBanner: React.FC = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search,
-  X,
+  X as XIcon,
   ChevronDown,
   Filter,
   RefreshCw,
@@ -127,7 +127,7 @@ export const StudentTableFilters: React.FC<StudentTableFiltersProps> = ({
               className="mr-3 text-slate-400 hover:text-white p-1 rounded-full transition-colors"
               title="Clear search"
             >
-              <X className="w-3.5 h-3.5" />
+              <XIcon className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

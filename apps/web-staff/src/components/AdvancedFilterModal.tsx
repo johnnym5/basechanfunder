@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  X,
+  X as XIcon,
   Filter,
   RefreshCw,
   CheckCircle2,
@@ -53,7 +53,7 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Refine Student Ledger View</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

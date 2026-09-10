@@ -3,7 +3,7 @@ import {
   User,
   ShieldAlert,
   ChevronDown,
-  X,
+  X as XIcon,
   UserCheck,
   Users,
   Settings,
@@ -110,7 +110,7 @@ export const RoleSimulationBar: React.FC<RoleSimulationBarProps> = ({
         onClick={onExit}
         className="flex items-center space-x-2 px-4 py-2 bg-slate-950 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/20"
       >
-        <X className="w-4 h-4 text-amber-500" />
+        <XIcon className="w-4 h-4 text-amber-500" />
         <span>Exit Simulation</span>
       </button>
     </div>

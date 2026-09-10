@@ -91,47 +91,87 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   async purgeUser(@Param('uid') uid: string) {
     try {
-      this.logger.log(`[ADMIN] Executing final purge for user: ${uid}`);
+      this.logger.log(`[ADMIN] INITIATING COMPLETE HARD PURGE: ${uid}`);
 
-      // STEP A: Firebase Storage Wipe
+      // 1. Firebase Storage Wipe
       try {
         const bucket = admin.storage().bucket();
-        const prefixes = [`student_documents/${uid}/`, `mandate_packages/${uid}/`, `student_packages/${uid}/` ];
+        const prefixes = [
+          `student_documents/${uid}/`,
+          `mandate_packages/${uid}/`,
+          `student_packages/${uid}/`
+        ];
         for (const prefix of prefixes) {
-          await bucket.deleteFiles({ prefix, force: true }).catch(() => {});
+          await bucket.deleteFiles({ prefix, force: true });
         }
-      } catch (e) {}
+        this.logger.log(`[ADMIN] Storage cleared for ${uid}`);
+      } catch (e: any) {
+        this.logger.warn(`[PURGE] Storage cleanup warning: ${e.message}`);
+      }
 
-      // STEP B: Firestore Cleanup
-      const batchSize = 100;
-      const collections = ['financial_accounts', 'pof_evaluations', 'liquidity_requests', 'notifications', 'audit_logs'];
+      // 2. Global Top-Level Collections
+      const collections = [
+        'financial_accounts',
+        'pof_evaluations',
+        'liquidity_requests',
+        'notifications',
+        'audit_logs',
+        'topup_requests',
+        'manual_adjustments'
+      ];
 
       for (const col of collections) {
-        const snap = await this.db.collection(col).where(col === 'audit_logs' ? 'studentId' : 'userId', '==', uid).get();
+        const snap = await this.db.collection(col)
+          .where(col === 'audit_logs' ? 'studentId' : 'userId', '==', uid)
+          .get();
+
         if (!snap.empty) {
           const batch = this.db.batch();
           snap.docs.forEach(doc => batch.delete(doc.ref));
           await batch.commit();
+          this.logger.log(`[ADMIN] Purged ${snap.size} docs from ${col}`);
         }
       }
 
-      // STEP C: Subcollections & User Root
+      // 3. User Root & Recursive Subcollections
       const userRef = this.db.collection('users').doc(uid);
-      const subDocs = await userRef.collection('submitted_documents').get();
-      if (!subDocs.empty) {
-        const batch = this.db.batch();
-        subDocs.docs.forEach(d => batch.delete(d.ref));
-        await batch.commit();
+      const subCollections = await userRef.listCollections();
+      for (const sub of subCollections) {
+        const subSnap = await sub.get();
+        if (!subSnap.empty) {
+          const batch = this.db.batch();
+          subSnap.docs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+          this.logger.log(`[ADMIN] Purged subcollection: ${sub.id}`);
+        }
       }
+
+      // 4. Final Root Delete
       await userRef.delete();
+      this.logger.log(`[ADMIN] Root document deleted: users/${uid}`);
 
-      // STEP D: Auth Deletion
-      try { await admin.auth().deleteUser(uid); } catch (e) {}
+      // 5. Auth Deletion (Final Step)
+      try {
+        await admin.auth().deleteUser(uid);
+        this.logger.log(`[ADMIN] Auth record deleted: ${uid}`);
+      } catch (e: any) {
+        if (e.code === 'auth/user-not-found') {
+          this.logger.log(`[ADMIN] Auth record already gone: ${uid}`);
+        } else {
+          this.logger.error(`[ADMIN] Auth deletion failed: ${e.message}`);
+        }
+      }
 
-      return { success: true, message: "User permanently purged." };
+      return {
+        success: true,
+        message: "Cascading hard purge completed successfully."
+      };
     } catch (err: any) {
-      this.logger.error('Purge error:', err);
-      return { status: 'ERROR', message: err.message };
+      this.logger.error('CRITICAL PURGE ERROR:', err);
+      return {
+        success: false,
+        message: err.message || "An internal error occurred during the purge process."
+      };
     }
   }
 

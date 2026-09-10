@@ -27,7 +27,7 @@ import {
   Lock,
   CheckSquare,
   Square,
-  X,
+  X as XIcon,
   Loader2,
   FileJson,
   ArrowLeft,
@@ -724,7 +724,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
                     <span>{selectedDocIds.length === 1 ? 'Delete' : 'Bulk Delete'}</span>
                   </button>
                   <button onClick={() => setSelectedDocIds([])} className="md:ml-4 p-2 hover:bg-white/10 rounded-full transition-colors shrink-0">
-                    <X className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
+                    <XIcon className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
                   </button>
                 </div>
               </div>
@@ -784,7 +784,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
           <div className={`w-full max-w-md rounded-[2.5rem] border overflow-hidden shadow-2xl ${theme === 'dark' ? 'bg-[#0D111A] border-white/10' : 'bg-white border-slate-200'}`}>
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-950/20">
               <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">Provision New Node</h3>
-              <button onClick={() => setIsAddDocModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsAddDocModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
             </div>
             <div className="p-8 space-y-6">
                <div className="space-y-3">
@@ -810,7 +810,7 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
                 <h3 className="text-xl font-black text-main dark:text-white uppercase tracking-tight">Batch Field Injection</h3>
                 <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Affecting {selectedDocIds.length} unique nodes</p>
               </div>
-              <button onClick={() => setIsBatchEditModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsBatchEditModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-500"><XIcon className="w-6 h-6" /></button>
             </div>
             <div className="p-8 space-y-6">
                <div className="space-y-4">

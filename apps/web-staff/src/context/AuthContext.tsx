@@ -131,9 +131,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return next;
               });
             } else {
-              console.log("[AuthContext] Profile does not exist yet. Initializing...");
-              // For new users, ensure they start with the onboarding state
-              setAppUser(resolvedAppUser);
+              console.log("[AuthContext] Soft-reset detected or missing profile. Auto-Reinitializing...");
+
+              // Only auto-initialize if it's a STUDENT role (Admins/Staff usually have stable profiles)
+              // This is Task 2: Auto-Reinitialization
+              if (resolvedAppUser.role === 'STUDENT') {
+                const freshProfile = {
+                  ...resolvedAppUser,
+                  status: 'UNAUTHENTICATED',
+                  mandateStatus: 'NOT_STARTED',
+                  topUpStatus: 'NONE',
+                  hasPendingTopUp: false,
+                  accountBalanceNgn: 0,
+                  resetCount: (resolvedAppUser as any).resetCount ? (resolvedAppUser as any).resetCount + 1 : 1,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                };
+
+                await setDoc(userRef, freshProfile);
+                setAppUser(freshProfile as any);
+              } else {
+                // For non-students, just set the basic info
+                setAppUser(resolvedAppUser);
+              }
             }
           }, (err) => {
             console.error("[AuthContext] Firestore Listener Error:", err);

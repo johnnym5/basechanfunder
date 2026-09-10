@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  X,
+  X as XIcon,
   ArrowRightLeft,
   Plus,
   Minus,
@@ -17,7 +17,11 @@ import {
   updateDoc,
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -98,7 +102,7 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
       }
 
       // 3. Update Student Master Record (for days or timestamps)
-      const studentRef = doc(db, 'pof_evaluations', student.id);
+      const targetUid = student.userId || student.id;
       const updates: any = {
         updatedAt: serverTimestamp()
       };
@@ -109,7 +113,20 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
         updates.startDate = newStart.toISOString().split('T')[0];
       }
 
-      await updateDoc(studentRef, updates);
+      const evalQ = query(collection(db, 'pof_evaluations'), where('userId', '==', targetUid));
+      const evalSnap = await getDocs(evalQ);
+
+      if (!evalSnap.empty) {
+        await updateDoc(doc(db, 'pof_evaluations', evalSnap.docs[0].id), updates);
+      } else {
+        await setDoc(doc(db, 'pof_evaluations', targetUid), {
+          ...updates,
+          userId: targetUid,
+          userName: student.name,
+          userEmail: student.email || '',
+          createdAt: serverTimestamp()
+        });
+      }
 
       onClose();
     } catch (e) {
@@ -132,7 +149,7 @@ export const ManualOverrideModal: React.FC<ManualOverrideModalProps> = ({
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Manual Ledger Adjustment for {student.name}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

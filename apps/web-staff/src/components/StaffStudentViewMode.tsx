@@ -6,17 +6,17 @@ import {
   onSnapshot,
   doc,
   getDoc,
-  updateDoc,
   serverTimestamp,
   addDoc,
-  deleteDoc,
   limit,
-  runTransaction
+  runTransaction,
+  getDocs,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import {
-  X,
+  X as XIcon,
   ShieldAlert,
   Edit3,
   Plus,
@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import { StudentDashboardView } from './StudentDashboardView';
 import { MAJOR_CURRENCIES } from '../constants';
-import { TroubleshootingToast } from './ui/TroubleshootingToast';
 import { StudentDashboardSkeleton } from './ui/LoadingStates';
 
 interface StaffStudentViewModeProps {
@@ -60,7 +59,16 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
   const [holdingDays, setHoldingDays] = useState('');
   const [targetGbpInput, setTargetGbpInput] = useState('');
   const [localCurrency, setLocalCurrency] = useState('NGN');
-  const [timerStartInput, setTimerStartInput] = useState('');
+  const [timerStartInput, setTimerStartInput] = useState(new Date().toISOString().split('T')[0]);
+  const [durationDays, setDurationDays] = useState('28');
+
+  const calculatedEndDate = useMemo(() => {
+    if (!timerStartInput) return null;
+    const start = new Date(timerStartInput);
+    const duration = parseInt(durationDays) || 0;
+    const end = new Date(start.getTime() + (duration * 24 * 60 * 60 * 1000));
+    return end.toISOString().split('T')[0];
+  }, [timerStartInput, durationDays]);
 
   // Pricing States
   const [pricingForm, setPricingForm] = useState({
@@ -91,7 +99,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       } else {
         getDoc(doc(db, 'users', studentId)).then(userSnap => {
            if (userSnap.exists()) {
-             setStudent({ userId: studentId, userName: userSnap.data().displayName });
+             setStudent({ userId: studentId, userName: userSnap.data().displayName, email: userSnap.data().email });
            }
         });
       }
@@ -147,8 +155,8 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
         transaction.update(requestRef, {
           status: 'APPROVED',
           approvedAt: serverTimestamp(),
-          approvedCapitalNgn: modifiedCapital,
-          adminServiceFeeNgn: Math.round(modifiedCapital * (pricingForm.feePercentage / 100))
+          approvedCapitalNgn: Number(modifiedCapital),
+          adminServiceFeeNgn: Math.round(Number(modifiedCapital) * (pricingForm.feePercentage / 100))
         });
 
         // 2. Initialize or Update Top-Up Facility
@@ -159,8 +167,8 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
           bankName: 'Organization Top-Up Capital',
           accountNumberMasked: '•••• TOPUP',
           accountType: 'SPONSORED',
-          balanceNgn: modifiedCapital,
-          balanceGbp: Math.round((modifiedCapital / LIVE_FX_RATE) * 100) / 100,
+          balanceNgn: Number(modifiedCapital),
+          balanceGbp: Math.round((Number(modifiedCapital) / LIVE_FX_RATE) * 100) / 100,
           status: 'VERIFIED',
           isVerified: true,
           connectionMethod: 'TOP_UP',
@@ -235,6 +243,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
 
   const handleUpdateDays = async () => {
     if (!student) return;
+    setIsSubmitting(true);
 
     const updates: any = {
       updatedAt: serverTimestamp()
@@ -250,7 +259,10 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       detailParts.push(`counter: ${days} days`);
     } else if (timerStartInput) {
       updates.startDate = timerStartInput;
-      detailParts.push(`start date: ${timerStartInput}`);
+      updates.expirationDate = calculatedEndDate;
+      updates.durationDays = parseInt(durationDays) || 28;
+      updates.isTimerActive = true;
+      detailParts.push(`start: ${timerStartInput}, end: ${calculatedEndDate}`);
     }
 
     if (targetGbpInput) {
@@ -263,42 +275,72 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
       detailParts.push(`currency: ${localCurrency}`);
     }
 
-    await updateDoc(doc(db, 'pof_evaluations', studentId), updates);
+    try {
+      // Use setDoc with merge instead of updateDoc to ensure creation if missing
+      // We always use the UID as the document ID for evaluations now to keep it consistent
+      await setDoc(doc(db, 'pof_evaluations', studentId), {
+        ...updates,
+        userId: studentId,
+        userName: student.userName || student.name || 'Student',
+        userEmail: student.email || '',
+        createdAt: serverTimestamp()
+      }, { merge: true });
 
-    await addDoc(collection(db, 'audit_logs'), {
-      actor: 'Staff Inspector',
-      action: 'EVALUATION_SETUP',
-      detail: `Configured ${student.userName}: ${detailParts.join(', ')}`,
-      studentId: studentId,
-      createdAt: serverTimestamp()
-    });
+      await addDoc(collection(db, 'audit_logs'), {
+        actor: 'Staff Inspector',
+        action: 'EVALUATION_SETUP',
+        detail: `Configured ${student.userName}: ${detailParts.join(', ')}`,
+        studentId: studentId,
+        createdAt: serverTimestamp()
+      });
 
-    setIsOverrideModalOpen(false);
-    setHoldingDays('');
+      toast.success('Setup configuration applied.');
+      setIsOverrideModalOpen(false);
+      setHoldingDays('');
+    } catch (e: any) {
+      toast.error('Setup failed: ' + e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdatePricing = async () => {
     if (!student) return;
+    setIsSubmitting(true);
 
-    await updateDoc(doc(db, 'pof_evaluations', studentId), {
+    const updates = {
       topUpPricingConfig: {
         topUpFeePercentage: Number(pricingForm.feePercentage),
         maxAllowedTopUpNgn: Number(pricingForm.maxLimit),
         updatedAt: serverTimestamp()
       },
       updatedAt: serverTimestamp()
-    });
+    };
 
-    await addDoc(collection(db, 'audit_logs'), {
-      actor: 'Staff Inspector',
-      action: 'PRICING_CONFIG_UPDATE',
-      detail: `Updated pricing for ${student.userName}: ${pricingForm.feePercentage}% fee, ₦${pricingForm.maxLimit.toLocaleString()} limit`,
-      studentId: studentId,
-      createdAt: serverTimestamp()
-    });
+    try {
+      await setDoc(doc(db, 'pof_evaluations', studentId), {
+        ...updates,
+        userId: studentId,
+        userName: student.userName || student.name || 'Student',
+        userEmail: student.email || '',
+        createdAt: serverTimestamp()
+      }, { merge: true });
 
-    setIsOverrideModalOpen(false);
-    toast.success('Top-Up pricing strategy updated');
+      await addDoc(collection(db, 'audit_logs'), {
+        actor: 'Staff Inspector',
+        action: 'PRICING_CONFIG_UPDATE',
+        detail: `Updated pricing for ${student.userName}: ${pricingForm.feePercentage}% fee, ₦${pricingForm.maxLimit.toLocaleString()} limit`,
+        studentId: studentId,
+        createdAt: serverTimestamp()
+      });
+
+      toast.success('Top-Up pricing updated.');
+      setIsOverrideModalOpen(false);
+    } catch (e: any) {
+      toast.error('Pricing update failed: ' + e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -328,7 +370,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Configure pricing and limits for this profile</p>
                  </div>
                  <button onClick={() => setIsOverrideModalOpen(false)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-                    <X className="w-6 h-6 text-slate-500" />
+                    <XIcon className="w-6 h-6 text-slate-500" />
                  </button>
               </div>
 
@@ -436,7 +478,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                                     disabled={isProcessing}
                                     className="flex-1 py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
                                  >
-                                    <X className="w-3.5 h-3.5" />
+                                    <XIcon className="w-3.5 h-3.5" />
                                     Deny Request
                                  </button>
                               </div>
@@ -480,7 +522,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                  )}
 
                  {overrideTab === 'days' && (
-                   <div className="space-y-6">
+                   <div className="space-y-6 animate-in fade-in duration-300">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 col-span-2">
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Target Amount (£)</label>
@@ -489,7 +531,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                             placeholder="e.g. 13340"
                             value={targetGbpInput}
                             onChange={e => setTargetGbpInput(e.target.value)}
-                            className="w-full input-rounded px-5 py-4 text-xs font-bold"
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:border-amber-500"
                           />
                         </div>
 
@@ -498,7 +540,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                           <select
                             value={localCurrency}
                             onChange={e => setLocalCurrency(e.target.value)}
-                            className="w-full input-rounded px-5 py-4 text-xs font-bold"
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
                           >
                             {MAJOR_CURRENCIES.map(curr => (
                               <option key={curr.code} value={curr.code}>
@@ -509,7 +551,15 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Timer Start Date</label>
+                          <div className="flex justify-between items-center px-1">
+                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Timer Start Date</label>
+                             <button
+                                onClick={() => setTimerStartInput(new Date().toISOString().split('T')[0])}
+                                className="text-[8px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-tighter transition-colors"
+                             >
+                                Reset to Today
+                             </button>
+                          </div>
                           <input
                             type="date"
                             value={timerStartInput}
@@ -519,13 +569,42 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">OR: Manual Days Count</label>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Duration (Days)</label>
                           <input
                             type="number"
-                            placeholder="0-28"
+                            placeholder="e.g. 30"
+                            value={durationDays}
+                            onChange={e => setDurationDays(e.target.value)}
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div className="space-y-2 col-span-2">
+                           <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex flex-col gap-1">
+                              <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Calculated End Date</p>
+                              <div className="flex items-center justify-between">
+                                 <p className="text-sm font-bold text-white uppercase">{calculatedEndDate ? new Date(calculatedEndDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Invalid Date'}</p>
+                                 <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 text-[8px] font-black uppercase">Statutory Maturity</span>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="col-span-2 pt-2">
+                           <div className="flex items-center gap-2 px-2">
+                              <div className="h-px flex-1 bg-white/5" />
+                              <span className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter">Emergency Manual Override</span>
+                              <div className="h-px flex-1 bg-white/5" />
+                           </div>
+                        </div>
+
+                        <div className="space-y-2 col-span-2">
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Force Manual Days Count</label>
+                          <input
+                            type="number"
+                            placeholder="Overwrite current count (0-28)"
                             value={holdingDays}
                             onChange={e => setHoldingDays(e.target.value)}
-                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                            className="w-full bg-slate-950 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-amber-500 opacity-60 hover:opacity-100 transition-opacity"
                           />
                         </div>
                       </div>
@@ -597,3 +676,7 @@ export const StaffStudentViewMode: React.FC<StaffStudentViewModeProps> = ({ stud
     </div>
   );
 };
+
+const History: React.FC = () => {
+    return <div className="p-8 text-center text-slate-500 uppercase font-black text-[10px]">Unified history node coming soon</div>
+}

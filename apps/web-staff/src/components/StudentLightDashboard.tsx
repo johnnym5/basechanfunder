@@ -28,7 +28,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
-  X,
+  X as XIcon,
   CreditCard,
   CheckCircle2,
   AlertCircle,
@@ -1034,7 +1034,7 @@ export const StudentLightDashboard: React.FC<{
                 </div>
               </div>
               <button onClick={handleCancelConnect} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-                <X className="w-6 h-6 text-slate-500" />
+                <XIcon className="w-6 h-6 text-slate-500" />
               </button>
             </div>
 
@@ -1238,7 +1238,7 @@ export const StudentLightDashboard: React.FC<{
              <div className="p-8 border-b border-white/5 flex justify-between items-center">
                 <h3 className="text-xl font-black text-white uppercase tracking-tight">Request Account Unlink</h3>
                 <button onClick={() => setIsUnlinkModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-                  <X className="w-5 h-5 text-slate-500" />
+                  <XIcon className="w-5 h-5 text-slate-500" />
                 </button>
              </div>
              <div className="p-8 space-y-6">

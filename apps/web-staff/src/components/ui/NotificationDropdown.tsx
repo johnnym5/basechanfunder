@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Bell,
-  X,
+  X as XIcon,
   UserPlus,
   Zap,
   ShieldAlert,
@@ -218,7 +218,7 @@ export const NotificationDropdown: React.FC = () => {
                 <CheckCheck className="w-4 h-4" />
               </button>
               <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500">
-                <X className="w-4 h-4" />
+                <XIcon className="w-4 h-4" />
               </button>
             </div>
           </div>

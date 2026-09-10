@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  X,
+  X as XIcon,
   Search,
   UserPlus,
   Globe,
@@ -172,7 +172,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({ isOpen, onClos
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Start checking a student</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
+            <XIcon className="w-6 h-6 text-slate-500" />
           </button>
         </div>
 

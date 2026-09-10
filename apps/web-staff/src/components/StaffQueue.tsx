@@ -15,7 +15,7 @@ import {
   Filter,
   ChevronRight,
   Activity,
-  X,
+  X as XIcon,
   CheckCircle2,
   AlertCircle,
   Clock,

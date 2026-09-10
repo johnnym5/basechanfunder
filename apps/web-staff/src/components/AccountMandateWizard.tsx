@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, ChevronRight, ChevronLeft, Download, Send,
+  X as XIcon, ChevronRight, ChevronLeft, Download, Send,
   Loader2, CheckCircle2, FileText, ShieldCheck,
   Rocket, AlertCircle, Eye
 } from 'lucide-react';
@@ -172,7 +172,7 @@ export const AccountMandateWizard: React.FC<AccountMandateWizardProps> = ({ isOp
               </div>
             </div>
             <button onClick={onClose} className="p-3 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
-              <X className="w-6 h-6" />
+              <XIcon className="w-6 h-6" />
             </button>
           </div>
 

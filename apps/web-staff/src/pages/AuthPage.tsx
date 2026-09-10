@@ -417,7 +417,7 @@ export const AuthPage: React.FC = () => {
           <div className="flex justify-center">
             <img
               src={isDark ? '/logo_white.png' : '/logo.png'}
-              alt="Basechan Funder Logo"
+              alt="E6 Elixir Logo"
               className="h-12 sm:h-20 object-contain drop-shadow-xl"
             />
           </div>

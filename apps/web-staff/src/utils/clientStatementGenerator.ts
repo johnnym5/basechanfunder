@@ -29,7 +29,7 @@ export const generateStatementClientSide = async (data: StatementData): Promise<
     color: rgb(0.04, 0.08, 0.14), // Dark Navy
   });
 
-  page.drawText('BASECHAN FUNDER', {
+  page.drawText('E6 ELIXIR', {
     x: 50,
     y: height - 55,
     size: 24,
@@ -111,7 +111,7 @@ export const generateStatementClientSide = async (data: StatementData): Promise<
   });
 
   // 6. Footer Disclaimer
-  page.drawText('This document is an automated status report from the Basechan Funder governance engine.', {
+  page.drawText('This document is an automated status report from the E6 Elixir governance engine.', {
     x: 50,
     y: 40,
     size: 8,
