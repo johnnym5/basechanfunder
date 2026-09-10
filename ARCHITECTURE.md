@@ -1,6 +1,6 @@
-# 🏗️ Basechanfunder Architecture & System Design
+# 🏗️ E6 Elixir Architecture & System Design
 
-Basechanfunder is a hybrid compliance platform that integrates native mobile device capabilities with a centralized cloud governance engine to automate Proof of Funds (PoF) verification.
+E6 Elixir is a hybrid compliance platform that integrates native mobile device capabilities with a centralized cloud governance engine to automate Proof of Funds (PoF) verification.
 
 ---
 
@@ -30,7 +30,7 @@ The platform is built on a **Monorepo Architecture** managed via NPM Workspaces,
 ## 2. Key Technical Workflows
 
 ### 📥 The "Zero-Knowledge" SMS Ingestion
-Unlike traditional aggregators, Basechanfunder does not store bank passwords.
+Unlike traditional aggregators, E6 Elixir does not store bank passwords.
 1.  The Android Native wrapper intercepts encrypted SMS alerts from Nigerian banks (UBA, GTB, Zenith, etc.).
 2.  A regex-based **Fuzzy Parser** extracts the available balance and account mask locally.
 3.  **Atomic Multi-Device Sync**: The mobile app executes a `writeBatch()` to Firestore, updating both the specific bank record and the root user profile simultaneously.
@@ -53,4 +53,4 @@ The platform automates the creation of the **Parallex Account Mandate**.
 
 ---
 
-© 2026 Basechanfunder. High-Stakes Compliance Engineering.
+© 2026 E6 Elixir. High-Stakes Compliance Engineering.

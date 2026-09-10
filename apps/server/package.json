@@ -1,7 +1,7 @@
 {
-  "name": "@basechanfunder/server",
+  "name": "@e6elixir/server",
   "version": "1.0.0",
-  "description": "Basechanfunder Core API & Notification Engine",
+  "description": "E6 Elixir Core API & Notification Engine",
   "private": true,
   "scripts": {
     "dev": "npm run start:dev",

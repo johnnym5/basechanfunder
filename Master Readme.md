@@ -35,7 +35,7 @@
 ## 🏗 System Topology
 
 ```text
-Basechanfunder Root/
+E6 Elixir Root/
 ├── apps/
 │   ├── web-staff/          # Unified Portal: Students, Counselors, and Auditing
 │   ├── web-admin/          # Governance Dashboard: Global Parameters & Roster
@@ -54,4 +54,4 @@ Basechanfunder Root/
 
 ---
 
-© 2026 Basechanfunder. High-Stakes Compliance Engineering.
+© 2026 E6 Elixir. High-Stakes Compliance Engineering.
