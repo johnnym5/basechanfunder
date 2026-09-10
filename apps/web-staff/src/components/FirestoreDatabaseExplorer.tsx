@@ -39,6 +39,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { nukeEntireEnvironment } from '../utils/softResetService';
 
 // --- Constants & Types ---
 
@@ -533,12 +534,37 @@ export const FirestoreDatabaseExplorer: React.FC = () => {
     e.target.value = '';
   };
 
+  const handleNukeDatabase = async () => {
+    const confirmation = window.prompt("⚠️ WARNING: This will permanently DELETE ALL records from Firestore and ALL files from Cloud Storage. Type 'NUKE' to confirm:");
+    if (confirmation !== 'NUKE') return;
+
+    const t = toast.loading("Executing complete environment reset...");
+    try {
+      await nukeEntireEnvironment((msg) => toast.loading(msg, { id: t }));
+      toast.success("Environment nuked successfully. Start fresh!", { id: t });
+    } catch (err: any) {
+      toast.error("Nuke failed: " + err.message, { id: t });
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 relative bg-transparent">
 
       {/* 1. COLLECTION SELECTION PAGE */}
       {viewMode === 'collections' && (
-        <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-left-4 duration-500">
+        <div className="flex-1 flex flex-col min-h-0 animate-in fade-in slide-in-from-left-4 duration-500 relative">
+
+          {/* Nuke Button Container */}
+          <div className="absolute top-4 right-8 z-20">
+            <button
+              onClick={handleNukeDatabase}
+              className="flex items-center gap-2 px-6 py-3 bg-rose-600/10 border border-rose-500/30 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-xl shadow-rose-500/10 active:scale-95"
+            >
+              <Trash2 className="w-4 h-4" />
+              Nuke Environment
+            </button>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 no-scrollbar min-h-0 touch-pan-y">
             {TOP_LEVEL_COLLECTIONS.map(col => {
               const isAuth = col === 'firebase_auth';

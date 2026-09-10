@@ -98,35 +98,33 @@ export const StudentActionModal: React.FC<StudentActionModalProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Archive Student Profile? Are you sure you want to delete ${student.name}? They will be removed from active rosters and moved to the administrative archive.`)) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY purge ${student.name}? This will erase all documents, bank records, and Auth credentials. This action CANNOT be undone.`)) return;
 
     setIsSubmitting(true);
-    const t = toast.loading(`Moving ${student.name} to archive...`);
+    const t = toast.loading(`Executing cascading hard purge for ${student.name}...`);
     try {
       const uid = student.userId || student.id;
 
-      // Call Soft-Archive Endpoint
-      const response = await fetch(`/api/v1/admin/users/${uid}`, {
+      // ─── CALL HARD PURGE ENDPOINT ───
+      const response = await fetch(`/api/v1/admin/users/${uid}/purge`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
 
       const text = await response.text();
       let result: any = {};
-      try {
-        if (text) result = JSON.parse(text);
-      } catch (e) {}
+      try { if (text) result = JSON.parse(text); } catch (e) {}
 
       if (response.ok || result.success) {
-        toast.success('Student archived successfully', { id: t });
+        toast.success('Student permanently removed from system', { id: t });
         onSuccess();
         onClose();
       } else {
-        throw new Error(result.message || "Archive operation failed");
+        throw new Error(result.message || "Hard purge failed on server");
       }
     } catch (e: any) {
-      console.error('Delete error:', e);
-      toast.error(`Operation failed: ${e.message}`, { id: t });
+      console.error('Purge error:', e);
+      toast.error(`Purge failed: ${e.message}`, { id: t });
     } finally {
       setIsSubmitting(false);
     }

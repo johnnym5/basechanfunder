@@ -1,14 +1,15 @@
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
-// Initialize the Firebase app in the service worker by passing in your configuration.
+// Initialize the Firebase app in the service worker
+// Updated for E6 Elixir
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY", // These will be injected or read from manifest in a real prod env
-  authDomain: "basechan-funder.firebaseapp.com",
-  projectId: "basechan-funder",
-  storageBucket: "basechan-funder.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA00qF-qfcgYJTELOc-vbeMTMRSrVnaY3o",
+  authDomain: "e6elixir.firebaseapp.com",
+  projectId: "e6elixir",
+  storageBucket: "e6elixir.firebasestorage.app",
+  messagingSenderId: "73436010834",
+  appId: "1:73436010834:web:5c1e14ccd6af339c90028b"
 });
 
 const messaging = firebase.messaging();
@@ -16,11 +17,11 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const notificationTitle = payload.notification.title;
+  const notificationTitle = payload.notification?.title || 'E6 Elixir Update';
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/favicon.png',
-    data: payload.data // Store custom data for click handling
+    body: payload.notification?.body || '',
+    icon: '/logo.png',
+    data: payload.data
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);

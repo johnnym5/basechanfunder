@@ -1,11 +1,8 @@
 import {
   collection,
-  query,
-  where,
   getDocs,
   writeBatch,
   doc,
-  increment,
   serverTimestamp
 } from 'firebase/firestore';
 import {
@@ -15,86 +12,101 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
+const COLLECTIONS_TO_WIPE = [
+  'users',
+  'financial_accounts',
+  'pof_evaluations',
+  'audit_logs',
+  'liquidity_requests',
+  'support_messages',
+  'support_tickets',
+  'notifications',
+  'manual_adjustments',
+  'system_config',
+  'system'
+];
+
 /**
- * Executes a client-side Soft Reset.
- * Wipes Firestore data and Storage files for a user without deleting their Auth account.
+ * Per-User Soft Reset
+ * Clears evaluation and transaction history for a specific student without deleting the user account.
  */
-export const executeSoftReset = async (targetUid: string): Promise<{ success: boolean; freedBytes: number }> => {
-  let totalFreedBytes = 0;
+export const executeSoftReset = async (userId: string) => {
+  const batch = writeBatch(db);
 
+  // Clear evaluation
+  batch.delete(doc(db, 'pof_evaluations', userId));
+
+  // Clear top-up request
+  batch.delete(doc(db, 'financial_accounts', `TOPUP_${userId}`));
+
+  // Reset user status
+  batch.update(doc(db, 'users', userId), {
+    status: 'NEW',
+    isApproved: false,
+    onboardingComplete: false,
+    updatedAt: serverTimestamp()
+  });
+
+  await batch.commit();
+};
+
+/**
+ * High-Level Database & Storage Purge Engine
+ * WARNING: This will permanently erase all records from Firestore and Storage.
+ */
+export const nukeEntireEnvironment = async (onProgress?: (msg: string) => void) => {
   try {
-    // --- 1. Wipe Firebase Storage Assets ---
-    const storagePaths = [
-      `student_documents/${targetUid}`,
-      `student_packages/${targetUid}`,
-      `mandate_packages/${targetUid}`
-    ];
+    // 1. Wipe Firestore Collections
+    for (const colName of COLLECTIONS_TO_WIPE) {
+      if (onProgress) onProgress(`Clearing collection: ${colName}...`);
 
-    for (const folder of storagePaths) {
-      const folderRef = ref(storage, folder);
       try {
-        const res = await listAll(folderRef);
-        await Promise.all(res.items.map(async (fileRef) => {
-          // Get metadata to track freed space (optional)
-          // const meta = await getMetadata(fileRef);
-          // totalFreedBytes += meta.size || 0;
-          return deleteObject(fileRef);
-        }));
+        const snap = await getDocs(collection(db, colName));
+        if (snap.empty) continue;
 
-        // Recursively handle sub-folders if any (simplified for now)
-        for (const subfolder of res.prefixes) {
-            const subRes = await listAll(subfolder);
-            await Promise.all(subRes.items.map(item => deleteObject(item)));
+        const chunks = [];
+        const batchSize = 400; // Reduced for safety
+
+        for (let i = 0; i < snap.docs.length; i += batchSize) {
+          chunks.push(snap.docs.slice(i, i + batchSize));
         }
-      } catch (e) {
-        console.warn(`Storage folder ${folder} skip or empty:`, e);
+
+        for (const chunk of chunks) {
+          const batch = writeBatch(db);
+          chunk.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } catch (colErr: any) {
+        console.warn(`[Nuke] Failed to clear collection ${colName}:`, colErr.message);
       }
     }
 
-    // --- 2. Cascade Delete Firestore Records ---
-    const batch = writeBatch(db);
-
-    // a. Root User Doc
-    batch.delete(doc(db, 'users', targetUid));
-
-    // b. Evaluation Node
-    // We search for it because the ID might not match targetUid in all cases
-    const evalSnap = await getDocs(query(collection(db, 'pof_evaluations'), where('userId', '==', targetUid)));
-    evalSnap.forEach(d => batch.delete(d.ref));
-
-    // c. Top-Up Requests
-    const topupSnap = await getDocs(query(collection(db, 'topup_requests'), where('userId', '==', targetUid)));
-    topupSnap.forEach(d => batch.delete(d.ref));
-
-    // d. Financial Accounts (Linked via userId)
-    const accountsSnap = await getDocs(query(collection(db, 'financial_accounts'), where('userId', '==', targetUid)));
-    accountsSnap.forEach(d => batch.delete(d.ref));
-
-    // e. Audit Logs
-    const logsSnap = await getDocs(query(collection(db, 'audit_logs'), where('studentId', '==', targetUid)));
-    logsSnap.forEach(d => batch.delete(d.ref));
-
-    // f. Notifications
-    const notifSnap = await getDocs(query(collection(db, 'notifications'), where('userId', '==', targetUid)));
-    notifSnap.forEach(d => batch.delete(d.ref));
-
-    // g. Chats / Messages (If applicable)
-    const chatsSnap = await getDocs(query(collection(db, 'support_messages'), where('studentId', '==', targetUid)));
-    chatsSnap.forEach(d => batch.delete(d.ref));
-
-    // h. Update System Metrics
-    if (totalFreedBytes > 0) {
-      batch.update(doc(db, 'system', 'storage_metrics'), {
-        totalBytesUsed: increment(-totalFreedBytes)
-      });
+    // 2. Wipe Cloud Storage
+    try {
+      if (onProgress) onProgress('Clearing Cloud Storage bucket...');
+      await deleteFolderRecursive('');
+    } catch (storageErr: any) {
+      console.warn('[Nuke] Storage wipe failed or partially completed:', storageErr.message);
     }
 
-    // Commit all deletions
-    await batch.commit();
-
-    return { success: true, freedBytes: totalFreedBytes };
+    if (onProgress) onProgress('Environment Reset Successful.');
+    return { success: true };
   } catch (error: any) {
-    console.error('Soft Reset Engine Failure:', error);
-    throw new Error(error.message || 'Cascading deletion failed');
+    console.error('Nuke operation failed:', error);
+    throw error;
   }
 };
+
+/**
+ * Helper to recursively delete all files in the bucket
+ */
+async function deleteFolderRecursive(path: string) {
+  const storageRef = ref(storage, path);
+  const list = await listAll(storageRef);
+
+  // Delete all files in current folder
+  await Promise.all(list.items.map(file => deleteObject(file)));
+
+  // Recurse into subfolders
+  await Promise.all(list.prefixes.map(prefix => deleteFolderRecursive(prefix.fullPath)));
+}

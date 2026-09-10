@@ -846,39 +846,35 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onInspect, onMes
     if (!selectedStudent) return;
 
     showNotification({
-      title: "Archive Student Profile?",
-      message: `Are you sure you want to delete ${selectedStudent.name}? They will be removed from all active rosters and revoked of portal access. Their files and ledger data will be moved to the administrative archive for audit purposes.`,
+      title: "Hard Purge Student Data?",
+      message: `Are you sure you want to PERMANENTLY wipe ALL records for ${selectedStudent.name}? This includes documents, bank ledger, and authentication access. This action is IRREVERSIBLE and will truly remove the user from the system.`,
       type: "CONFIRM",
-      confirmText: "Delete & Archive",
+      confirmText: "Permanent Purge",
+      cancelText: "Cancel",
       onConfirm: async () => {
         setIsSubmitting(true);
-        const t = toast.loading(`Moving ${selectedStudent.name} to archive...`);
+        const t = toast.loading(`Executing system-wide wipe for ${selectedStudent.name}...`);
         try {
           const uid = selectedStudent.userId || selectedStudent.id;
 
-          // Use the backend Soft-Archive endpoint (Standard DELETE)
-          const response = await fetch(`/api/v1/admin/users/${uid}`, {
+          // ─── CALL HARD PURGE ENDPOINT ───
+          const response = await fetch(`/api/v1/admin/users/${uid}/purge`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
           });
 
-          // Defensive parsing: Check if response has content before calling .json()
           const text = await response.text();
           let result: any = {};
-          try {
-            if (text) result = JSON.parse(text);
-          } catch (e) {
-            console.warn("Server returned non-JSON response:", text);
-          }
+          try { if (text) result = JSON.parse(text); } catch (e) {}
 
-          if (response.ok || result.success || result.status === 'SUCCESS') {
-            toast.success('Student archived and access revoked.', { id: t });
+          if (response.ok || result.success) {
+            toast.success('Database & Storage successfully purged.', { id: t });
             setSelectedStudent(null);
           } else {
-            throw new Error(result.message || 'Archive failed');
+            throw new Error(result.message || "Hard purge failed on server");
           }
         } catch (err: any) {
-          toast.error('Operation failed: ' + err.message, { id: t });
+          toast.error('Purge failed: ' + err.message, { id: t });
         } finally {
           setIsSubmitting(false);
         }

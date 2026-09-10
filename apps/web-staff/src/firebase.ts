@@ -18,13 +18,13 @@ export const getActionCodeSettings = () => ({
 });
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA00qF-qfcgYJTELOc-vbeMTMRSrVnaY3o",
-  authDomain: "e6elixir.firebaseapp.com",
-  projectId: "e6elixir",
-  storageBucket: "e6elixir.firebasestorage.app",
-  messagingSenderId: "73436010834",
-  appId: "1:73436010834:web:5c1e14ccd6af339c90028b",
-  measurementId: "G-ZZC16KXPDX"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
